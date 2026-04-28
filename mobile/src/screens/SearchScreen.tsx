@@ -1,84 +1,192 @@
-import React from 'react';
-import {Pressable, StyleSheet, Text, TextInput, View} from 'react-native';
-import {Search, Music} from 'lucide-react-native';
+import React, { useCallback, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { Music, Search, SearchX, X } from 'lucide-react-native';
 
-import {SongList} from '../components/SongList';
-import type {LocalSong} from '../types/music';
+import { IconButton } from '../components/IconButton';
+import { TrackRow } from '../components/TrackRow';
+import { searchTracks } from '../services/api';
+import { colors, radii, spacing, typography } from '../theme';
+import type { RemoteTrack } from '../types/music';
 
 type SearchScreenProps = {
-  songs: LocalSong[];
-  totalSongs: number;
-  query: string;
-  onQueryChange: (value: string) => void;
-  currentTrackId?: string;
-  onPressSong: (songId: string) => void;
+  onSelectTrack: (track: RemoteTrack) => void;
+  resolvingId: string | null;
+  activeTrackId: string | null;
   onOpenPlayer: () => void;
 };
 
+function formatDuration(ms: number): string {
+  if (!ms) return '';
+  const totalSec = Math.floor(ms / 1000);
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  return `${min}:${sec.toString().padStart(2, '0')}`;
+}
+
 export function SearchScreen({
-  songs,
-  totalSongs,
-  query,
-  onQueryChange,
-  currentTrackId,
-  onPressSong,
+  onSelectTrack,
+  resolvingId,
+  activeTrackId,
   onOpenPlayer,
 }: SearchScreenProps) {
-  const hasQuery = query.trim().length > 0;
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<RemoteTrack[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const runSearch = useCallback(async (q: string) => {
+    if (!q.trim()) {
+      setResults([]);
+      setError(null);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const tracks = await searchTracks(q.trim());
+      setResults(tracks);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Search failed');
+      setResults([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const handleQueryChange = (value: string) => {
+    setQuery(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => runSearch(value), 500);
+  };
+
+  const handleSubmit = () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    void runSearch(query);
+  };
+
+  const handleClear = () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setQuery('');
+    setResults([]);
+    setError(null);
+  };
+
+  const showTypePrompt = !loading && !error && query.trim() === '';
+  const showNoResults =
+    !loading && !error && query.trim() !== '' && results.length === 0;
 
   return (
     <View style={styles.container}>
-      <View style={styles.headerRow}>
-        <View>
-          <Text style={styles.title}>Search Local Audio</Text>
-          <Text style={styles.subtitle}>Title and artist matching on indexed device songs</Text>
-        </View>
-
-        <Pressable
-          style={styles.playerButton}
-          onPress={onOpenPlayer}
-          accessibilityRole="button">
-          <Music size={16} color="#e0f2fe" />
-        </Pressable>
-      </View>
-
-      <View style={styles.searchCard}>
-        <Text style={styles.searchLabel}>Search query</Text>
-        <View style={styles.inputContainer}>
-          <Search size={16} color="#64748b" style={styles.searchIcon} />
-          <TextInput
-            value={query}
-            onChangeText={onQueryChange}
-            placeholder="Type song title or artist"
-            placeholderTextColor="#64748b"
-            style={styles.input}
-            autoCapitalize="none"
-            autoCorrect={false}
+      {/* ── Sticky header + search bar ── */}
+      <View style={styles.stickyTop}>
+        <View style={styles.headerRow}>
+          <View style={styles.headerText}>
+            <Text style={styles.heading}>Search</Text>
+            <Text style={styles.subheading}>Powered by YouTube</Text>
+          </View>
+          <IconButton
+            icon={<Music size={16} color={colors.skyLight} />}
+            onPress={onOpenPlayer}
+            variant="ghost"
+            size="sm"
+            accessibilityLabel="Open player"
           />
         </View>
+
+        {/* Search bar */}
+        <View style={styles.searchBar}>
+          <Search size={18} color={colors.textMuted} />
+          <TextInput
+            value={query}
+            onChangeText={handleQueryChange}
+            onSubmitEditing={handleSubmit}
+            placeholder="Artist, song title..."
+            placeholderTextColor={colors.textMuted}
+            style={styles.input}
+            returnKeyType="search"
+            autoCapitalize="none"
+            autoCorrect={false}
+            accessibilityRole="search"
+            accessibilityLabel="Search music"
+          />
+          {query.length > 0 && (
+            <IconButton
+              icon={<X size={14} color={colors.textMuted} />}
+              onPress={handleClear}
+              variant="ghost"
+              size="sm"
+              style={styles.clearBtn}
+              accessibilityLabel="Clear search"
+            />
+          )}
+        </View>
+
+        {/* Error */}
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
       </View>
 
-      <View style={styles.metaRow}>
-        <View style={styles.metaPill}>
-          <Text style={styles.metaLabel}>{totalSongs} total songs</Text>
+      {/* ── List area ── */}
+      {loading ? (
+        <View style={styles.centeredState}>
+          <ActivityIndicator size="large" color={colors.brand} />
+          <Text style={styles.stateText}>Searching...</Text>
         </View>
-        <View style={styles.metaPill}>
-          <Text style={styles.metaLabel}>{songs.length} results</Text>
+      ) : showTypePrompt ? (
+        <View style={styles.centeredState}>
+          <Music size={48} color={colors.borderAccent} />
+          <Text style={styles.stateTitle}>Find your music</Text>
+          <Text style={styles.stateText}>Search for any song or artist</Text>
         </View>
-      </View>
-
-      <View style={styles.listWrap}>
-        <SongList
-          songs={songs}
-          currentTrackId={currentTrackId}
-          onPressSong={onPressSong}
-          emptyMessage={
-            hasQuery
-              ? 'No matches for this search. Try a different keyword.'
-              : 'Type into search to filter your local library.'
-          }
+      ) : showNoResults ? (
+        <View style={styles.centeredState}>
+          <SearchX size={48} color={colors.borderAccent} />
+          <Text style={styles.stateTitle}>No results</Text>
+          <Text style={styles.stateText}>No results for "{query.trim()}"</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={results}
+          keyExtractor={item => item.id}
+          style={styles.list}
+          contentContainerStyle={styles.listContent}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          renderItem={({ item }) => (
+            <TrackRow
+              title={item.title}
+              artist={item.artist}
+              thumbnail={item.thumbnail}
+              isActive={item.id === activeTrackId}
+              isLoading={item.id === resolvingId}
+              onPress={() => onSelectTrack(item)}
+              disabled={item.id === resolvingId}
+              rightSlot={
+                item.id === resolvingId ? (
+                  <ActivityIndicator size="small" color={colors.brand} />
+                ) : item.id === activeTrackId ? (
+                  <View style={styles.playingBadge}>
+                    <Text style={styles.playingText}>PLAYING</Text>
+                  </View>
+                ) : item.duration_ms ? (
+                  <View style={styles.durationBadge}>
+                    <Text style={styles.durationText}>
+                      {formatDuration(item.duration_ms)}
+                    </Text>
+                  </View>
+                ) : undefined
+              }
+            />
+          )}
         />
-      </View>
+      )}
     </View>
   );
 }
@@ -86,99 +194,112 @@ export function SearchScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 8,
+    backgroundColor: colors.bg,
+  },
+  stickyTop: {
+    paddingHorizontal: spacing.base,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
+    backgroundColor: colors.bg,
   },
   headerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 10,
+    marginBottom: spacing.md,
   },
-  title: {
-    color: '#f8fafc',
-    fontSize: 23,
-    fontWeight: '800',
+  headerText: {
+    flex: 1,
   },
-  subtitle: {
+  heading: {
+    ...typography.title,
+    color: colors.textPrimary,
+  },
+  subheading: {
+    ...typography.caption,
+    color: colors.textSecondary,
     marginTop: 2,
-    color: '#94a3b8',
-    fontSize: 12,
   },
-  playerButton: {
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#0284c7',
-    backgroundColor: '#082f49',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  playerButtonLabel: {
-    color: '#e0f2fe',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  searchCard: {
-    marginTop: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#1e3a8a',
-    backgroundColor: '#0b1a2e',
-    padding: 12,
-  },
-  searchLabel: {
-    color: '#7dd3fc',
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  inputContainer: {
-    marginTop: 8,
+  searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 10,
+    backgroundColor: colors.surfaceRaised,
     borderWidth: 1,
-    borderColor: '#334155',
-    backgroundColor: '#020617',
-    paddingHorizontal: 12,
-  },
-  searchIcon: {
-    marginRight: 8,
+    borderColor: colors.cardBlueBorder,
+    borderRadius: radii.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    gap: spacing.sm,
   },
   input: {
     flex: 1,
-    color: '#f8fafc',
-    paddingVertical: 10,
-    fontSize: 14,
+    color: colors.textPrimary,
+    fontSize: 15,
+    paddingVertical: spacing.sm,
   },
-  metaRow: {
-    marginTop: 10,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+  clearBtn: {
+    borderWidth: 0,
+    backgroundColor: 'transparent',
+    width: 28,
+    height: 28,
   },
-  metaPill: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#334155',
-    backgroundColor: '#0f172a',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+  errorText: {
+    color: colors.error,
+    fontSize: 12,
+    marginTop: spacing.sm,
+    textAlign: 'center',
   },
-  metaLabel: {
-    color: '#cbd5e1',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  listWrap: {
+  // List
+  list: {
     flex: 1,
-    marginTop: 10,
-    borderRadius: 16,
+  },
+  listContent: {
+    paddingHorizontal: spacing.base,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.xxl + spacing.xl,
+  },
+  // Centered states
+  centeredState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.md,
+    paddingBottom: spacing.xxl,
+  },
+  stateTitle: {
+    ...typography.heading,
+    color: colors.textSecondary,
+  },
+  stateText: {
+    ...typography.body,
+    color: colors.textMuted,
+    textAlign: 'center',
+    paddingHorizontal: spacing.xxl,
+  },
+  // Duration badge
+  durationBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radii.sm,
+    backgroundColor: colors.borderSubtle,
+  },
+  durationText: {
+    ...typography.caption,
+    color: colors.textMuted,
+    fontVariant: ['tabular-nums'],
+  },
+  // Playing badge (mirrors TrackRow's internal style for consistency)
+  playingBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radii.sm - 2,
+    backgroundColor: colors.activeDeepBg,
     borderWidth: 1,
-    borderColor: '#1e293b',
-    backgroundColor: '#030712',
-    paddingHorizontal: 10,
-    paddingTop: 10,
+    borderColor: colors.activeBorder,
+  },
+  playingText: {
+    color: colors.active,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
 });
