@@ -1,13 +1,17 @@
-import {Home, Library, Music, Search} from 'lucide-react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { Home, Library, Music, Search } from 'lucide-react-native';
 
-import {useTrackPlayer} from './hooks/useTrackPlayer';
-import {HomeScreen} from './screens/HomeScreen';
-import {LibraryScreen} from './screens/LibraryScreen';
-import {PlayerScreen} from './screens/PlayerScreen';
-import {SearchScreen} from './screens/SearchScreen';
-import {ensureAudioPermission, scanDeviceForAudio} from './services/audioScanner';
-import {loadCachedSongs, saveCachedSongs} from './services/libraryCache';
-import type {LocalSong} from './types/music';
+import { useRemotePlayer } from './hooks/useRemotePlayer';
+import { useTrackPlayer } from './hooks/useTrackPlayer';
+import { HomeScreen } from './screens/HomeScreen';
+import { LibraryScreen } from './screens/LibraryScreen';
+import { PlayerScreen } from './screens/PlayerScreen';
+import { SearchScreen } from './screens/SearchScreen';
+import { ensureAudioPermission, scanDeviceForAudio } from './services/audioScanner';
+import { loadCachedSongs, saveCachedSongs } from './services/libraryCache';
+import { colors, radii, spacing, typography } from './theme';
+import type { LocalSong, RemoteTrack } from './types/music';
 
 const PERMISSION_DENIED_MESSAGE =
   'Audio access is required to read local songs. Allow access in the permission prompt or Android settings.';
@@ -17,37 +21,54 @@ type ScreenKey = 'home' | 'search' | 'library' | 'player';
 type ScreenTab = {
   key: ScreenKey;
   label: string;
-  hint: string;
   Icon: React.ElementType;
 };
 
 const SCREENS: ScreenTab[] = [
-  {key: 'home', label: 'Home', hint: 'Launchpad', Icon: Home},
-  {key: 'search', label: 'Search', hint: 'Find tracks', Icon: Search},
-  {key: 'library', label: 'Library', hint: 'Device songs', Icon: Library},
-  {key: 'player', label: 'Player', hint: 'Now playing', Icon: Music},
+  { key: 'home', label: 'Home', Icon: Home },
+  { key: 'search', label: 'Search', Icon: Search },
+  { key: 'library', label: 'Library', Icon: Library },
+  { key: 'player', label: 'Player', Icon: Music },
 ];
 
 type ScreenTabButtonProps = {
   label: string;
-  hint: string;
   selected: boolean;
   Icon: React.ElementType;
   onPress: () => void;
 };
 
-function ScreenTabButton({label, hint, selected, Icon, onPress}: ScreenTabButtonProps) {
-  const iconColor = selected ? '#e0f2fe' : '#cbd5e1';
+function ScreenTabButton({ label, selected, Icon, onPress }: ScreenTabButtonProps) {
+  const iconColor = selected ? colors.skyLight : colors.textSecondary;
 
   return (
     <Pressable
       style={[styles.tab, selected && styles.tabSelected]}
       onPress={onPress}
-      accessibilityRole="button">
-      <Icon size={18} color={iconColor} style={{marginBottom: 4}} />
+      accessibilityRole="button"
+      accessibilityLabel={label}>
+      <Icon size={18} color={iconColor} style={{ marginBottom: 4 }} />
       <Text style={[styles.tabLabel, selected && styles.tabLabelSelected]}>{label}</Text>
-      <Text style={[styles.tabHint, selected && styles.tabHintSelected]}>{hint}</Text>
     </Pressable>
+  );
+}
+
+function FadeScreen({ children, screenKey }: { children: React.ReactNode; screenKey: string }) {
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    opacity.setValue(0);
+    Animated.timing(opacity, {
+      toValue: 1,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [screenKey, opacity]);
+
+  return (
+    <Animated.View style={{ flex: 1, opacity }}>
+      {children}
+    </Animated.View>
   );
 }
 
@@ -56,10 +77,27 @@ export function LaikaApp() {
   const [scanError, setScanError] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
   const [screen, setScreen] = useState<ScreenKey>('home');
-  const [searchQuery, setSearchQuery] = useState('');
 
-  const {currentTrackId, isPlaying, isReady, play, pause, next, previous, playSong} =
-    useTrackPlayer(songs);
+  const {
+    currentTrackId,
+    isPlaying: localIsPlaying,
+    isLoading: localIsLoading,
+    isReady,
+    togglePlayPause: localTogglePlayPause,
+    next,
+    previous,
+    playSong,
+  } = useTrackPlayer(songs);
+
+  const {
+    status: remoteStatus,
+    error: remoteError,
+    activeTrack: remoteActiveTrack,
+    isPlaying: remoteIsPlaying,
+    isLoading: remoteIsLoading,
+    play: playRemote,
+    togglePlayPause: remoteTogglePlayPause,
+  } = useRemotePlayer();
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -85,25 +123,9 @@ export function LaikaApp() {
   const currentSong = useMemo(() => activeSong ?? songs[0], [activeSong, songs]);
 
   const currentSongIndex = useMemo(() => {
-    if (!currentSong) {
-      return -1;
-    }
-
+    if (!currentSong) return -1;
     return songs.findIndex(song => song.id === currentSong.id);
   }, [songs, currentSong]);
-
-  const filteredSongs = useMemo(() => {
-    const normalizedQuery = searchQuery.trim().toLowerCase();
-
-    if (!normalizedQuery) {
-      return songs;
-    }
-
-    return songs.filter(song => {
-      const joined = `${song.title} ${song.artist}`.toLowerCase();
-      return joined.includes(normalizedQuery);
-    });
-  }, [songs, searchQuery]);
 
   const handleScan = async () => {
     setScanning(true);
@@ -124,9 +146,13 @@ export function LaikaApp() {
     }
   };
 
+  const handleRemoteTrackSelect = async (track: RemoteTrack) => {
+    await playRemote(track);
+    setScreen('player');
+  };
+
   const handleSongPress = async (songId: string, openPlayer: boolean) => {
     await playSong(songId);
-
     if (openPlayer) {
       setScreen('player');
     }
@@ -141,7 +167,11 @@ export function LaikaApp() {
           scanning={scanning}
           onOpenLibrary={() => setScreen('library')}
           onOpenPlayer={() => setScreen('player')}
-          hasCurrentSong={Boolean(activeSong)}
+          hasCurrentSong={Boolean(activeSong) || Boolean(remoteActiveTrack)}
+          nowPlayingTitle={activeSong?.title ?? remoteActiveTrack?.title}
+          nowPlayingArtist={activeSong?.artist ?? remoteActiveTrack?.artist}
+          nowPlayingThumbnail={remoteActiveTrack?.thumbnail}
+          onOpenSearch={() => setScreen('search')}
         />
       );
     }
@@ -149,14 +179,11 @@ export function LaikaApp() {
     if (screen === 'search') {
       return (
         <SearchScreen
-          songs={filteredSongs}
-          totalSongs={songs.length}
-          query={searchQuery}
-          onQueryChange={setSearchQuery}
-          currentTrackId={currentTrackId}
-          onPressSong={songId => {
-            void handleSongPress(songId, true);
+          onSelectTrack={track => {
+            void handleRemoteTrackSelect(track);
           }}
+          resolvingId={remoteStatus === 'resolving' ? (remoteActiveTrack?.id ?? null) : null}
+          activeTrackId={remoteActiveTrack?.id ?? null}
           onOpenPlayer={() => setScreen('player')}
         />
       );
@@ -171,21 +198,29 @@ export function LaikaApp() {
             void handleSongPress(songId, true);
           }}
           onOpenPlayer={() => setScreen('player')}
+          onScan={handleScan}
         />
       );
     }
 
+    const isRemoteActive = Boolean(remoteActiveTrack);
+    const isPlaying = isRemoteActive ? remoteIsPlaying : localIsPlaying;
+    const isLoading = isRemoteActive ? remoteIsLoading : localIsLoading;
+    const handleToggle = isRemoteActive ? remoteTogglePlayPause : localTogglePlayPause;
+
     return (
       <PlayerScreen
-        currentTitle={currentSong?.title ?? 'No track selected'}
-        currentArtist={currentSong?.artist ?? 'Unknown Artist'}
-        currentPath={currentSong?.path}
+        currentTitle={remoteActiveTrack?.title ?? currentSong?.title ?? 'No track selected'}
+        currentArtist={remoteActiveTrack?.artist ?? currentSong?.artist ?? 'Unknown Artist'}
+        currentPath={remoteActiveTrack ? 'remote' : currentSong?.path}
+        currentThumbnail={remoteActiveTrack?.thumbnail ?? activeSong?.artwork ?? undefined}
+        currentAlbum={activeSong?.album}
         queueSize={songs.length}
         currentIndex={currentSongIndex >= 0 ? currentSongIndex + 1 : 0}
         isReady={isReady}
         isPlaying={isPlaying}
-        onPlay={play}
-        onPause={pause}
+        isLoading={isLoading}
+        onTogglePlayPause={handleToggle}
         onNext={next}
         onPrevious={previous}
       />
@@ -202,43 +237,50 @@ export function LaikaApp() {
       <View style={styles.header}>
         <View>
           <Text style={styles.brand}>LAIKA</Text>
-          <Text style={styles.brandSubtitle}>Phase 1 Local-First UX</Text>
         </View>
         <View style={styles.modePill}>
           <Text style={styles.modePillLabel}>Offline Ready</Text>
         </View>
       </View>
 
-      {activeSong ? (
+      <View style={styles.content}>
+        <FadeScreen screenKey={screen}>
+          {renderScreen()}
+        </FadeScreen>
+      </View>
+
+      {scanError ? <Text style={styles.error}>{scanError}</Text> : null}
+
+      {/* Mini-player — Spotify-style footer, above nav bar */}
+      {(activeSong || remoteActiveTrack) ? (
         <Pressable
           style={styles.nowPlayingCard}
           onPress={() => setScreen('player')}
-          accessibilityRole="button">
-          <Text style={styles.nowPlayingKicker}>NOW PLAYING</Text>
-          <Text style={styles.nowPlayingTitle} numberOfLines={1}>
-            {activeSong.title}
-          </Text>
-          <Text style={styles.nowPlayingArtist} numberOfLines={1}>
-            {activeSong.artist}
-          </Text>
+          accessibilityRole="button"
+          accessibilityLabel="Now playing — tap to open player">
+          <View style={styles.nowPlayingAccentBar} />
+          <View style={styles.nowPlayingContent}>
+            <Text style={styles.nowPlayingKicker}>
+              NOW PLAYING{remoteStatus === 'resolving' ? '  ·  Resolving...' : ''}
+            </Text>
+            <Text style={styles.nowPlayingTitle} numberOfLines={1}>
+              {activeSong?.title ?? remoteActiveTrack?.title}
+            </Text>
+            <Text style={styles.nowPlayingArtist} numberOfLines={1}>
+              {activeSong?.artist ?? remoteActiveTrack?.artist}
+            </Text>
+            {remoteError ? (
+              <Text style={styles.remoteError}>{remoteError}</Text>
+            ) : null}
+          </View>
         </Pressable>
-      ) : (
-        <View style={styles.nowPlayingCardMuted}>
-          <Text style={styles.nowPlayingKicker}>NOW PLAYING</Text>
-          <Text style={styles.nowPlayingEmpty}>No active song yet. Scan and pick a track.</Text>
-        </View>
-      )}
-
-      <View style={styles.content}>{renderScreen()}</View>
-
-      {scanError ? <Text style={styles.error}>{scanError}</Text> : null}
+      ) : null}
 
       <View style={styles.navBar}>
         {SCREENS.map(tab => (
           <ScreenTabButton
             key={tab.key}
             label={tab.label}
-            hint={tab.hint}
             Icon={tab.Icon}
             selected={screen === tab.key}
             onPress={() => setScreen(tab.key)}
@@ -271,36 +313,29 @@ const styles = StyleSheet.create({
     width: 260,
     height: 260,
     borderRadius: 130,
-    backgroundColor: '#f97316',
+    backgroundColor: colors.orange,
     opacity: 0.18,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingHorizontal: spacing.base,
+    paddingTop: spacing.base,
   },
   brand: {
-    color: '#f8fafc',
+    color: colors.textPrimary,
     fontSize: 26,
     letterSpacing: 1.5,
     fontWeight: '800',
   },
-  brandSubtitle: {
-    marginTop: 2,
-    color: '#cbd5e1',
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-  },
   modePill: {
-    borderRadius: 999,
+    borderRadius: radii.pill,
     borderWidth: 1,
-    borderColor: '#334155',
-    paddingHorizontal: 12,
+    borderColor: colors.borderAccent,
+    paddingHorizontal: spacing.md,
     paddingVertical: 7,
-    backgroundColor: '#0f172a',
+    backgroundColor: colors.surface,
   },
   modePillLabel: {
     color: '#93c5fd',
@@ -309,98 +344,87 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   nowPlayingCard: {
-    marginTop: 16,
-    marginHorizontal: 16,
-    borderRadius: 18,
+    marginHorizontal: spacing.sm + 2,
+    marginBottom: spacing.xs,
+    borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: '#1e3a8a',
-    backgroundColor: '#0b1a2e',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    borderColor: colors.cardBlueBorder,
+    backgroundColor: colors.surfaceRaised,
+    flexDirection: 'row',
+    overflow: 'hidden',
   },
-  nowPlayingCardMuted: {
-    marginTop: 16,
-    marginHorizontal: 16,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#1f2937',
-    backgroundColor: '#111827',
+  nowPlayingAccentBar: {
+    width: 3,
+    backgroundColor: colors.brand,
+    borderTopLeftRadius: radii.xl,
+    borderBottomLeftRadius: radii.xl,
+  },
+  nowPlayingContent: {
+    flex: 1,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: spacing.md,
   },
   nowPlayingKicker: {
-    color: '#94a3b8',
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
+    ...typography.label,
+    color: colors.textSecondary,
   },
   nowPlayingTitle: {
-    marginTop: 6,
-    color: '#f8fafc',
+    marginTop: spacing.sm - 2,
+    color: colors.textPrimary,
     fontSize: 16,
     fontWeight: '700',
   },
   nowPlayingArtist: {
     marginTop: 2,
-    color: '#cbd5e1',
+    color: colors.textSecondary,
     fontSize: 13,
     fontWeight: '500',
   },
-  nowPlayingEmpty: {
-    marginTop: 6,
-    color: '#9ca3af',
-    fontSize: 13,
+  remoteError: {
+    color: colors.error,
+    fontSize: 11,
+    marginTop: spacing.xs,
   },
   content: {
     flex: 1,
-    marginTop: 12,
+    marginTop: spacing.xs,
   },
   navBar: {
     flexDirection: 'row',
-    paddingHorizontal: 10,
-    paddingTop: 10,
-    paddingBottom: 14,
-    gap: 8,
+    paddingHorizontal: spacing.sm + 2,
+    paddingTop: spacing.sm + 2,
+    paddingBottom: 6,
+    gap: spacing.sm,
     borderTopWidth: 1,
-    borderColor: '#1e293b',
-    backgroundColor: '#020617',
+    borderColor: colors.borderSubtle,
+    backgroundColor: colors.navBg,
   },
   tab: {
     flex: 1,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#334155',
-    borderRadius: 12,
-    paddingVertical: 8,
-    backgroundColor: '#0b1220',
+    borderColor: colors.borderAccent,
+    borderRadius: radii.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.tabBg,
   },
   tabSelected: {
-    borderColor: '#38bdf8',
-    backgroundColor: '#082f49',
+    borderColor: colors.brand,
+    backgroundColor: colors.deepBlue,
   },
   tabLabel: {
-    color: '#cbd5e1',
+    color: colors.textSecondary,
     fontSize: 12,
     fontWeight: '700',
   },
   tabLabelSelected: {
-    color: '#e0f2fe',
-  },
-  tabHint: {
-    marginTop: 2,
-    color: '#64748b',
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  tabHintSelected: {
-    color: '#7dd3fc',
+    color: colors.skyLight,
   },
   error: {
-    color: '#fca5a5',
+    color: colors.error,
     textAlign: 'center',
-    marginBottom: 8,
-    paddingHorizontal: 16,
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.base,
     fontSize: 12,
   },
 });
