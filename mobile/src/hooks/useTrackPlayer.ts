@@ -1,7 +1,5 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import TrackPlayer, {
-  AppKilledPlaybackBehavior,
-  Capability,
   Event,
   RepeatMode,
   State,
@@ -10,6 +8,7 @@ import TrackPlayer, {
 } from 'react-native-track-player';
 
 import type {LocalSong} from '../types/music';
+import {ensureRemotePlayerReady} from './remotePlayerSetup';
 
 function toTrack(song: LocalSong): Track {
   return {
@@ -17,8 +16,13 @@ function toTrack(song: LocalSong): Track {
     url: song.path,
     title: song.title,
     artist: song.artist,
+    album: song.album,
+    artwork: song.artwork,
+    duration: song.duration > 0 ? song.duration / 1000 : undefined,
   };
 }
+
+const LOADING_STATES: State[] = [State.Buffering, State.Loading, State.Connecting];
 
 export function useTrackPlayer(songs: LocalSong[]) {
   const [isReady, setIsReady] = useState(false);
@@ -28,47 +32,33 @@ export function useTrackPlayer(songs: LocalSong[]) {
 
   const tracks = useMemo(() => songs.map(toTrack), [songs]);
 
+  // Setup player once using the shared singleton guard
   useEffect(() => {
     let mounted = true;
 
-    const setup = async () => {
-      await TrackPlayer.setupPlayer();
-      await TrackPlayer.updateOptions({
-        android: {
-          appKilledPlaybackBehavior: AppKilledPlaybackBehavior.ContinuePlayback,
-        },
-        capabilities: [
-          Capability.Play,
-          Capability.Pause,
-          Capability.SkipToNext,
-          Capability.SkipToPrevious,
-          Capability.Stop,
-        ],
-        compactCapabilities: [Capability.Play, Capability.Pause, Capability.SkipToNext],
-      });
-      await TrackPlayer.setRepeatMode(RepeatMode.Queue);
-
-      const state = await TrackPlayer.getPlaybackState();
-      setPlaybackState(state.state);
-
-      if (mounted) {
-        setIsReady(true);
-      }
-    };
-
-    setup().catch(() => undefined);
+    ensureRemotePlayerReady()
+      .then(async () => {
+        await TrackPlayer.setRepeatMode(RepeatMode.Queue);
+        const state = await TrackPlayer.getPlaybackState();
+        if (mounted) {
+          setPlaybackState(state.state);
+          setIsReady(true);
+        }
+      })
+      .catch(() => undefined);
 
     return () => {
       mounted = false;
     };
   }, []);
 
+  // Load queue when ready and songs change
   useEffect(() => {
-    const loadQueue = async () => {
-      if (!isReady || tracks.length === 0) {
-        return;
-      }
+    if (!isReady || tracks.length === 0) {
+      return;
+    }
 
+    const loadQueue = async () => {
       await TrackPlayer.reset();
       await TrackPlayer.add(tracks);
       hasLoadedQueue.current = true;
@@ -77,27 +67,42 @@ export function useTrackPlayer(songs: LocalSong[]) {
     loadQueue().catch(() => undefined);
   }, [isReady, tracks]);
 
-  useTrackPlayerEvents([Event.PlaybackState, Event.PlaybackActiveTrackChanged], async event => {
-    if (event.type === Event.PlaybackState) {
-      setPlaybackState(event.state);
-    }
+  // Sync state via events
+  useTrackPlayerEvents(
+    [Event.PlaybackState, Event.PlaybackActiveTrackChanged],
+    async event => {
+      if (event.type === Event.PlaybackState) {
+        setPlaybackState(event.state);
+      }
 
-    if (event.type === Event.PlaybackActiveTrackChanged) {
-      const activeTrack = await TrackPlayer.getActiveTrack();
-      setCurrentTrackId(activeTrack?.id ? String(activeTrack.id) : undefined);
-    }
-  });
+      if (event.type === Event.PlaybackActiveTrackChanged) {
+        const activeTrack = await TrackPlayer.getActiveTrack();
+        setCurrentTrackId(activeTrack?.id ? String(activeTrack.id) : undefined);
+      }
+    },
+  );
 
   const play = useCallback(async () => {
     if (!hasLoadedQueue.current) {
       return;
     }
-
     await TrackPlayer.play();
   }, []);
 
   const pause = useCallback(async () => {
     await TrackPlayer.pause();
+  }, []);
+
+  const togglePlayPause = useCallback(async () => {
+    const {state} = await TrackPlayer.getPlaybackState();
+    if (state === State.Playing) {
+      await TrackPlayer.pause();
+    } else {
+      if (!hasLoadedQueue.current) {
+        return;
+      }
+      await TrackPlayer.play();
+    }
   }, []);
 
   const next = useCallback(async () => {
@@ -139,8 +144,11 @@ export function useTrackPlayer(songs: LocalSong[]) {
     isReady,
     currentTrackId,
     isPlaying: playbackState === State.Playing,
+    isLoading: LOADING_STATES.includes(playbackState),
+    playbackState,
     play,
     pause,
+    togglePlayPause,
     next,
     previous,
     playSong,
