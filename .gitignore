@@ -1,9 +1,15 @@
 # General
 .env
+.env.*
+!.env.example
 .DS_Store
 *.log
 .vscode/
 .idea/
+.kiro/*
+__pycache__/
+*.py[cod]
+*$py.class
 
 # Backend
 backend/venv/
@@ -21,9 +27,12 @@ mobile/android/app/build/
 mobile/android/build/
 mobile/android/local.properties
 mobile/android/.idea/
+mobile/android/.settings/
 mobile/ios/Pods/
 mobile/ios/build/
 mobile/ios/.xcode.env.local
+mobile/ios/*.xcworkspace
+mobile/ios/*.xcodeproj
 
 # Local Data
 /local/*
