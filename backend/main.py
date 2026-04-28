@@ -1,0 +1,16 @@
+from fastapi import FastAPI
+
+from routers.health import router as health_router
+from routers.search import router as search_router
+from routers.resolve import router as resolve_router
+
+
+def create_app() -> FastAPI:
+    app = FastAPI(title="Laika Music Backend", version="0.1.0")
+    app.include_router(health_router)
+    app.include_router(search_router)
+    app.include_router(resolve_router)
+    return app
+
+
+app = create_app()
