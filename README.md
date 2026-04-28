@@ -45,7 +45,6 @@ laika-music/
 │   │   ├── hooks/          # Shared logic and player state
 │   │   ├── screens/        # Primary view layouts
 │   │   └── services/       # Native bridges and API clients
-└── planning/               # Project roadmap and technical specifications
 ```
 
 ## Getting Started
