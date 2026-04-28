@@ -33,6 +33,8 @@ function normalizeSong(value: Partial<LocalSong>): LocalSong | null {
     id: value.id,
     title: value.title ?? 'Unknown Title',
     artist: value.artist ?? 'Unknown Artist',
+    album: value.album,
+    artwork: value.artwork,
     duration: typeof value.duration === 'number' ? value.duration : 0,
     path: value.path,
   };
