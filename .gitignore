@@ -1,0 +1,29 @@
+# General
+.env
+.DS_Store
+*.log
+.vscode/
+.idea/
+
+# Backend
+backend/venv/
+backend/.pytest_cache/
+backend/__pycache__/
+backend/*.db
+backend/*.sqlite3
+
+# Mobile
+mobile/node_modules/
+mobile/.expo/
+mobile/android/.cxx/
+mobile/android/.gradle/
+mobile/android/app/build/
+mobile/android/build/
+mobile/android/local.properties
+mobile/android/.idea/
+mobile/ios/Pods/
+mobile/ios/build/
+mobile/ios/.xcode.env.local
+
+# Local Data
+/local/*
