@@ -8,10 +8,10 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Pause, Play, SkipBack, SkipForward } from 'lucide-react-native';
+import { Pause, Play, SkipBack, SkipForward, Shuffle, Repeat } from 'lucide-react-native';
 import TrackPlayer from 'react-native-track-player';
 
-import { colors, radii, shadows, spacing, typography } from '../theme';
+import { colors, radii, spacing, typography } from '../theme';
 
 type PlayerScreenProps = {
   currentTitle: string;
@@ -28,50 +28,6 @@ type PlayerScreenProps = {
   onNext: () => void;
   onPrevious: () => void;
 };
-
-type SkipButtonProps = {
-  Icon: React.ElementType;
-  onPress: () => void;
-  disabled: boolean;
-};
-
-function SkipButton({ Icon, onPress, disabled }: SkipButtonProps) {
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      style={[styles.skipButton, disabled && styles.skipButtonDisabled]}
-      accessibilityRole="button">
-      <Icon size={24} color={colors.textPrimary} strokeWidth={2.5} />
-    </Pressable>
-  );
-}
-
-type PlayPauseButtonProps = {
-  isPlaying: boolean;
-  isLoading: boolean;
-  disabled: boolean;
-  onPress: () => void;
-};
-
-function PlayPauseButton({ isPlaying, isLoading, disabled, onPress }: PlayPauseButtonProps) {
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled || isLoading}
-      style={[styles.playButton, (disabled || isLoading) && styles.playButtonDisabled]}
-      accessibilityRole="button"
-      accessibilityLabel={isLoading ? 'Loading' : isPlaying ? 'Pause' : 'Play'}>
-      {isLoading ? (
-        <ActivityIndicator size="large" color="#fff7ed" />
-      ) : isPlaying ? (
-        <Pause size={32} color="#fff7ed" strokeWidth={2.5} fill="#fff7ed" />
-      ) : (
-        <Play size={32} color="#fff7ed" strokeWidth={2.5} fill="#fff7ed" />
-      )}
-    </Pressable>
-  );
-}
 
 function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60);
@@ -104,7 +60,7 @@ export function PlayerScreen({
   // Pulse animation on play state change
   useEffect(() => {
     Animated.spring(scaleAnim, {
-      toValue: isPlaying ? 1.03 : 1.0,
+      toValue: isPlaying ? 1.02 : 1.0,
       useNativeDriver: true,
       friction: 5,
       tension: 40,
@@ -140,6 +96,7 @@ export function PlayerScreen({
 
   return (
     <View style={styles.container}>
+      {/* Album Art */}
       <Animated.View style={[styles.artworkContainer, { transform: [{ scale: scaleAnim }] }]}>
         {currentThumbnail ? (
           <Image source={{ uri: currentThumbnail }} style={styles.artworkImage} />
@@ -152,18 +109,19 @@ export function PlayerScreen({
         )}
       </Animated.View>
 
-      <Text style={styles.title} numberOfLines={1}>
-        {currentTitle}
-      </Text>
-      <Text style={styles.artist} numberOfLines={1}>
-        {currentArtist}
-      </Text>
-      {currentAlbum ? (
-        <Text style={styles.album} numberOfLines={1}>
-          {currentAlbum}
-        </Text>
-      ) : null}
+      {/* Track Info */}
+      <View style={styles.trackInfo}>
+        <View style={styles.trackTextGroup}>
+          <Text style={styles.title} numberOfLines={1}>
+            {currentTitle}
+          </Text>
+          <Text style={styles.artist} numberOfLines={1}>
+            {currentArtist}
+          </Text>
+        </View>
+      </View>
 
+      {/* Progress Bar */}
       <View style={styles.progressSection}>
         <Pressable
           style={styles.progressBarContainer}
@@ -180,15 +138,46 @@ export function PlayerScreen({
         </View>
       </View>
 
+      {/* Controls */}
       <View style={styles.controlsRow}>
-        <SkipButton Icon={SkipBack} onPress={onPrevious} disabled={!canControl} />
-        <PlayPauseButton
-          isPlaying={isPlaying}
-          isLoading={isLoading}
+        <Pressable style={styles.secondaryControl} disabled={!canControl}>
+          <Shuffle size={20} color={colors.textSecondary} strokeWidth={2} />
+        </Pressable>
+
+        <Pressable
+          style={[styles.skipButton, !canControl && styles.controlDisabled]}
+          onPress={onPrevious}
           disabled={!canControl}
+          accessibilityRole="button">
+          <SkipBack size={28} color={colors.textPrimary} strokeWidth={2} fill={colors.textPrimary} />
+        </Pressable>
+
+        <Pressable
           onPress={onTogglePlayPause}
-        />
-        <SkipButton Icon={SkipForward} onPress={onNext} disabled={!canControl} />
+          disabled={!canControl || isLoading}
+          style={[styles.playButton, (!canControl || isLoading) && styles.controlDisabled]}
+          accessibilityRole="button"
+          accessibilityLabel={isLoading ? 'Loading' : isPlaying ? 'Pause' : 'Play'}>
+          {isLoading ? (
+            <ActivityIndicator size="large" color={colors.background} />
+          ) : isPlaying ? (
+            <Pause size={32} color={colors.background} strokeWidth={3} fill={colors.background} />
+          ) : (
+            <Play size={32} color={colors.background} strokeWidth={3} fill={colors.background} />
+          )}
+        </Pressable>
+
+        <Pressable
+          style={[styles.skipButton, !canControl && styles.controlDisabled]}
+          onPress={onNext}
+          disabled={!canControl}
+          accessibilityRole="button">
+          <SkipForward size={28} color={colors.textPrimary} strokeWidth={2} fill={colors.textPrimary} />
+        </Pressable>
+
+        <Pressable style={styles.secondaryControl} disabled={!canControl}>
+          <Repeat size={20} color={colors.textSecondary} strokeWidth={2} />
+        </Pressable>
       </View>
     </View>
   );
@@ -200,57 +189,50 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xl,
-    backgroundColor: 'transparent',
+    backgroundColor: colors.background,
   },
   artworkContainer: {
-    width: 240,
-    height: 240,
-    borderRadius: radii.xxl,
-    ...shadows.glow,
+    width: 280,
+    height: 280,
+    borderRadius: radii.md,
   },
   artworkImage: {
-    width: 240,
-    height: 240,
-    borderRadius: radii.xxl,
-    borderWidth: 1,
-    borderColor: colors.coverBorder,
+    width: 280,
+    height: 280,
+    borderRadius: radii.md,
   },
   artworkFallback: {
-    width: 240,
-    height: 240,
-    borderRadius: radii.xxl,
-    borderWidth: 1,
-    borderColor: colors.coverBorder,
-    backgroundColor: colors.deepBlue,
+    width: 280,
+    height: 280,
+    borderRadius: radii.md,
+    backgroundColor: colors.surfaceElevated,
     alignItems: 'center',
     justifyContent: 'center',
   },
   artworkInitial: {
-    color: colors.skyLight,
+    color: colors.textMuted,
     fontSize: 96,
     fontWeight: '800',
   },
+  trackInfo: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.xxl,
+  },
+  trackTextGroup: {
+    flex: 1,
+  },
   title: {
-    marginTop: spacing.xl,
     ...typography.display,
     color: colors.textPrimary,
-    textAlign: 'center',
-    paddingHorizontal: spacing.base,
   },
   artist: {
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
     ...typography.heading,
     color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  album: {
-    marginTop: spacing.xs,
-    ...typography.caption,
-    color: colors.textMuted,
-    textAlign: 'center',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    fontWeight: '400',
   },
   progressSection: {
     width: '100%',
@@ -263,52 +245,52 @@ const styles = StyleSheet.create({
   progressTrack: {
     height: 4,
     borderRadius: 2,
-    backgroundColor: colors.borderSubtle,
+    backgroundColor: colors.progressTrack,
     overflow: 'hidden',
   },
   progressFill: {
     height: 4,
-    backgroundColor: colors.brand,
+    backgroundColor: colors.progressFill,
+    borderRadius: 2,
   },
   timeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
   },
   timeText: {
     ...typography.caption,
     color: colors.textMuted,
   },
   controlsRow: {
-    marginTop: spacing.xl,
+    marginTop: spacing.xxl,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.base,
+    justifyContent: 'center',
+    gap: spacing.lg,
+    width: '100%',
+  },
+  secondaryControl: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   skipButton: {
-    width: 52,
-    height: 52,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: colors.borderAccent,
-    backgroundColor: colors.surface,
+    width: 48,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  skipButtonDisabled: {
-    opacity: 0.4,
   },
   playButton: {
-    width: 68,
-    height: 68,
-    borderRadius: radii.lg,
-    borderWidth: 2,
-    borderColor: colors.orange,
-    backgroundColor: colors.orangeDeep,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.textPrimary,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  playButtonDisabled: {
+  controlDisabled: {
     opacity: 0.4,
   },
 });

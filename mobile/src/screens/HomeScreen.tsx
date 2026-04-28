@@ -20,7 +20,6 @@ type HomeScreenProps = {
   onOpenLibrary: () => void;
   onOpenPlayer: () => void;
   hasCurrentSong: boolean;
-  // NEW
   nowPlayingTitle?: string;
   nowPlayingArtist?: string;
   nowPlayingThumbnail?: string;
@@ -91,43 +90,67 @@ export function HomeScreen({
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled">
 
-      {/* A. Hero */}
-      <View style={styles.heroCard}>
-        <Text style={styles.heroKicker}>LAIKA MUSIC</Text>
-        <Text style={styles.heroGreeting}>{getGreeting()}</Text>
-        <Text style={styles.heroSubtitle}>Stream any song from YouTube or play your local collection.</Text>
-        <Pressable
-          style={styles.searchCTA}
-          onPress={onOpenSearch}
-          accessibilityRole="button"
-          accessibilityLabel="Search music">
-          <Search size={16} color="#fef3c7" style={{ marginRight: spacing.sm }} strokeWidth={2.5} />
-          <Text style={styles.searchCTALabel}>Search Music</Text>
+      {/* Greeting */}
+      <Text style={styles.greeting}>{getGreeting()}</Text>
+
+      {/* Quick-access grid */}
+      <View style={styles.quickGrid}>
+        <Pressable style={styles.quickGridItem} onPress={onOpenSearch}>
+          <View style={[styles.quickGridArt, { backgroundColor: '#1DB954' }]}>
+            <Search size={16} color={colors.textPrimary} />
+          </View>
+          <Text style={styles.quickGridLabel} numberOfLines={1}>Search Music</Text>
         </Pressable>
+        <Pressable style={styles.quickGridItem} onPress={onOpenLibrary}>
+          <View style={[styles.quickGridArt, { backgroundColor: '#535353' }]}>
+            <Library size={16} color={colors.textPrimary} />
+          </View>
+          <Text style={styles.quickGridLabel} numberOfLines={1}>Your Library</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.quickGridItem, scanning && styles.quickGridItemDisabled]}
+          onPress={onScan}
+          disabled={scanning}>
+          <View style={[styles.quickGridArt, { backgroundColor: '#282828' }]}>
+            {scanning ? (
+              <ActivityIndicator size="small" color={colors.brand} />
+            ) : (
+              <RefreshCw size={16} color={colors.textPrimary} />
+            )}
+          </View>
+          <Text style={styles.quickGridLabel} numberOfLines={1}>
+            {scanning ? 'Scanning...' : 'Scan Device'}
+          </Text>
+        </Pressable>
+        {hasCurrentSong && (
+          <Pressable style={styles.quickGridItem} onPress={onOpenPlayer}>
+            <View style={[styles.quickGridArt, { backgroundColor: '#1DB954' }]}>
+              <Music size={16} color={colors.textPrimary} />
+            </View>
+            <Text style={styles.quickGridLabel} numberOfLines={1}>Now Playing</Text>
+          </Pressable>
+        )}
       </View>
 
-      {/* B. Now Playing card */}
+      {/* Now Playing card */}
       {hasCurrentSong && (
         <Pressable
           style={styles.nowPlayingCard}
           onPress={onOpenPlayer}
           accessibilityRole="button"
-          accessibilityLabel="Now playing — tap to open player">
-          <View style={styles.nowPlayingLeft}>
-            {nowPlayingThumbnail ? (
-              <Image
-                source={{ uri: nowPlayingThumbnail }}
-                style={styles.nowPlayingThumb}
-                accessibilityIgnoresInvertColors
-              />
-            ) : (
-              <View style={styles.nowPlayingThumbFallback}>
-                <Music size={20} color={colors.brand} />
-              </View>
-            )}
-          </View>
-          <View style={styles.nowPlayingMid}>
-            <Text style={styles.nowPlayingKicker}>NOW PLAYING</Text>
+          accessibilityLabel="Now playing">
+          {nowPlayingThumbnail ? (
+            <Image
+              source={{ uri: nowPlayingThumbnail }}
+              style={styles.nowPlayingThumb}
+              accessibilityIgnoresInvertColors
+            />
+          ) : (
+            <View style={styles.nowPlayingThumbFallback}>
+              <Music size={20} color={colors.brand} />
+            </View>
+          )}
+          <View style={styles.nowPlayingText}>
             <Text style={styles.nowPlayingTitle} numberOfLines={1}>
               {nowPlayingTitle ?? 'Unknown Track'}
             </Text>
@@ -135,15 +158,13 @@ export function HomeScreen({
               {nowPlayingArtist ?? 'Unknown Artist'}
             </Text>
           </View>
-          <View style={styles.nowPlayingRight}>
-            <Text style={styles.nowPlayingCTA}>▶ Open Player</Text>
-          </View>
+          <ChevronRight size={20} color={colors.textMuted} />
         </Pressable>
       )}
 
-      {/* C. Recently Played */}
+      {/* Recently Played */}
       <View>
-        <SectionHeader label="RECENTLY PLAYED" subtitle="Your listening history" />
+        <SectionHeader label="Recently Played" />
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -154,9 +175,9 @@ export function HomeScreen({
         </ScrollView>
       </View>
 
-      {/* D. Suggestions */}
+      {/* Suggested */}
       <View>
-        <SectionHeader label="SUGGESTED FOR YOU" subtitle="Based on your taste" />
+        <SectionHeader label="Made For You" />
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -167,41 +188,7 @@ export function HomeScreen({
         </ScrollView>
       </View>
 
-      {/* E. Quick actions */}
-      <View style={styles.quickActions}>
-        <Pressable
-          style={styles.quickCard}
-          onPress={onOpenLibrary}
-          accessibilityRole="button"
-          accessibilityLabel="Open library">
-          <Library size={22} color={colors.brand} style={{ marginBottom: spacing.sm }} />
-          <Text style={styles.quickCardLabel}>Library</Text>
-          <Text style={styles.quickCardCaption}>{songsCount} songs</Text>
-        </Pressable>
-
-        <Pressable
-          style={[styles.quickCard, scanning && styles.quickCardDisabled]}
-          onPress={onScan}
-          disabled={scanning}
-          accessibilityRole="button"
-          accessibilityLabel="Scan device for audio">
-          {scanning ? (
-            <ActivityIndicator
-              size="small"
-              color={colors.brand}
-              style={{ marginBottom: spacing.sm }}
-            />
-          ) : (
-            <RefreshCw size={22} color={colors.orange} style={{ marginBottom: spacing.sm }} strokeWidth={2.5} />
-          )}
-          <Text style={[styles.quickCardLabel, scanning && styles.quickCardLabelMuted]}>
-            {scanning ? 'Scanning...' : 'Scan Device'}
-          </Text>
-          <Text style={styles.quickCardCaption}>Find local audio</Text>
-        </Pressable>
-      </View>
-
-      {/* F. Stats */}
+      {/* Stats footer */}
       <View style={styles.statsRow}>
         <View style={styles.statItem}>
           <Text style={styles.statValue}>{songsCount}</Text>
@@ -213,11 +200,6 @@ export function HomeScreen({
             {hasCurrentSong ? 'Live' : 'Idle'}
           </Text>
           <Text style={styles.statLabel}>Playback</Text>
-        </View>
-        <View style={styles.statDivider} />
-        <View style={styles.statItem}>
-          <ChevronRight size={16} color={colors.textMuted} />
-          <Text style={styles.statLabel}>Tap to explore</Text>
         </View>
       </View>
     </ScrollView>
@@ -231,102 +213,81 @@ const styles = StyleSheet.create({
     gap: spacing.xl,
   },
 
-  // Hero
-  heroCard: {
-    borderRadius: radii.xxl,
-    borderWidth: 1,
-    borderColor: '#92400e',
-    backgroundColor: '#1c1917',
-    padding: spacing.lg,
-    ...shadows.card,
-    shadowColor: '#92400e',
-  },
-  heroKicker: {
-    ...typography.label,
-    color: '#fdba74',
-  },
-  heroGreeting: {
+  // Greeting
+  greeting: {
+    color: colors.textPrimary,
+    fontSize: 24,
+    fontWeight: '700',
     marginTop: spacing.sm,
-    color: '#fef3c7',
-    fontSize: 26,
-    fontWeight: '800',
-    lineHeight: 32,
   },
-  heroSubtitle: {
-    marginTop: spacing.xs,
-    color: '#fed7aa',
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  searchCTA: {
-    marginTop: spacing.base,
-    borderRadius: radii.md,
-    backgroundColor: colors.orange,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.base,
+
+  // Quick-access grid (Spotify 2-col pill style)
+  quickGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  quickGridItem: {
+    width: '48%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceElevated,
+    borderRadius: radii.sm,
+    overflow: 'hidden',
+    height: 56,
+  },
+  quickGridItemDisabled: {
+    opacity: 0.5,
+  },
+  quickGridArt: {
+    width: 56,
+    height: 56,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  searchCTALabel: {
-    color: '#fff7ed',
+  quickGridLabel: {
+    color: colors.textPrimary,
+    fontSize: 13,
     fontWeight: '700',
-    fontSize: 14,
+    paddingHorizontal: spacing.sm,
+    flex: 1,
   },
 
   // Now Playing
   nowPlayingCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: radii.xl,
-    borderWidth: 1,
-    borderColor: colors.cardBlueBorder,
-    backgroundColor: colors.surfaceRaised,
-    paddingHorizontal: spacing.base,
+    borderRadius: radii.md,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     gap: spacing.md,
-    ...shadows.card,
   },
-  nowPlayingLeft: {},
   nowPlayingThumb: {
     width: 48,
     height: 48,
-    borderRadius: radii.sm,
+    borderRadius: radii.xs,
   },
   nowPlayingThumbFallback: {
     width: 48,
     height: 48,
-    borderRadius: radii.sm,
-    backgroundColor: colors.deepBlue,
+    borderRadius: radii.xs,
+    backgroundColor: colors.surfaceElevated,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.cardBlueBorder,
   },
-  nowPlayingMid: {
+  nowPlayingText: {
     flex: 1,
   },
-  nowPlayingKicker: {
-    ...typography.label,
-    color: colors.textMuted,
-  },
   nowPlayingTitle: {
-    marginTop: 2,
     color: colors.textPrimary,
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '600',
   },
   nowPlayingArtist: {
     marginTop: 2,
     color: colors.textSecondary,
     fontSize: 12,
-    fontWeight: '500',
-  },
-  nowPlayingRight: {},
-  nowPlayingCTA: {
-    color: colors.brand,
-    fontSize: 12,
-    fontWeight: '700',
   },
 
   // Horizontal music cards
@@ -335,12 +296,12 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   musicCard: {
-    width: 120,
+    width: 140,
   },
   musicCardArt: {
-    width: 120,
-    height: 80,
-    borderRadius: radii.md,
+    width: 140,
+    height: 140,
+    borderRadius: radii.sm,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.sm,
@@ -348,56 +309,20 @@ const styles = StyleSheet.create({
   musicCardTitle: {
     color: colors.textPrimary,
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
     lineHeight: 17,
   },
   musicCardArtist: {
     marginTop: 2,
     color: colors.textMuted,
     fontSize: 11,
-    fontWeight: '500',
-  },
-
-  // Quick actions
-  quickActions: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  quickCard: {
-    flex: 1,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.borderAccent,
-    backgroundColor: colors.surface,
-    padding: spacing.base,
-    alignItems: 'center',
-    ...shadows.card,
-  },
-  quickCardDisabled: {
-    opacity: 0.6,
-  },
-  quickCardLabel: {
-    color: colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  quickCardLabelMuted: {
-    color: colors.textMuted,
-  },
-  quickCardCaption: {
-    marginTop: spacing.xs,
-    color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: '500',
   },
 
   // Stats
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
+    borderRadius: radii.md,
     backgroundColor: colors.surface,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.base,
@@ -418,10 +343,10 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   statValueActive: {
-    color: colors.active,
+    color: colors.brand,
   },
   statLabel: {
-    ...typography.label,
+    ...typography.caption,
     color: colors.textMuted,
   },
 });

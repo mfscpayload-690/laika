@@ -63,6 +63,7 @@ nav {
     letter-spacing: -1px;
     background: linear-gradient(135deg, var(--primary), #ec4899);
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
 }
 

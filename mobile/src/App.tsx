@@ -39,15 +39,15 @@ type ScreenTabButtonProps = {
 };
 
 function ScreenTabButton({ label, selected, Icon, onPress }: ScreenTabButtonProps) {
-  const iconColor = selected ? colors.skyLight : colors.textSecondary;
+  const iconColor = selected ? colors.textPrimary : colors.inactiveIcon;
 
   return (
     <Pressable
-      style={[styles.tab, selected && styles.tabSelected]}
+      style={styles.tab}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}>
-      <Icon size={18} color={iconColor} style={{ marginBottom: 4 }} />
+      <Icon size={22} color={iconColor} style={{ marginBottom: 4 }} />
       <Text style={[styles.tabLabel, selected && styles.tabLabelSelected]}>{label}</Text>
     </Pressable>
   );
@@ -227,21 +227,18 @@ export function LaikaApp() {
     );
   };
 
+  const isRemoteActive = Boolean(remoteActiveTrack);
+  const isPlaying = isRemoteActive ? remoteIsPlaying : localIsPlaying;
+
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor="#031019" />
+      <StatusBar barStyle="light-content" backgroundColor={colors.background} />
 
-      <View style={styles.backdropOrbOne} pointerEvents="none" />
-      <View style={styles.backdropOrbTwo} pointerEvents="none" />
-
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.brand}>LAIKA</Text>
+      {screen !== 'player' && (
+        <View style={styles.header}>
+          <Text style={styles.brand}>Laika Music</Text>
         </View>
-        <View style={styles.modePill}>
-          <Text style={styles.modePillLabel}>Offline Ready</Text>
-        </View>
-      </View>
+      )}
 
       <View style={styles.content}>
         <FadeScreen screenKey={screen}>
@@ -251,28 +248,42 @@ export function LaikaApp() {
 
       {scanError ? <Text style={styles.error}>{scanError}</Text> : null}
 
-      {/* Mini-player — Spotify-style footer, above nav bar */}
-      {(activeSong || remoteActiveTrack) ? (
+      {/* Mini-player — Spotify-style floating bar */}
+      {(activeSong || remoteActiveTrack) && screen !== 'player' ? (
         <Pressable
-          style={styles.nowPlayingCard}
+          style={styles.miniPlayer}
           onPress={() => setScreen('player')}
           accessibilityRole="button"
           accessibilityLabel="Now playing — tap to open player">
-          <View style={styles.nowPlayingAccentBar} />
-          <View style={styles.nowPlayingContent}>
-            <Text style={styles.nowPlayingKicker}>
-              NOW PLAYING{remoteStatus === 'resolving' ? '  ·  Resolving...' : ''}
-            </Text>
-            <Text style={styles.nowPlayingTitle} numberOfLines={1}>
+          <View style={styles.miniPlayerInfo}>
+            <Text style={styles.miniPlayerTitle} numberOfLines={1}>
               {activeSong?.title ?? remoteActiveTrack?.title}
             </Text>
-            <Text style={styles.nowPlayingArtist} numberOfLines={1}>
+            <Text style={styles.miniPlayerArtist} numberOfLines={1}>
               {activeSong?.artist ?? remoteActiveTrack?.artist}
             </Text>
-            {remoteError ? (
-              <Text style={styles.remoteError}>{remoteError}</Text>
-            ) : null}
           </View>
+          <Pressable
+            style={styles.miniPlayerBtn}
+            onPress={e => {
+              e.stopPropagation();
+              const toggle = isRemoteActive ? remoteTogglePlayPause : localTogglePlayPause;
+              toggle();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={isPlaying ? 'Pause' : 'Play'}>
+            {isPlaying ? (
+              <View style={styles.miniPauseBars}>
+                <View style={styles.miniPauseBar} />
+                <View style={styles.miniPauseBar} />
+              </View>
+            ) : (
+              <View style={styles.miniPlayTriangle} />
+            )}
+          </Pressable>
+          {remoteError ? (
+            <Text style={styles.miniPlayerError}>{remoteError}</Text>
+          ) : null}
         </Pressable>
       ) : null}
 
@@ -294,131 +305,104 @@ export function LaikaApp() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#031019',
-  },
-  backdropOrbOne: {
-    position: 'absolute',
-    right: -60,
-    top: -30,
-    width: 210,
-    height: 210,
-    borderRadius: 105,
-    backgroundColor: '#1d4ed8',
-    opacity: 0.28,
-  },
-  backdropOrbTwo: {
-    position: 'absolute',
-    left: -80,
-    bottom: 140,
-    width: 260,
-    height: 260,
-    borderRadius: 130,
-    backgroundColor: colors.orange,
-    opacity: 0.18,
+    backgroundColor: colors.background,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: spacing.base,
     paddingTop: spacing.base,
+    paddingBottom: spacing.sm,
   },
   brand: {
     color: colors.textPrimary,
-    fontSize: 26,
-    letterSpacing: 1.5,
-    fontWeight: '800',
-  },
-  modePill: {
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: colors.borderAccent,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 7,
-    backgroundColor: colors.surface,
-  },
-  modePillLabel: {
-    color: '#93c5fd',
-    fontSize: 11,
+    fontSize: 24,
     fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  nowPlayingCard: {
-    marginHorizontal: spacing.sm + 2,
-    marginBottom: spacing.xs,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.cardBlueBorder,
-    backgroundColor: colors.surfaceRaised,
-    flexDirection: 'row',
-    overflow: 'hidden',
-  },
-  nowPlayingAccentBar: {
-    width: 3,
-    backgroundColor: colors.brand,
-    borderTopLeftRadius: radii.xl,
-    borderBottomLeftRadius: radii.xl,
-  },
-  nowPlayingContent: {
-    flex: 1,
-    paddingHorizontal: 14,
-    paddingVertical: spacing.md,
-  },
-  nowPlayingKicker: {
-    ...typography.label,
-    color: colors.textSecondary,
-  },
-  nowPlayingTitle: {
-    marginTop: spacing.sm - 2,
-    color: colors.textPrimary,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  nowPlayingArtist: {
-    marginTop: 2,
-    color: colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  remoteError: {
-    color: colors.error,
-    fontSize: 11,
-    marginTop: spacing.xs,
+    letterSpacing: -0.5,
   },
   content: {
     flex: 1,
-    marginTop: spacing.xs,
   },
+  // Mini-player (Spotify floating bar)
+  miniPlayer: {
+    marginHorizontal: spacing.sm,
+    marginBottom: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: radii.md,
+    backgroundColor: colors.surfaceElevated,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  miniPlayerInfo: {
+    flex: 1,
+    marginRight: spacing.md,
+  },
+  miniPlayerTitle: {
+    color: colors.textPrimary,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  miniPlayerArtist: {
+    color: colors.textSecondary,
+    fontSize: 11,
+    fontWeight: '400',
+    marginTop: 1,
+  },
+  miniPlayerBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.textPrimary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  miniPauseBars: {
+    flexDirection: 'row',
+    gap: 3,
+  },
+  miniPauseBar: {
+    width: 3,
+    height: 12,
+    backgroundColor: colors.background,
+    borderRadius: 1,
+  },
+  miniPlayTriangle: {
+    width: 0,
+    height: 0,
+    marginLeft: 2,
+    borderLeftWidth: 10,
+    borderTopWidth: 6,
+    borderBottomWidth: 6,
+    borderLeftColor: colors.background,
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
+  },
+  miniPlayerError: {
+    color: colors.error,
+    fontSize: 10,
+    marginLeft: spacing.sm,
+  },
+  // Bottom navigation
   navBar: {
     flexDirection: 'row',
-    paddingHorizontal: spacing.sm + 2,
-    paddingTop: spacing.sm + 2,
-    paddingBottom: 6,
-    gap: spacing.sm,
-    borderTopWidth: 1,
-    borderColor: colors.borderSubtle,
-    backgroundColor: colors.navBg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm + 2,
+    backgroundColor: colors.background,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.borderSubtle,
   },
   tab: {
     flex: 1,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.borderAccent,
-    borderRadius: radii.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.tabBg,
-  },
-  tabSelected: {
-    borderColor: colors.brand,
-    backgroundColor: colors.deepBlue,
+    paddingVertical: spacing.xs,
   },
   tabLabel: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    fontWeight: '700',
+    color: colors.inactiveIcon,
+    fontSize: 10,
+    fontWeight: '500',
+    marginTop: 2,
   },
   tabLabelSelected: {
-    color: colors.skyLight,
+    color: colors.textPrimary,
   },
   error: {
     color: colors.error,

@@ -24,8 +24,8 @@ export function LibraryScreen({
     <View style={styles.container}>
       <View style={styles.headerRow}>
         <View>
-          <Text style={styles.title}>Device Library</Text>
-          <Text style={styles.subtitle}>Device Library · {songs.length} songs</Text>
+          <Text style={styles.title}>Your Library</Text>
+          <Text style={styles.subtitle}>{songs.length} songs</Text>
         </View>
 
         <Pressable
@@ -56,29 +56,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.base,
     paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
-    backgroundColor: 'transparent',
+    backgroundColor: colors.background,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    gap: spacing.sm + 2,
+    gap: spacing.sm,
   },
   title: {
-    ...typography.title,
     color: colors.textPrimary,
+    fontSize: 24,
+    fontWeight: '700',
   },
   subtitle: {
     marginTop: 2,
     ...typography.caption,
     color: colors.textSecondary,
-    fontWeight: '500',
   },
   playerButton: {
-    borderRadius: radii.md - 2,
-    borderWidth: 1,
-    borderColor: colors.brandGlow,
-    backgroundColor: colors.deepBlue,
+    borderRadius: radii.pill,
+    backgroundColor: colors.textPrimary,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
@@ -86,7 +84,7 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
   playerButtonLabel: {
-    color: colors.skyLight,
+    color: colors.background,
     fontWeight: '700',
     fontSize: 12,
   },

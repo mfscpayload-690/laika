@@ -85,21 +85,9 @@ export function SearchScreen({
 
   return (
     <View style={styles.container}>
-      {/* ── Sticky header + search bar ── */}
+      {/* Sticky header + search bar */}
       <View style={styles.stickyTop}>
-        <View style={styles.headerRow}>
-          <View style={styles.headerText}>
-            <Text style={styles.heading}>Search</Text>
-            <Text style={styles.subheading}>Powered by YouTube</Text>
-          </View>
-          <IconButton
-            icon={<Music size={16} color={colors.skyLight} />}
-            onPress={onOpenPlayer}
-            variant="ghost"
-            size="sm"
-            accessibilityLabel="Open player"
-          />
-        </View>
+        <Text style={styles.heading}>Search</Text>
 
         {/* Search bar */}
         <View style={styles.searchBar}>
@@ -108,7 +96,7 @@ export function SearchScreen({
             value={query}
             onChangeText={handleQueryChange}
             onSubmitEditing={handleSubmit}
-            placeholder="Artist, song title..."
+            placeholder="What do you want to listen to?"
             placeholderTextColor={colors.textMuted}
             style={styles.input}
             returnKeyType="search"
@@ -133,7 +121,7 @@ export function SearchScreen({
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
       </View>
 
-      {/* ── List area ── */}
+      {/* List area */}
       {loading ? (
         <View style={styles.centeredState}>
           <ActivityIndicator size="large" color={colors.brand} />
@@ -141,13 +129,13 @@ export function SearchScreen({
         </View>
       ) : showTypePrompt ? (
         <View style={styles.centeredState}>
-          <Music size={48} color={colors.borderAccent} />
+          <Music size={48} color={colors.surfaceElevated} />
           <Text style={styles.stateTitle}>Find your music</Text>
           <Text style={styles.stateText}>Search for any song or artist</Text>
         </View>
       ) : showNoResults ? (
         <View style={styles.centeredState}>
-          <SearchX size={48} color={colors.borderAccent} />
+          <SearchX size={48} color={colors.surfaceElevated} />
           <Text style={styles.stateTitle}>No results</Text>
           <Text style={styles.stateText}>No results for "{query.trim()}"</Text>
         </View>
@@ -176,11 +164,9 @@ export function SearchScreen({
                     <Text style={styles.playingText}>PLAYING</Text>
                   </View>
                 ) : item.duration_ms ? (
-                  <View style={styles.durationBadge}>
-                    <Text style={styles.durationText}>
-                      {formatDuration(item.duration_ms)}
-                    </Text>
-                  </View>
+                  <Text style={styles.durationText}>
+                    {formatDuration(item.duration_ms)}
+                  </Text>
                 ) : undefined
               }
             />
@@ -194,45 +180,32 @@ export function SearchScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: colors.background,
   },
   stickyTop: {
     paddingHorizontal: spacing.base,
     paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
-    backgroundColor: colors.bg,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  headerText: {
-    flex: 1,
+    paddingBottom: spacing.md,
+    backgroundColor: colors.background,
   },
   heading: {
-    ...typography.title,
     color: colors.textPrimary,
-  },
-  subheading: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    marginTop: 2,
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: spacing.md,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surfaceRaised,
-    borderWidth: 1,
-    borderColor: colors.cardBlueBorder,
-    borderRadius: radii.lg,
+    backgroundColor: colors.textPrimary,
+    borderRadius: radii.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     gap: spacing.sm,
   },
   input: {
     flex: 1,
-    color: colors.textPrimary,
+    color: colors.background,
     fontSize: 15,
     paddingVertical: spacing.sm,
   },
@@ -267,37 +240,29 @@ const styles = StyleSheet.create({
   },
   stateTitle: {
     ...typography.heading,
-    color: colors.textSecondary,
+    color: colors.textPrimary,
   },
   stateText: {
     ...typography.body,
-    color: colors.textMuted,
+    color: colors.textSecondary,
     textAlign: 'center',
     paddingHorizontal: spacing.xxl,
   },
-  // Duration badge
-  durationBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radii.sm,
-    backgroundColor: colors.borderSubtle,
-  },
+  // Duration text
   durationText: {
     ...typography.caption,
     color: colors.textMuted,
     fontVariant: ['tabular-nums'],
   },
-  // Playing badge (mirrors TrackRow's internal style for consistency)
+  // Playing badge
   playingBadge: {
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    borderRadius: radii.sm - 2,
-    backgroundColor: colors.activeDeepBg,
-    borderWidth: 1,
-    borderColor: colors.activeBorder,
+    borderRadius: radii.xs,
+    backgroundColor: 'rgba(29, 185, 84, 0.15)',
   },
   playingText: {
-    color: colors.active,
+    color: colors.brand,
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 0.5,

@@ -41,7 +41,7 @@ export function TrackRow({
       )}
 
       <View style={styles.textWrap}>
-        <Text style={styles.title} numberOfLines={1}>
+        <Text style={[styles.title, isActive && styles.titleActive]} numberOfLines={1}>
           {title}
         </Text>
         <Text style={styles.artist} numberOfLines={1}>
@@ -57,9 +57,7 @@ export function TrackRow({
         <View style={styles.playingBadge}>
           <Text style={styles.playingText}>PLAYING</Text>
         </View>
-      ) : (
-        <View style={styles.dot} />
-      )}
+      ) : null}
     </Pressable>
   );
 }
@@ -68,25 +66,22 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.borderAccent,
-    borderRadius: radii.lg,
-    padding: spacing.sm + 2,
-    marginBottom: spacing.sm + 2,
-    backgroundColor: colors.surface,
+    borderRadius: radii.sm,
+    padding: spacing.sm,
+    marginBottom: spacing.xs,
+    backgroundColor: 'transparent',
   },
   rowActive: {
-    borderColor: colors.active,
-    backgroundColor: colors.activeBg,
+    backgroundColor: colors.surfaceElevated,
   },
   thumb: {
     width: 48,
     height: 48,
-    borderRadius: radii.sm,
+    borderRadius: radii.xs,
     marginRight: spacing.md,
   },
   thumbFallback: {
-    backgroundColor: colors.borderSubtle,
+    backgroundColor: colors.surfaceElevated,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -95,31 +90,26 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
   },
   title: {
-    ...typography.bodyStrong,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '600',
     color: colors.textPrimary,
+  },
+  titleActive: {
+    color: colors.brand,
   },
   artist: {
     ...typography.caption,
     color: colors.textSecondary,
     marginTop: 2,
   },
-  dot: {
-    width: 9,
-    height: 9,
-    borderRadius: 5,
-    backgroundColor: colors.borderAccent,
-  },
   playingBadge: {
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    borderRadius: radii.sm - 2,
-    backgroundColor: colors.activeDeepBg,
-    borderWidth: 1,
-    borderColor: colors.activeBorder,
+    borderRadius: radii.xs,
+    backgroundColor: 'rgba(29, 185, 84, 0.15)',
   },
   playingText: {
-    color: colors.active,
+    color: colors.brand,
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 0.5,

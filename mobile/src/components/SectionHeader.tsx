@@ -21,8 +21,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   label: {
-    ...typography.label,
-    color: colors.textMuted,
+    color: colors.textPrimary,
+    fontSize: 22,
+    fontWeight: '700',
   },
   subtitle: {
     ...typography.caption,

@@ -21,12 +21,6 @@ type SongListProps = {
   onScanPress?: () => void;
 };
 
-const ICON_COLORS = [
-  '#7c3aed', '#0369a1', '#065f46', '#92400e',
-  '#9f1239', '#1d4ed8', '#0f766e', '#4d7c0f',
-  '#6b21a8', '#b45309',
-];
-
 function formatDuration(ms: number): string {
   if (!ms) return '';
   const totalSec = Math.floor(ms / 1000);
@@ -42,7 +36,6 @@ type SongRowProps = {
 };
 
 function SongRow({ item, isActive, onPress }: SongRowProps) {
-  const iconBg = ICON_COLORS[item.title.charCodeAt(0) % ICON_COLORS.length];
   const duration = formatDuration(item.duration);
 
   return (
@@ -51,16 +44,16 @@ function SongRow({ item, isActive, onPress }: SongRowProps) {
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`${item.title} by ${item.artist}${isActive ? ', currently playing' : ''}`}>
-      <View style={[styles.iconSquare, { backgroundColor: iconBg }]}>
+      <View style={styles.iconSquare}>
         {isActive ? (
-          <AudioLines size={20} color="#ffffff" strokeWidth={2} />
+          <AudioLines size={20} color={colors.brand} strokeWidth={2} />
         ) : (
-          <Music size={20} color="#ffffff" strokeWidth={2} />
+          <Music size={20} color={colors.textMuted} strokeWidth={2} />
         )}
       </View>
 
       <View style={styles.textWrap}>
-        <Text style={styles.title} numberOfLines={1}>
+        <Text style={[styles.title, isActive && styles.titleActive]} numberOfLines={1}>
           {item.title}
         </Text>
         <Text style={styles.artist} numberOfLines={1}>
@@ -117,7 +110,7 @@ export function SongList({
   if (songs.length === 0) {
     return (
       <View style={styles.emptyContainer}>
-        <Music size={56} color={colors.borderAccent} />
+        <Music size={56} color={colors.surfaceElevated} />
         <Text style={styles.emptyTitle}>No local songs yet</Text>
         <Text style={styles.emptySubtitle}>Scan your device to find audio files</Text>
         {onScanPress ? (
@@ -180,21 +173,19 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.borderAccent,
-    borderRadius: radii.lg,
-    padding: spacing.sm + 2,
-    marginBottom: spacing.sm + 2,
-    backgroundColor: colors.surface,
+    borderRadius: radii.sm,
+    padding: spacing.sm,
+    marginBottom: spacing.xs,
+    backgroundColor: 'transparent',
   },
   activeRow: {
-    borderColor: colors.active,
-    backgroundColor: colors.activeBg,
+    backgroundColor: colors.surfaceElevated,
   },
   iconSquare: {
     width: 44,
     height: 44,
-    borderRadius: radii.md,
+    borderRadius: radii.xs,
+    backgroundColor: colors.surfaceElevated,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
@@ -204,8 +195,12 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
   },
   title: {
-    ...typography.bodyStrong,
+    fontSize: 14,
+    fontWeight: '600',
     color: colors.textPrimary,
+  },
+  titleActive: {
+    color: colors.brand,
   },
   artist: {
     ...typography.caption,
@@ -215,13 +210,11 @@ const styles = StyleSheet.create({
   playingBadge: {
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    borderRadius: radii.sm - 2,
-    backgroundColor: colors.activeDeepBg,
-    borderWidth: 1,
-    borderColor: colors.activeBorder,
+    borderRadius: radii.xs,
+    backgroundColor: 'rgba(29, 185, 84, 0.15)',
   },
   playingText: {
-    color: colors.active,
+    color: colors.brand,
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 0.5,
@@ -251,14 +244,12 @@ const styles = StyleSheet.create({
   scanButton: {
     marginTop: spacing.sm,
     borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: colors.brand,
-    backgroundColor: colors.deepBlue,
+    backgroundColor: colors.textPrimary,
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
   },
   scanButtonLabel: {
-    color: colors.brand,
+    color: colors.background,
     fontSize: 14,
     fontWeight: '700',
   },

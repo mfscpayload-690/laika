@@ -44,7 +44,6 @@ const styles = StyleSheet.create({
   base: {
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
     borderRadius: radii.md,
   },
   // Sizes
@@ -53,16 +52,13 @@ const styles = StyleSheet.create({
   lg: { width: 56, height: 56, borderRadius: radii.lg },
   // Variants
   default: {
-    borderColor: colors.borderAccent,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceElevated,
   },
   primary: {
-    borderColor: colors.orange,
-    backgroundColor: colors.orangeDeep,
+    backgroundColor: colors.brand,
   },
   ghost: {
-    borderColor: colors.brandGlow,
-    backgroundColor: colors.deepBlue,
+    backgroundColor: 'transparent',
   },
   pressed: { opacity: 0.75 },
   disabled: { opacity: 0.45 },
