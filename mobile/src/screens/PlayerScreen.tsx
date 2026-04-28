@@ -1,108 +1,195 @@
-import React from 'react';
-import {Pressable, StyleSheet, Text, View} from 'react-native';
-import {Disc, ListMusic, Pause, Play, SkipBack, SkipForward} from 'lucide-react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Animated,
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { Pause, Play, SkipBack, SkipForward } from 'lucide-react-native';
+import TrackPlayer from 'react-native-track-player';
+
+import { colors, radii, shadows, spacing, typography } from '../theme';
 
 type PlayerScreenProps = {
   currentTitle: string;
   currentArtist: string;
+  currentAlbum?: string;
   currentPath?: string;
+  currentThumbnail?: string;
   queueSize: number;
   currentIndex: number;
   isReady: boolean;
   isPlaying: boolean;
-  onPlay: () => void;
-  onPause: () => void;
+  isLoading: boolean;
+  onTogglePlayPause: () => void;
   onNext: () => void;
   onPrevious: () => void;
 };
 
-type PlayerControlButtonProps = {
+type SkipButtonProps = {
   Icon: React.ElementType;
   onPress: () => void;
   disabled: boolean;
-  primary?: boolean;
 };
 
-function PlayerControlButton({Icon, onPress, disabled, primary}: PlayerControlButtonProps) {
-  const iconColor = primary ? '#fff7ed' : '#f1f5f9';
-
+function SkipButton({ Icon, onPress, disabled }: SkipButtonProps) {
   return (
     <Pressable
       onPress={onPress}
       disabled={disabled}
-      style={[
-        styles.controlButton,
-        primary && styles.controlButtonPrimary,
-        disabled && styles.controlButtonDisabled,
-      ]}
+      style={[styles.skipButton, disabled && styles.skipButtonDisabled]}
       accessibilityRole="button">
-      <Icon size={primary ? 26 : 22} color={iconColor} strokeWidth={2.5} />
+      <Icon size={24} color={colors.textPrimary} strokeWidth={2.5} />
     </Pressable>
   );
+}
+
+type PlayPauseButtonProps = {
+  isPlaying: boolean;
+  isLoading: boolean;
+  disabled: boolean;
+  onPress: () => void;
+};
+
+function PlayPauseButton({ isPlaying, isLoading, disabled, onPress }: PlayPauseButtonProps) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled || isLoading}
+      style={[styles.playButton, (disabled || isLoading) && styles.playButtonDisabled]}
+      accessibilityRole="button"
+      accessibilityLabel={isLoading ? 'Loading' : isPlaying ? 'Pause' : 'Play'}>
+      {isLoading ? (
+        <ActivityIndicator size="large" color="#fff7ed" />
+      ) : isPlaying ? (
+        <Pause size={32} color="#fff7ed" strokeWidth={2.5} fill="#fff7ed" />
+      ) : (
+        <Play size={32} color="#fff7ed" strokeWidth={2.5} fill="#fff7ed" />
+      )}
+    </Pressable>
+  );
+}
+
+function formatTime(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
 export function PlayerScreen({
   currentTitle,
   currentArtist,
+  currentAlbum,
   currentPath,
+  currentThumbnail,
   queueSize,
   currentIndex,
   isReady,
   isPlaying,
-  onPlay,
-  onPause,
+  isLoading,
+  onTogglePlayPause,
   onNext,
   onPrevious,
 }: PlayerScreenProps) {
   const hasTrack = Boolean(currentPath);
   const canControl = isReady && hasTrack;
 
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const [progress, setProgress] = useState({ position: 0, duration: 0 });
+  const [barWidth, setBarWidth] = useState(0);
+
+  // Pulse animation on play state change
+  useEffect(() => {
+    Animated.spring(scaleAnim, {
+      toValue: isPlaying ? 1.03 : 1.0,
+      useNativeDriver: true,
+      friction: 5,
+      tension: 40,
+    }).start();
+  }, [isPlaying, scaleAnim]);
+
+  // Poll progress when playing
+  useEffect(() => {
+    if (!isPlaying) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      TrackPlayer.getProgress()
+        .then(p => setProgress(p))
+        .catch(() => undefined);
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [isPlaying]);
+
+  const handleSeek = (event: { nativeEvent: { locationX: number } }) => {
+    if (!canControl || barWidth === 0 || progress.duration === 0) {
+      return;
+    }
+
+    const seekPosition = (event.nativeEvent.locationX / barWidth) * progress.duration;
+    TrackPlayer.seekTo(seekPosition).catch(() => undefined);
+  };
+
+  const progressPercent =
+    progress.duration > 0 ? (progress.position / progress.duration) * 100 : 0;
+
   return (
     <View style={styles.container}>
-      <Text style={styles.kicker}>Local Playback Engine</Text>
+      <Animated.View style={[styles.artworkContainer, { transform: [{ scale: scaleAnim }] }]}>
+        {currentThumbnail ? (
+          <Image source={{ uri: currentThumbnail }} style={styles.artworkImage} />
+        ) : (
+          <View style={styles.artworkFallback}>
+            <Text style={styles.artworkInitial}>
+              {currentTitle.slice(0, 1).toUpperCase() || 'L'}
+            </Text>
+          </View>
+        )}
+      </Animated.View>
 
-      <View style={styles.coverCard}>
-        <Text style={styles.coverGlyph}>{currentTitle.slice(0, 1).toUpperCase() || 'L'}</Text>
-      </View>
-
-      <Text style={styles.title} numberOfLines={2}>
+      <Text style={styles.title} numberOfLines={1}>
         {currentTitle}
       </Text>
       <Text style={styles.artist} numberOfLines={1}>
         {currentArtist}
       </Text>
+      {currentAlbum ? (
+        <Text style={styles.album} numberOfLines={1}>
+          {currentAlbum}
+        </Text>
+      ) : null}
 
-      <View style={styles.metaRow}>
-        <View style={styles.metaPill}>
-          <ListMusic size={12} color="#cbd5e1" style={{marginRight: 5}} />
-          <Text style={styles.metaLabel}>{queueSize} in queue</Text>
-        </View>
-        <View style={styles.metaPill}>
-          <Disc size={12} color="#cbd5e1" style={{marginRight: 5}} />
-          <Text style={styles.metaLabel}>
-            {currentIndex > 0 ? `Track ${currentIndex}` : 'No selection'}
-          </Text>
+      <View style={styles.progressSection}>
+        <Pressable
+          style={styles.progressBarContainer}
+          onPress={handleSeek}
+          onLayout={e => setBarWidth(e.nativeEvent.layout.width)}
+          disabled={!canControl}>
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
+          </View>
+        </Pressable>
+        <View style={styles.timeRow}>
+          <Text style={styles.timeText}>{formatTime(progress.position)}</Text>
+          <Text style={styles.timeText}>{formatTime(progress.duration)}</Text>
         </View>
       </View>
 
       <View style={styles.controlsRow}>
-        <PlayerControlButton Icon={SkipBack} onPress={onPrevious} disabled={!canControl} />
-        <PlayerControlButton
-          Icon={isPlaying ? Pause : Play}
-          onPress={isPlaying ? onPause : onPlay}
+        <SkipButton Icon={SkipBack} onPress={onPrevious} disabled={!canControl} />
+        <PlayPauseButton
+          isPlaying={isPlaying}
+          isLoading={isLoading}
           disabled={!canControl}
-          primary
+          onPress={onTogglePlayPause}
         />
-        <PlayerControlButton Icon={SkipForward} onPress={onNext} disabled={!canControl} />
+        <SkipButton Icon={SkipForward} onPress={onNext} disabled={!canControl} />
       </View>
-
-      <Text style={styles.statusText}>
-        {isReady
-          ? hasTrack
-            ? 'Track player ready'
-            : 'Pick a song from Search or Library to start playback'
-          : 'Initializing audio engine...'}
-      </Text>
     </View>
   );
 }
@@ -112,110 +199,116 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl,
     backgroundColor: 'transparent',
   },
-  kicker: {
-    color: '#93c5fd',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
+  artworkContainer: {
+    width: 240,
+    height: 240,
+    borderRadius: radii.xxl,
+    ...shadows.glow,
   },
-  coverCard: {
-    marginTop: 14,
-    width: 210,
-    height: 210,
-    borderRadius: 24,
+  artworkImage: {
+    width: 240,
+    height: 240,
+    borderRadius: radii.xxl,
     borderWidth: 1,
-    borderColor: '#0ea5e9',
-    backgroundColor: '#082f49',
+    borderColor: colors.coverBorder,
+  },
+  artworkFallback: {
+    width: 240,
+    height: 240,
+    borderRadius: radii.xxl,
+    borderWidth: 1,
+    borderColor: colors.coverBorder,
+    backgroundColor: colors.deepBlue,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#0284c7',
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
-    shadowOffset: {width: 0, height: 8},
-    elevation: 6,
   },
-  coverGlyph: {
-    color: '#e0f2fe',
-    fontSize: 94,
+  artworkInitial: {
+    color: colors.skyLight,
+    fontSize: 96,
     fontWeight: '800',
   },
   title: {
-    marginTop: 18,
-    color: '#f8fafc',
-    fontSize: 27,
+    marginTop: spacing.xl,
+    ...typography.display,
+    color: colors.textPrimary,
     textAlign: 'center',
-    fontWeight: '800',
-    lineHeight: 33,
+    paddingHorizontal: spacing.base,
   },
   artist: {
-    marginTop: 8,
-    color: '#cbd5e1',
-    fontSize: 15,
-    fontWeight: '500',
+    marginTop: spacing.sm,
+    ...typography.heading,
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
-  metaRow: {
-    marginTop: 14,
+  album: {
+    marginTop: spacing.xs,
+    ...typography.caption,
+    color: colors.textMuted,
+    textAlign: 'center',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  progressSection: {
+    width: '100%',
+    marginTop: spacing.xl,
+  },
+  progressBarContainer: {
+    width: '100%',
+    paddingVertical: spacing.sm,
+  },
+  progressTrack: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.borderSubtle,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: 4,
+    backgroundColor: colors.brand,
+  },
+  timeRow: {
     flexDirection: 'row',
-    gap: 8,
+    justifyContent: 'space-between',
+    marginTop: spacing.sm,
   },
-  metaPill: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#334155',
-    backgroundColor: '#0f172a',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  metaLabel: {
-    color: '#cbd5e1',
-    fontSize: 11,
-    fontWeight: '600',
+  timeText: {
+    ...typography.caption,
+    color: colors.textMuted,
   },
   controlsRow: {
-    marginTop: 26,
+    marginTop: spacing.xl,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: spacing.base,
   },
-  controlButton: {
-    borderRadius: 12,
+  skipButton: {
+    width: 52,
+    height: 52,
+    borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: '#475569',
-    backgroundColor: '#0f172a',
-    minWidth: 80,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
+    borderColor: colors.borderAccent,
+    backgroundColor: colors.surface,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  controlButtonPrimary: {
-    borderColor: '#f97316',
-    backgroundColor: '#9a3412',
-    minWidth: 110,
+  skipButtonDisabled: {
+    opacity: 0.4,
   },
-  controlButtonDisabled: {
-    opacity: 0.45,
+  playButton: {
+    width: 68,
+    height: 68,
+    borderRadius: radii.lg,
+    borderWidth: 2,
+    borderColor: colors.orange,
+    backgroundColor: colors.orangeDeep,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  controlLabel: {
-    color: '#f1f5f9',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  controlLabelPrimary: {
-    color: '#fff7ed',
-  },
-  controlLabelDisabled: {
-    color: '#94a3b8',
-  },
-  statusText: {
-    marginTop: 14,
-    color: '#94a3b8',
-    textAlign: 'center',
-    fontSize: 12,
+  playButtonDisabled: {
+    opacity: 0.4,
   },
 });
