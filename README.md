@@ -34,17 +34,25 @@ The system is designed as a stateless intelligence layer that orchestrates betwe
 
 ```text
 laika-music/
-├── backend/                # FastAPI stateless intelligence layer
-│   ├── core/               # Configuration and unified schemas
-│   ├── routers/            # API endpoints (Search, Resolve, Health)
-│   ├── services/           # Business logic (YouTube, Matching, yt-dlp)
-│   └── main.py             # Application entrypoint
-├── mobile/                 # React Native cross-platform application
+├── backend/                    # FastAPI Stateless Intelligence Layer
+│   ├── core/                   # Application config, schemas, and security
+│   ├── routers/                # API route handlers (Search, Resolve, Health)
+│   ├── services/               # Orchestration logic (YouTube, Matching, yt-dlp)
+│   ├── main.py                 # ASGI application entrypoint
+│   └── requirements.txt        # Backend dependencies
+├── mobile/                     # React Native Cross-Platform Application
+│   ├── android/                # Native Android implementation (Kotlin/Java)
 │   ├── src/
-│   │   ├── components/     # Atomic UI components
-│   │   ├── hooks/          # Shared logic and player state
-│   │   ├── screens/        # Primary view layouts
-│   │   └── services/       # Native bridges and API clients
+│   │   ├── components/         # Reusable UI components & atomic design
+│   │   ├── hooks/              # Custom React hooks (Player state, API)
+│   │   ├── screens/            # Full-page view components
+│   │   ├── services/           # Native bridges & background audio services
+│   │   ├── types/              # TypeScript interfaces & domain models
+│   │   └── theme.ts            # Global design tokens
+│   ├── App.tsx                 # Root application component
+│   └── package.json            # Mobile dependencies & scripts
+├── README.md                   # Technical documentation
+└── .gitignore                  # Optimized exclusion rules
 ```
 
 ## Getting Started
