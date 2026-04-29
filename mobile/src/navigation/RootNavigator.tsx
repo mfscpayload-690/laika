@@ -13,6 +13,7 @@ import { colors, spacing } from '../theme';
 const Stack = createStackNavigator<RootStackParamList>();
 const TAB_BAR_BASE_HEIGHT = 62;
 const MINI_PLAYER_HEIGHT = 64;
+const MINI_PLAYER_BOTTOM_GAP = 10;
 
 export function RootNavigator() {
   const insets = useSafeAreaInsets();
@@ -58,6 +59,7 @@ export function RootNavigator() {
 
   const showMiniPlayer =
     Boolean(currentTrackId || activeRemoteTrack) && activeRouteName !== 'Player';
+  const miniPlayerBottomOffset = TAB_BAR_BASE_HEIGHT + Math.max(insets.bottom, 0) + 6;
 
   return (
     <View style={styles.root}>
@@ -101,7 +103,7 @@ export function RootNavigator() {
 
       {/* Persistent Mini-Player Overlay */}
       {showMiniPlayer && (
-        <View style={styles.miniPlayerContainer}>
+        <View style={[styles.miniPlayerContainer, {bottom: miniPlayerBottomOffset}]}>
           <MiniPlayer
             title={activeRemoteTrack?.title || activeSong?.title}
             artist={activeRemoteTrack?.artist || activeSong?.artist}
@@ -189,7 +191,6 @@ const styles = StyleSheet.create({
   },
   miniPlayerContainer: {
     position: 'absolute',
-    bottom: TAB_BAR_BASE_HEIGHT + 2,
     left: 0,
     right: 0,
     paddingHorizontal: spacing.sm,
