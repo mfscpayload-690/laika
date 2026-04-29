@@ -4,10 +4,21 @@ import RNFS from 'react-native-fs';
 import type {LocalSong} from '../types/music';
 
 const AUDIO_EXTENSIONS = new Set(['.mp3', '.m4a', '.aac', '.wav', '.flac', '.ogg']);
+const EXCLUDED_PATH_PATTERNS = [
+  '/whatsapp/',
+  '/whatsapp audio/',
+  '/whatsapp voice notes/',
+  '/whatsapp voice messages/',
+];
 
 function hasAudioExtension(path: string): boolean {
   const lowerPath = path.toLowerCase();
   return Array.from(AUDIO_EXTENSIONS).some(ext => lowerPath.endsWith(ext));
+}
+
+function isExcludedAudioPath(path: string): boolean {
+  const normalizedPath = path.toLowerCase().replace(/\\/g, '/');
+  return EXCLUDED_PATH_PATTERNS.some(pattern => normalizedPath.includes(pattern));
 }
 
 function parseFileName(fileName: string): {title: string; artist: string} {
@@ -36,6 +47,8 @@ function normalizeSong(value: Partial<LocalSong>): LocalSong | null {
     album: value.album,
     artwork: value.artwork,
     duration: typeof value.duration === 'number' ? value.duration : 0,
+    addedAt: typeof value.addedAt === 'number' ? value.addedAt : undefined,
+    modifiedAt: typeof value.modifiedAt === 'number' ? value.modifiedAt : undefined,
     path: value.path,
   };
 }
@@ -49,6 +62,10 @@ function deduplicateSongs(songs: LocalSong[]): LocalSong[] {
     seen.add(song.path);
     return true;
   });
+}
+
+function sortByTitle(songs: LocalSong[]): LocalSong[] {
+  return [...songs].sort((a, b) => a.title.localeCompare(b.title));
 }
 
 async function requestAndroidAudioPermission(): Promise<boolean> {
@@ -95,7 +112,7 @@ async function scanWithNativeAndroidModule(): Promise<LocalSong[]> {
     .map(normalizeSong)
     .filter((song): song is LocalSong => song !== null);
 
-  return deduplicateSongs(normalized).sort((a, b) => a.title.localeCompare(b.title));
+  return sortByTitle(deduplicateSongs(normalized));
 }
 
 async function walkDirectory(rootPath: string): Promise<RNFS.ReadDirItem[]> {
@@ -120,7 +137,7 @@ async function walkDirectory(rootPath: string): Promise<RNFS.ReadDirItem[]> {
       for (const entry of entries) {
         if (entry.isDirectory()) {
           queue.push(entry.path);
-        } else if (entry.isFile()) {
+        } else if (entry.isFile() && !isExcludedAudioPath(entry.path)) {
           files.push(entry);
         }
       }
@@ -176,28 +193,30 @@ export async function scanDeviceForAudio(options?: ScanAudioOptions): Promise<Lo
   const chunkSize = options?.chunkSize ?? 120;
   const scannedSongs = allFiles
     .flat()
-    .filter(item => hasAudioExtension(item.path))
+    .filter(item => hasAudioExtension(item.path) && !isExcludedAudioPath(item.path))
     .map(item => {
       const metadata = parseFileName(item.name);
+      const modifiedAt = item.mtime ? item.mtime.getTime() : undefined;
+      const addedAt = item.ctime ? item.ctime.getTime() : modifiedAt;
 
       return {
         id: item.path,
         title: metadata.title,
         artist: metadata.artist,
         duration: 0,
+        addedAt,
+        modifiedAt,
         path: item.path,
       };
     });
 
   if (options?.onChunk) {
     for (let offset = 0; offset < scannedSongs.length; offset += chunkSize) {
-      const chunk = deduplicateSongs(scannedSongs.slice(0, offset + chunkSize)).sort((a, b) =>
-        a.title.localeCompare(b.title),
-      );
+      const chunk = sortByTitle(deduplicateSongs(scannedSongs.slice(0, offset + chunkSize)));
       options.onChunk(chunk);
       await Promise.resolve();
     }
   }
 
-  return deduplicateSongs(scannedSongs).sort((a, b) => a.title.localeCompare(b.title));
+  return sortByTitle(deduplicateSongs(scannedSongs));
 }
