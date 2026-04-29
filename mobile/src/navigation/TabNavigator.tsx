@@ -1,6 +1,8 @@
 import React from 'react';
+import {InteractionManager} from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Home as HomeIcon, Search as SearchIcon, Library as LibraryIcon } from 'lucide-react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
 import { HomeScreen } from '../screens/HomeScreen';
 import { SearchScreen } from '../screens/SearchScreen';
@@ -8,33 +10,66 @@ import { LibraryScreen } from '../screens/LibraryScreen';
 import { colors, spacing } from '../theme';
 import { MainTabsParamList } from './types';
 import { usePlayback } from '../context/PlaybackContext';
-import { ensureAudioPermission, scanDeviceForAudio } from '../services/audioScanner';
-import { saveCachedSongs } from '../services/libraryCache';
+import {scanDeviceForAudio} from '../services/audioScanner';
+import { saveCachedSongs, saveCachedSongsChunk } from '../services/libraryCache';
 
 const Tab = createBottomTabNavigator<MainTabsParamList>();
+const TAB_BAR_BASE_HEIGHT = 62;
 
 export function TabNavigator() {
-  const { 
-    songs, 
-    setSongs, 
-    playSong, 
-    playRemote, 
-    currentTrackId, 
+  const insets = useSafeAreaInsets();
+  const {
+    songs,
+    setSongs,
+    playSong,
+    playRemote,
+    currentTrackId,
     activeRemoteTrack,
-    isLoading
+    isLoading,
   } = usePlayback();
-  
+
   const [scanning, setScanning] = React.useState(false);
+  const lastChunkSaveRef = React.useRef(0);
+  const activeLocalSong = React.useMemo(
+    () => songs.find(song => song.id === currentTrackId),
+    [songs, currentTrackId],
+  );
+  const hasCurrentSong = Boolean(currentTrackId) || Boolean(activeRemoteTrack);
 
   const handleScan = async () => {
     setScanning(true);
+    const scanPerfStart = Date.now();
+    if (__DEV__) {
+      console.log('[perf] scan:start');
+    }
+
     try {
-      const foundSongs = await scanDeviceForAudio();
-      setSongs(foundSongs);
+      const foundSongs = await scanDeviceForAudio({
+        incrementalRefresh: true,
+        chunkSize: 120,
+        onChunk: chunkSongs => {
+          InteractionManager.runAfterInteractions(() => {
+            setSongs(chunkSongs);
+          });
+
+          const now = Date.now();
+          if (now - lastChunkSaveRef.current > 1200) {
+            lastChunkSaveRef.current = now;
+            saveCachedSongsChunk(chunkSongs).catch(() => undefined);
+          }
+        },
+      });
+      InteractionManager.runAfterInteractions(() => {
+        setSongs(foundSongs);
+      });
       await saveCachedSongs(foundSongs);
     } catch (error) {
       console.error(error);
     } finally {
+      if (__DEV__) {
+        const elapsed = Date.now() - scanPerfStart;
+        console.log(`[perf] scan:start->finish ${elapsed}ms`);
+      }
       setScanning(false);
     }
   };
@@ -46,16 +81,22 @@ export function TabNavigator() {
         tabBarStyle: {
           backgroundColor: colors.background,
           borderTopColor: colors.borderSubtle,
-          paddingTop: spacing.xs,
-          paddingBottom: spacing.sm + 2,
-          height: 60,
+          borderTopWidth: 1,
+          paddingTop: 6,
+          paddingBottom: Math.max(6, insets.bottom),
+          height: TAB_BAR_BASE_HEIGHT + Math.max(insets.bottom, 0),
         },
         tabBarActiveTintColor: colors.textPrimary,
         tabBarInactiveTintColor: colors.inactiveIcon,
         tabBarLabelStyle: {
           fontSize: 10,
           fontWeight: '500',
-          marginTop: 2,
+          marginTop: 0,
+          marginBottom: 0,
+        },
+        tabBarItemStyle: {
+          justifyContent: 'center',
+          alignItems: 'center',
         },
       }}
     >
@@ -73,9 +114,9 @@ export function TabNavigator() {
             scanning={scanning}
             onOpenLibrary={() => props.navigation.navigate('Library')}
             onOpenPlayer={() => props.navigation.navigate('Player')}
-            hasCurrentSong={Boolean(currentTrackId) || Boolean(activeRemoteTrack)}
-            nowPlayingTitle={activeRemoteTrack?.title || songs.find(s => s.id === currentTrackId)?.title}
-            nowPlayingArtist={activeRemoteTrack?.artist || songs.find(s => s.id === currentTrackId)?.artist}
+            hasCurrentSong={hasCurrentSong}
+            nowPlayingTitle={activeRemoteTrack?.title || activeLocalSong?.title}
+            nowPlayingArtist={activeRemoteTrack?.artist || activeLocalSong?.artist}
             nowPlayingThumbnail={activeRemoteTrack?.thumbnail}
             onOpenSearch={() => props.navigation.navigate('Search')}
           />
@@ -94,7 +135,6 @@ export function TabNavigator() {
             onSelectTrack={playRemote}
             resolvingId={isLoading ? activeRemoteTrack?.id || null : null}
             activeTrackId={activeRemoteTrack?.id || null}
-            onOpenPlayer={() => props.navigation.navigate('Player')}
           />
         )}
       </Tab.Screen>
