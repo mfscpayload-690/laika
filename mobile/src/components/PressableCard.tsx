@@ -31,7 +31,8 @@ export function PressableCard({
         pressed && styles.cardPressed,
         disabled && styles.cardDisabled,
         style,
-      ]}>
+      ]}
+      android_ripple={{ color: 'rgba(255,255,255,0.1)' }}>
       {children}
     </Pressable>
   );
@@ -51,6 +52,7 @@ const styles = StyleSheet.create({
   },
   cardPressed: {
     opacity: 0.8,
+    transform: [{ scale: 0.96 }],
   },
   cardDisabled: {
     opacity: 0.45,
