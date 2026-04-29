@@ -135,7 +135,13 @@ async function walkDirectory(rootPath: string): Promise<RNFS.ReadDirItem[]> {
   return files;
 }
 
-export async function scanDeviceForAudio(): Promise<LocalSong[]> {
+export type ScanAudioOptions = {
+  onChunk?: (songs: LocalSong[]) => void;
+  chunkSize?: number;
+  incrementalRefresh?: boolean;
+};
+
+export async function scanDeviceForAudio(options?: ScanAudioOptions): Promise<LocalSong[]> {
   const hasPermission = await requestAndroidAudioPermission();
   if (!hasPermission) {
     throw new Error('Audio permission denied');
@@ -144,20 +150,30 @@ export async function scanDeviceForAudio(): Promise<LocalSong[]> {
   try {
     const fastNativeScan = await scanWithNativeAndroidModule();
     if (fastNativeScan.length > 0) {
-      return deduplicateSongs(fastNativeScan);
+      const dedupedNative = deduplicateSongs(fastNativeScan);
+      options?.onChunk?.(dedupedNative);
+      return dedupedNative;
     }
   } catch {
     // Continue with filesystem fallback for stability.
   }
 
+  const preferredAndroidRoots = [
+    `${RNFS.ExternalStorageDirectoryPath}/Music`,
+    RNFS.DownloadDirectoryPath,
+  ];
+
   const roots = Platform.select({
-    android: [RNFS.ExternalStorageDirectoryPath], // Avoid DownloadDirectoryPath as it's a child of ExternalStorage
+    android: options?.incrementalRefresh === false
+      ? [RNFS.ExternalStorageDirectoryPath]
+      : [...preferredAndroidRoots, RNFS.ExternalStorageDirectoryPath],
     ios: [RNFS.DocumentDirectoryPath],
     default: [RNFS.DocumentDirectoryPath],
   });
 
   const allFiles = await Promise.all((roots ?? []).map(path => walkDirectory(path)));
 
+  const chunkSize = options?.chunkSize ?? 120;
   const scannedSongs = allFiles
     .flat()
     .filter(item => hasAudioExtension(item.path))
@@ -172,6 +188,16 @@ export async function scanDeviceForAudio(): Promise<LocalSong[]> {
         path: item.path,
       };
     });
+
+  if (options?.onChunk) {
+    for (let offset = 0; offset < scannedSongs.length; offset += chunkSize) {
+      const chunk = deduplicateSongs(scannedSongs.slice(0, offset + chunkSize)).sort((a, b) =>
+        a.title.localeCompare(b.title),
+      );
+      options.onChunk(chunk);
+      await Promise.resolve();
+    }
+  }
 
   return deduplicateSongs(scannedSongs).sort((a, b) => a.title.localeCompare(b.title));
 }

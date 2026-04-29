@@ -45,3 +45,7 @@ export async function saveCachedSongs(songs: LocalSong[]): Promise<void> {
     // Ignore cache write failures to avoid interrupting playback flow.
   }
 }
+
+export async function saveCachedSongsChunk(songs: LocalSong[]): Promise<void> {
+  await saveCachedSongs(songs);
+}
