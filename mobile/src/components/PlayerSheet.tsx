@@ -18,6 +18,7 @@ import Animated, {
   useSharedValue,
   withSpring,
   useAnimatedReaction,
+  useAnimatedProps,
 } from 'react-native-reanimated';
 import { ChevronDown, Music, Pause, Play, Repeat, Shuffle, SkipBack, SkipForward } from 'lucide-react-native';
 import TrackPlayer, { useProgress } from 'react-native-track-player';
@@ -316,10 +317,13 @@ export function PlayerSheet() {
       [1, 0],
       Extrapolation.CLAMP
     );
-    return { 
-      opacity,
+    return { opacity };
+  });
+
+  const animatedBgProps = useAnimatedProps(() => {
+    return {
       pointerEvents: translateY.value < maxTranslateY - 10 ? 'auto' : 'none',
-    };
+    } as any;
   });
 
   if (!hasTrack) {
@@ -334,7 +338,7 @@ export function PlayerSheet() {
         pointerEvents="box-none"
       >
         {/* Full Player Background */}
-        <Animated.View style={[StyleSheet.absoluteFill, animatedBgStyle]}>
+        <Animated.View style={[StyleSheet.absoluteFill, animatedBgStyle]} animatedProps={animatedBgProps}>
           {currentArtwork ? (
             <Image 
               source={{ uri: currentArtwork }} 
@@ -428,12 +432,14 @@ export function PlayerSheet() {
             <View style={styles.headerSpacer} />
           </View>
 
-          <BlurView 
-            style={styles.mainGlassCard}
-            blurType="dark"
-            blurAmount={15}
-            reducedTransparencyFallbackColor="rgba(255,255,255,0.06)"
-          >
+          <View style={styles.mainGlassCard}>
+            <BlurView 
+              style={StyleSheet.absoluteFill}
+              blurType="dark"
+              blurAmount={15}
+              reducedTransparencyFallbackColor="rgba(255,255,255,0.06)"
+              overlayColor="rgba(0,0,0,0.3)"
+            />
             <Animated.View style={animatedHorizontalContentStyle}>
               <View style={styles.artworkContainer}>
                 {currentArtwork ? (
@@ -504,17 +510,21 @@ export function PlayerSheet() {
                 {repeatMode === 'one' ? <Text style={styles.repeatOneLabel}>1</Text> : null}
               </Pressable>
             </View>
-          </BlurView>
+          </View>
 
-          <BlurView 
-            style={styles.secondaryGlassCard}
-            blurType="dark"
-            blurAmount={20}
-            reducedTransparencyFallbackColor="rgba(0,0,0,0.2)"
-          >
-            <Text style={styles.secondaryCardTitle}>Up Next / Lyrics</Text>
-            <Text style={styles.secondaryCardPlaceholder}>Playing from Library...</Text>
-          </BlurView>
+          <View style={styles.secondaryGlassCard}>
+            <BlurView 
+              style={StyleSheet.absoluteFill}
+              blurType="dark"
+              blurAmount={20}
+              reducedTransparencyFallbackColor="rgba(0,0,0,0.2)"
+              overlayColor="rgba(0,0,0,0.5)"
+            />
+            <View style={styles.secondaryGlassCardContent}>
+              <Text style={styles.secondaryCardTitle}>Up Next / Lyrics</Text>
+              <Text style={styles.secondaryCardPlaceholder}>Playing from Library...</Text>
+            </View>
+          </View>
         </Animated.View>
       </Animated.View>
     </GestureDetector>
@@ -597,9 +607,11 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.05)',
-    padding: spacing.lg,
     minHeight: 120,
     overflow: 'hidden',
+  },
+  secondaryGlassCardContent: {
+    padding: spacing.lg,
   },
   secondaryCardTitle: {
     ...typography.label,
