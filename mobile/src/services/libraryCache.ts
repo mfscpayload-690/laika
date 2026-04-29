@@ -15,7 +15,9 @@ function isValidSong(value: unknown): value is LocalSong {
     typeof candidate.title === 'string' &&
     typeof candidate.artist === 'string' &&
     typeof candidate.path === 'string' &&
-    typeof candidate.duration === 'number'
+    typeof candidate.duration === 'number' &&
+    (candidate.addedAt === undefined || typeof candidate.addedAt === 'number') &&
+    (candidate.modifiedAt === undefined || typeof candidate.modifiedAt === 'number')
   );
 }
 
@@ -39,6 +41,12 @@ function normalizeCachedDurations(songs: LocalSong[]): LocalSong[] {
   }));
 }
 
+function sortSongsByNewestTimestamp(songs: LocalSong[]): LocalSong[] {
+  return [...songs].sort(
+    (a, b) => (b.addedAt ?? b.modifiedAt ?? 0) - (a.addedAt ?? a.modifiedAt ?? 0),
+  );
+}
+
 export async function loadCachedSongs(): Promise<LocalSong[]> {
   try {
     const exists = await RNFS.exists(CACHE_FILE_PATH);
@@ -52,7 +60,7 @@ export async function loadCachedSongs(): Promise<LocalSong[]> {
       return [];
     }
 
-    return normalizeCachedDurations(parsed.filter(isValidSong));
+    return sortSongsByNewestTimestamp(normalizeCachedDurations(parsed.filter(isValidSong)));
   } catch {
     return [];
   }
