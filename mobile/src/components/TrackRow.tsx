@@ -27,7 +27,8 @@ export function TrackRow({
 }: TrackRowProps) {
   return (
     <Pressable
-      style={[styles.row, isActive && styles.rowActive]}
+      style={({pressed}) => [styles.row, isActive && styles.rowActive, pressed && { backgroundColor: 'rgba(255,255,255,0.05)', opacity: 0.8 }]}
+      android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="button"

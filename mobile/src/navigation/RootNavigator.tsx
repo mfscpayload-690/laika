@@ -148,7 +148,8 @@ function MiniPlayer({
 
   return (
     <Pressable
-      style={[styles.miniPlayer, {paddingBottom: 10 + Math.max(bottomInset - 4, 0)}]}
+      style={({pressed}) => [styles.miniPlayer, {paddingBottom: 10 + Math.max(bottomInset - 4, 0)}, pressed && {backgroundColor: 'rgba(255,255,255,0.05)'}]}
+      android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
       onPress={() => navigation.navigate('Player')}
     >
       {artwork ? (
@@ -164,10 +165,20 @@ function MiniPlayer({
       </View>
 
       <View style={styles.miniControls}>
-        <Pressable style={styles.miniControlBtn} onPress={handlePrevious} accessibilityRole="button">
+        <Pressable 
+          style={({pressed}) => [styles.miniControlBtn, pressed && {transform: [{scale: 0.85}]}]} 
+          android_ripple={{ color: 'rgba(255,255,255,0.1)', borderless: true, radius: 20 }}
+          onPress={handlePrevious} 
+          accessibilityRole="button"
+        >
           <SkipBack size={18} color={colors.textPrimary} strokeWidth={2.2} />
         </Pressable>
-        <Pressable style={styles.miniControlBtn} onPress={handleToggle} accessibilityRole="button">
+        <Pressable 
+          style={({pressed}) => [styles.miniControlBtn, pressed && {transform: [{scale: 0.85}]}]} 
+          android_ripple={{ color: 'rgba(255,255,255,0.1)', borderless: true, radius: 24 }}
+          onPress={handleToggle} 
+          accessibilityRole="button"
+        >
           {isLoading ? (
             <ActivityIndicator size="small" color={colors.textPrimary} />
           ) : isPlaying ? (
@@ -176,7 +187,12 @@ function MiniPlayer({
             <Play size={18} color={colors.textPrimary} strokeWidth={2.5} fill={colors.textPrimary} />
           )}
         </Pressable>
-        <Pressable style={styles.miniControlBtn} onPress={handleNext} accessibilityRole="button">
+        <Pressable 
+          style={({pressed}) => [styles.miniControlBtn, pressed && {transform: [{scale: 0.85}]}]} 
+          android_ripple={{ color: 'rgba(255,255,255,0.1)', borderless: true, radius: 20 }}
+          onPress={handleNext} 
+          accessibilityRole="button"
+        >
           <SkipForward size={18} color={colors.textPrimary} strokeWidth={2.2} />
         </Pressable>
       </View>
