@@ -11,6 +11,7 @@ import {
   Animated,
   Dimensions,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { ChevronDown, ChevronUp } from 'lucide-react-native';
 
 import { SongList } from '../components/SongList';
@@ -64,6 +65,15 @@ export function LibraryScreen({
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [alphabetFilter, setAlphabetFilter] = useState<'all' | string>('all');
   const [dateAddedAscending, setDateAddedAscending] = useState(false);
+  const navigation = useNavigation<any>();
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('tabPress', (e: any) => {
+      // Reset filter to 'all' when the user taps the Library tab again
+      setAlphabetFilter('all');
+    });
+    return unsubscribe;
+  }, [navigation]);
   const sidebarOpacity = React.useRef(new Animated.Value(0.3)).current;
   const hideTimer = React.useRef<any>(null);
   const lastUpdate = React.useRef(0);
