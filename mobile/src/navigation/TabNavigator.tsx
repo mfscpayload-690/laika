@@ -7,7 +7,7 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import { HomeScreen } from '../screens/HomeScreen';
 import { SearchScreen } from '../screens/SearchScreen';
 import { LibraryScreen } from '../screens/LibraryScreen';
-import { colors, spacing } from '../theme';
+import { colors } from '../theme';
 import { MainTabsParamList } from './types';
 import { usePlayback } from '../context/PlaybackContext';
 import {scanDeviceForAudio} from '../services/audioScanner';

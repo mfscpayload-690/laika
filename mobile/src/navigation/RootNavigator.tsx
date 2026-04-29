@@ -8,9 +8,11 @@ import { TabNavigator } from './TabNavigator';
 import { PlayerScreen } from '../screens/PlayerScreen';
 import { RootStackParamList } from './types';
 import { usePlayback } from '../context/PlaybackContext';
-import { colors, radii, spacing } from '../theme';
+import { colors, spacing } from '../theme';
 
 const Stack = createStackNavigator<RootStackParamList>();
+const TAB_BAR_BASE_HEIGHT = 62;
+const MINI_PLAYER_HEIGHT = 64;
 
 export function RootNavigator() {
   const insets = useSafeAreaInsets();
@@ -129,10 +131,22 @@ function MiniPlayer({
   bottomInset,
 }: any) {
   const navigation = useNavigation<any>();
+  const handlePrevious = (event: any) => {
+    event?.stopPropagation?.();
+    onPrevious();
+  };
+  const handleToggle = (event: any) => {
+    event?.stopPropagation?.();
+    onToggle();
+  };
+  const handleNext = (event: any) => {
+    event?.stopPropagation?.();
+    onNext();
+  };
 
   return (
     <Pressable
-      style={[styles.miniPlayer, {paddingBottom: spacing.sm + Math.max(bottomInset - 4, 0)}]}
+      style={[styles.miniPlayer, {paddingBottom: 10 + Math.max(bottomInset - 4, 0)}]}
       onPress={() => navigation.navigate('Player')}
     >
       {artwork ? (
@@ -148,20 +162,20 @@ function MiniPlayer({
       </View>
 
       <View style={styles.miniControls}>
-        <Pressable style={styles.miniControlBtn} onPress={onPrevious} accessibilityRole="button">
-          <SkipBack size={20} color={colors.textPrimary} strokeWidth={2.2} />
+        <Pressable style={styles.miniControlBtn} onPress={handlePrevious} accessibilityRole="button">
+          <SkipBack size={18} color={colors.textPrimary} strokeWidth={2.2} />
         </Pressable>
-        <Pressable style={styles.miniControlBtn} onPress={onToggle} accessibilityRole="button">
+        <Pressable style={styles.miniControlBtn} onPress={handleToggle} accessibilityRole="button">
           {isLoading ? (
             <ActivityIndicator size="small" color={colors.textPrimary} />
           ) : isPlaying ? (
-            <Pause size={20} color={colors.textPrimary} strokeWidth={2.5} fill={colors.textPrimary} />
+            <Pause size={18} color={colors.textPrimary} strokeWidth={2.5} fill={colors.textPrimary} />
           ) : (
-            <Play size={20} color={colors.textPrimary} strokeWidth={2.5} fill={colors.textPrimary} />
+            <Play size={18} color={colors.textPrimary} strokeWidth={2.5} fill={colors.textPrimary} />
           )}
         </Pressable>
-        <Pressable style={styles.miniControlBtn} onPress={onNext} accessibilityRole="button">
-          <SkipForward size={20} color={colors.textPrimary} strokeWidth={2.2} />
+        <Pressable style={styles.miniControlBtn} onPress={handleNext} accessibilityRole="button">
+          <SkipForward size={18} color={colors.textPrimary} strokeWidth={2.2} />
         </Pressable>
       </View>
     </Pressable>
@@ -175,63 +189,64 @@ const styles = StyleSheet.create({
   },
   miniPlayerContainer: {
     position: 'absolute',
-    bottom: 64,
+    bottom: TAB_BAR_BASE_HEIGHT + 2,
     left: 0,
     right: 0,
     paddingHorizontal: spacing.sm,
     backgroundColor: 'transparent',
   },
   miniPlayer: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    borderRadius: radii.md,
+    minHeight: MINI_PLAYER_HEIGHT,
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    borderRadius: 14,
     backgroundColor: '#2A2A2A',
     flexDirection: 'row',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.5,
-    shadowRadius: 4,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.22,
+    shadowRadius: 3,
+    elevation: 2,
   },
   miniArtwork: {
-    width: 46,
-    height: 46,
-    borderRadius: radii.sm,
-    marginRight: spacing.sm,
+    width: 44,
+    height: 44,
+    borderRadius: 6,
+    marginRight: 10,
   },
   miniArtworkFallback: {
-    width: 46,
-    height: 46,
-    borderRadius: radii.sm,
-    marginRight: spacing.sm,
+    width: 44,
+    height: 44,
+    borderRadius: 6,
+    marginRight: 10,
     backgroundColor: '#3B3B3B',
     alignItems: 'center',
     justifyContent: 'center',
   },
   miniPlayerInfo: {
     flex: 1,
-    marginRight: spacing.sm,
+    marginRight: 8,
   },
   miniPlayerTitle: {
     color: colors.textPrimary,
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '500',
   },
   miniPlayerArtist: {
     color: colors.textSecondary,
     fontSize: 11,
-    marginTop: 2,
+    marginTop: 1,
   },
   miniControls: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: 5,
   },
   miniControlBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
