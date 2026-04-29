@@ -215,7 +215,11 @@ export function PlayerScreen({
       <View style={styles.content}>
         {/* Header / Dismiss */}
         <View style={styles.header}>
-          <Pressable onPress={() => navigation.goBack()} style={styles.dismissBtn}>
+          <Pressable 
+            onPress={() => navigation.goBack()} 
+            style={({pressed}) => [styles.dismissBtn, pressed && {opacity: 0.5}]}
+            android_ripple={{ color: 'rgba(255,255,255,0.1)', borderless: true, radius: 24 }}
+          >
           <ChevronDown size={32} color={colors.textPrimary} />
         </Pressable>
         <View style={styles.headerTitleGroup}>
@@ -290,7 +294,8 @@ export function PlayerScreen({
       {/* Controls */}
       <View style={styles.controlsRow}>
         <Pressable
-          style={[styles.secondaryControl, isShuffleEnabled && styles.secondaryControlActive]}
+          style={({pressed}) => [styles.secondaryControl, isShuffleEnabled && styles.secondaryControlActive, pressed && {opacity: 0.7}]}
+          android_ripple={{ color: 'rgba(255,255,255,0.1)', borderless: true, radius: 24 }}
           disabled={!canControl}
           onPress={onToggleShuffle}
           accessibilityRole="button"
@@ -303,7 +308,8 @@ export function PlayerScreen({
         </Pressable>
 
         <Pressable
-          style={[styles.skipButton, !canControl && styles.controlDisabled]}
+          style={({pressed}) => [styles.skipButton, !canControl && styles.controlDisabled, pressed && {transform: [{scale: 0.9}]}]}
+          android_ripple={{ color: 'rgba(255,255,255,0.1)', borderless: true, radius: 32 }}
           onPress={onPrevious}
           disabled={!canControl}
           accessibilityRole="button">
@@ -313,7 +319,8 @@ export function PlayerScreen({
         <Pressable
           onPress={onTogglePlayPause}
           disabled={!canControl || isLoading}
-          style={[styles.playButton, (!canControl || isLoading) && styles.controlDisabled]}
+          style={({pressed}) => [styles.playButton, (!canControl || isLoading) && styles.controlDisabled, pressed && {transform: [{scale: 0.94}]}]}
+          android_ripple={{ color: 'rgba(0,0,0,0.1)', borderless: true, radius: 36 }}
           accessibilityRole="button"
           accessibilityLabel={isLoading ? 'Loading' : isPlaying ? 'Pause' : 'Play'}>
           {isLoading ? (
@@ -326,7 +333,8 @@ export function PlayerScreen({
         </Pressable>
 
         <Pressable
-          style={[styles.skipButton, !canControl && styles.controlDisabled]}
+          style={({pressed}) => [styles.skipButton, !canControl && styles.controlDisabled, pressed && {transform: [{scale: 0.9}]}]}
+          android_ripple={{ color: 'rgba(255,255,255,0.1)', borderless: true, radius: 32 }}
           onPress={onNext}
           disabled={!canControl}
           accessibilityRole="button">
@@ -334,7 +342,8 @@ export function PlayerScreen({
         </Pressable>
 
         <Pressable
-          style={[styles.secondaryControl, repeatMode !== 'off' && styles.secondaryControlActive]}
+          style={({pressed}) => [styles.secondaryControl, repeatMode !== 'off' && styles.secondaryControlActive, pressed && {opacity: 0.7}]}
+          android_ripple={{ color: 'rgba(255,255,255,0.1)', borderless: true, radius: 24 }}
           disabled={!canControl}
           onPress={onCycleRepeatMode}
           accessibilityRole="button"
