@@ -14,6 +14,7 @@ import {
 import { ChevronDown, ChevronUp } from 'lucide-react-native';
 
 import { SongList } from '../components/SongList';
+import { AlphabetSidebar } from '../components/AlphabetSidebar';
 import { colors, radii, spacing, typography } from '../theme';
 import type { LocalSong } from '../types/music';
 
@@ -38,13 +39,6 @@ function matchesAlphabetFilter(song: LocalSong, letter: string): boolean {
   return song.title.charAt(0).toUpperCase() === letter;
 }
 
-function matchesArtistFilter(song: LocalSong, artist: string | null): boolean {
-  if (artist === null) {
-    return true;
-  }
-  return song.artist === artist;
-}
-
 function sortSongs(songs: LocalSong[], ascending: boolean): LocalSong[] {
   const copy = [...songs];
   
@@ -59,16 +53,6 @@ function sortSongs(songs: LocalSong[], ascending: boolean): LocalSong[] {
   });
 }
 
-function getUniqueArtists(songs: LocalSong[]): string[] {
-  const artists = new Set<string>();
-  songs.forEach(song => {
-    if (song.artist && song.artist.trim()) {
-      artists.add(song.artist);
-    }
-  });
-  return Array.from(artists).sort((a, b) => a.localeCompare(b));
-}
-
 export function LibraryScreen({
   songs,
   currentTrackId,
@@ -80,16 +64,9 @@ export function LibraryScreen({
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [alphabetFilter, setAlphabetFilter] = useState<'all' | string>('all');
   const [dateAddedAscending, setDateAddedAscending] = useState(false);
-  const [artistFilter, setArtistFilter] = useState<string | null>(null);
-  const [activeLetterState, setActiveLetterState] = useState<string | null>(null);
-  const popAnim = React.useRef(new Animated.Value(0)).current;
   const sidebarOpacity = React.useRef(new Animated.Value(0)).current;
-  const popY = React.useRef(new Animated.Value(0)).current;
-
-  const sidebarRef = React.useRef<View>(null);
-  const sidebarLayout = React.useRef({ y: 0, height: 0 });
-  const lastUpdate = React.useRef(0);
   const hideTimer = React.useRef<any>(null);
+  const lastUpdate = React.useRef(0);
 
   const showSidebar = () => {
     if (hideTimer.current) clearTimeout(hideTimer.current);
@@ -108,64 +85,16 @@ export function LibraryScreen({
     }, 2000);
   };
 
-  const handleLetterSelection = (y: number, isFinal = false) => {
-    if (sidebarLayout.current.height === 0) return;
-    
-    const relativeY = y - sidebarLayout.current.y;
-    const totalLetters = ALPHABET.length + 1;
-    const letterHeight = sidebarLayout.current.height / totalLetters;
-    
-    let index = Math.floor(relativeY / letterHeight);
-    index = Math.max(0, Math.min(index, totalLetters - 1));
-    
-    const selected = index === 0 ? 'all' : ALPHABET[index - 1];
-    const letterText = selected === 'all' ? '•' : selected;
-
-    popY.setValue(y - sidebarLayout.current.y - 27);
-
-    if (letterText !== activeLetterState) {
-      setActiveLetterState(letterText);
-    }
-
+  const handleLetterChange = React.useCallback((letter: string, isFinal: boolean) => {
     const now = Date.now();
-    // Zero-delay for internal state (real-time!)
-    if (selected !== alphabetFilter) {
-      setAlphabetFilter(selected);
+    // Throttle the heavy list re-render, but guarantee final state
+    if (isFinal || now - lastUpdate.current > 150) {
+      if (alphabetFilter !== letter) {
+        setAlphabetFilter(letter);
+      }
+      lastUpdate.current = now;
     }
-    lastUpdate.current = now;
-  };
-
-  const panResponder = React.useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (evt) => {
-        showSidebar();
-        handleLetterSelection(evt.nativeEvent.pageY);
-        Animated.spring(popAnim, {
-          toValue: 1,
-          useNativeDriver: true,
-          tension: 150,
-          friction: 10,
-        }).start();
-      },
-      onPanResponderMove: (evt) => {
-        handleLetterSelection(evt.nativeEvent.pageY);
-      },
-      onPanResponderRelease: (evt) => {
-        handleLetterSelection(evt.nativeEvent.pageY, true);
-        setActiveLetterState(null);
-        Animated.timing(popAnim, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }).start();
-      },
-      onPanResponderTerminate: () => {
-        setActiveLetterState(null);
-      },
-    })
-  ).current;
+  }, [alphabetFilter]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -201,29 +130,22 @@ export function LibraryScreen({
     return map;
   }, [sortedSongs]);
 
-  const availableArtists = useMemo(() => getUniqueArtists(songs), [songs]);
-
   const visibleSongs = useMemo(() => {
     const pool = songsByAlphabet[alphabetFilter] || [];
     const normalizedQuery = debouncedQuery.trim().toLowerCase();
     
-    if (!normalizedQuery && !artistFilter) {
+    if (!normalizedQuery) {
       return pool;
     }
 
     return pool.filter(song => {
-      const matchesArtist = matchesArtistFilter(song, artistFilter);
-      if (!matchesArtist) return false;
-      
-      if (!normalizedQuery) return true;
       const searchText = `${song.title} ${song.artist} ${song.album ?? ''}`.toLowerCase();
       return searchText.includes(normalizedQuery);
     });
-  }, [alphabetFilter, songsByAlphabet, debouncedQuery, artistFilter]);
+  }, [alphabetFilter, songsByAlphabet, debouncedQuery]);
 
   const activeFilterCount =
     (alphabetFilter === 'all' ? 0 : 1) +
-    (artistFilter === null ? 0 : 1) +
     (debouncedQuery.trim() ? 1 : 0);
 
   return (
@@ -284,54 +206,6 @@ export function LibraryScreen({
         </Text>
       </View>
 
-      {/* Artist Filter */}
-      {availableArtists.length > 0 && (
-        <View style={styles.filterSection}>
-          <Text style={styles.filterTitle}>Artist</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.artistScroll}
-            contentContainerStyle={styles.artistContent}>
-            <Pressable
-              onPress={() => setArtistFilter(null)}
-              style={[
-                styles.artistChip,
-                artistFilter === null && styles.artistChipActive,
-              ]}
-              accessibilityRole="button"
-              accessibilityState={{selected: artistFilter === null}}>
-              <Text
-                style={[
-                  styles.artistLabel,
-                  artistFilter === null && styles.artistLabelActive,
-                ]}>
-                All Artists
-              </Text>
-            </Pressable>
-            {availableArtists.map((artist: string) => (
-              <Pressable
-                key={artist}
-                onPress={() => setArtistFilter(artist)}
-                style={[
-                  styles.artistChip,
-                  artistFilter === artist && styles.artistChipActive,
-                ]}
-                accessibilityRole="button"
-                accessibilityState={{selected: artistFilter === artist}}>
-                <Text
-                  style={[
-                    styles.artistLabel,
-                    artistFilter === artist && styles.artistLabelActive,
-                  ]}>
-                  {artist}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-        </View>
-      )}
-
       <View style={styles.listContainer}>
         <View style={styles.listWrap}>
           <SongList
@@ -344,85 +218,12 @@ export function LibraryScreen({
           />
         </View>
 
-        {/* Alphabet Sidebar on Right */}
-        <Animated.View 
-          ref={sidebarRef}
-          onLayout={() => {
-            sidebarRef.current?.measure((x, y, width, height, pageX, pageY) => {
-              sidebarLayout.current = { y: pageY, height };
-            });
-          }}
-          style={[
-            styles.alphabetSidebarContainer,
-            { 
-              opacity: sidebarOpacity,
-              transform: [{ translateX: sidebarOpacity.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }]
-            }
-          ]}
-          {...panResponder.panHandlers}>
-          <View style={styles.alphabetSidebar}>
-            <View style={styles.alphabetSidebarContent}>
-              <View style={styles.sidebarChip}>
-                <Animated.Text
-                  style={[
-                    styles.sidebarLabel,
-                    alphabetFilter === 'all' && styles.sidebarLabelActive,
-                    {
-                      transform: [{
-                        scale: alphabetFilter === 'all' ? 1.5 : 1
-                      }]
-                    }
-                  ]}>
-                  •
-                </Animated.Text>
-              </View>
-              {ALPHABET.map((letter, idx) => {
-                const isActive = alphabetFilter === letter;
-                return (
-                  <View
-                    key={letter}
-                    style={styles.sidebarChip}>
-                    <Animated.Text
-                      style={[
-                        styles.sidebarLabel,
-                        isActive && styles.sidebarLabelActive,
-                        {
-                          transform: [{
-                            scale: isActive ? 1.6 : 1
-                          }, {
-                            translateX: isActive ? -4 : 0
-                          }]
-                        }
-                      ]}>
-                      {letter}
-                    </Animated.Text>
-                  </View>
-                );
-              })}
-            </View>
-          </View>
-        </Animated.View>
-
-        {/* Pop Indicator */}
-        {activeLetterState && (
-          <Animated.View 
-            pointerEvents="none"
-            style={[
-              styles.popIndicator,
-              {
-                opacity: popAnim,
-                transform: [
-                  { translateY: popY },
-                  { scale: popAnim.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) },
-                  { translateX: popAnim.interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) }
-                ]
-              }
-            ]}>
-            <View style={styles.popBubble}>
-              <Text style={styles.popText}>{activeLetterState}</Text>
-            </View>
-          </Animated.View>
-        )}
+        <AlphabetSidebar 
+          currentFilter={alphabetFilter} 
+          onLetterChange={handleLetterChange}
+          opacityAnim={sidebarOpacity}
+          onInteractStart={showSidebar}
+        />
       </View>
     </View>
   );
@@ -549,85 +350,5 @@ const styles = StyleSheet.create({
   },
   listWrap: {
     flex: 1,
-  },
-  alphabetSidebarContainer: {
-    width: 30, // Wider touch area for better UX
-    justifyContent: 'center',
-    marginRight: -spacing.xs,
-    zIndex: 10,
-  },
-  alphabetSidebar: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  alphabetSidebarContent: {
-    alignItems: 'center',
-    gap: 1,
-  },
-  sidebarChip: {
-    width: 20,
-    height: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sidebarLabel: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: colors.textMuted,
-  },
-  sidebarLabelActive: {
-    color: colors.brand,
-    fontWeight: '900',
-  },
-  popIndicator: {
-    position: 'absolute',
-    right: 40,
-    top: 0,
-    zIndex: 100,
-  },
-  popBubble: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: colors.brand,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-  },
-  popText: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: colors.background,
-  },
-  artistScroll: {
-    marginHorizontal: -spacing.base,
-  },
-  artistContent: {
-    paddingHorizontal: spacing.base,
-    gap: spacing.xs,
-  },
-  artistChip: {
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-  },
-  artistChipActive: {
-    backgroundColor: colors.brand,
-    borderColor: colors.brand,
-  },
-  artistLabel: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    fontWeight: '700',
-  },
-  artistLabelActive: {
-    color: colors.background,
   },
 });
