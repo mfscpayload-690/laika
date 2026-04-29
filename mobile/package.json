@@ -17,6 +17,7 @@
     "react-native": "0.75.4",
     "react-native-fs": "^2.20.0",
     "react-native-gesture-handler": "2.16.2",
+    "react-native-reanimated": "^3.16.1",
     "react-native-safe-area-context": "^5.7.0",
     "react-native-screens": "^3.37.0",
     "react-native-svg": "^15.15.4",
