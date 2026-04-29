@@ -64,21 +64,21 @@ export function LibraryScreen({
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [alphabetFilter, setAlphabetFilter] = useState<'all' | string>('all');
   const [dateAddedAscending, setDateAddedAscending] = useState(false);
-  const sidebarOpacity = React.useRef(new Animated.Value(0)).current;
+  const sidebarOpacity = React.useRef(new Animated.Value(0.3)).current;
   const hideTimer = React.useRef<any>(null);
   const lastUpdate = React.useRef(0);
 
   const showSidebar = () => {
     if (hideTimer.current) clearTimeout(hideTimer.current);
     Animated.timing(sidebarOpacity, {
-      toValue: 1,
+      toValue: 1.0,
       duration: 300,
       useNativeDriver: true,
     }).start();
 
     hideTimer.current = setTimeout(() => {
       Animated.timing(sidebarOpacity, {
-        toValue: 0,
+        toValue: 0.3,
         duration: 500,
         useNativeDriver: true,
       }).start();

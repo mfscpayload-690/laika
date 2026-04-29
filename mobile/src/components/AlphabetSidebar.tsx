@@ -18,6 +18,7 @@ export const AlphabetSidebar = React.memo(({ currentFilter, onLetterChange, onIn
   const activeIndexAnim = useRef(new Animated.Value(0)).current;
 
   const sidebarRef = useRef<View>(null);
+  const contentRef = useRef<View>(null);
   const sidebarLayout = useRef({ y: 0, height: 0 });
 
   // Update visual index on prop change when not dragging
@@ -112,21 +113,22 @@ export const AlphabetSidebar = React.memo(({ currentFilter, onLetterChange, onIn
     <>
       <Animated.View
         ref={sidebarRef}
-        onLayout={() => {
-          sidebarRef.current?.measure((x, y, width, height, pageX, pageY) => {
-            sidebarLayout.current = { y: pageY, height };
-          });
-        }}
         style={[
           styles.container,
           {
             opacity: opacityAnim,
-            transform: [{ translateX: opacityAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }]
           }
         ]}
         {...panResponder.panHandlers}>
         <View style={styles.sidebar}>
-          <View style={styles.content}>
+          <View 
+            ref={contentRef}
+            onLayout={() => {
+              contentRef.current?.measure((x, y, width, height, pageX, pageY) => {
+                sidebarLayout.current = { y: pageY, height };
+              });
+            }}
+            style={styles.content}>
             <View style={styles.chip}>
               <Animated.Text
                 style={[
@@ -216,7 +218,6 @@ const styles = StyleSheet.create({
   content: {
     alignItems: 'center',
     gap: 4, // Increased vertical spacing
-    paddingVertical: spacing.lg,
   },
   chip: {
     width: 30,
