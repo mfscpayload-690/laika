@@ -262,6 +262,35 @@ footer {
     opacity: 0.5;
 }
 
+/* Support Links */
+.nav-support {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--fg);
+    opacity: 0.8;
+    transition: var(--transition);
+}
+
+.nav-support:hover {
+    opacity: 1;
+    color: #FFDD00; /* Buy Me a Coffee Yellow */
+    transform: scale(1.1);
+}
+
+.footer-links a {
+    color: var(--fg);
+    text-decoration: none;
+    font-size: 0.9rem;
+    opacity: 0.6;
+    transition: var(--transition);
+}
+
+.footer-links a:hover {
+    opacity: 1;
+    color: var(--primary);
+}
+
 /* Responsive */
 @media (max-width: 1024px) {
     .hero {
