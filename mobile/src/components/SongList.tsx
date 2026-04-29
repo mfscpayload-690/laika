@@ -88,7 +88,8 @@ const SongListEmpty = memo(function SongListEmpty({
       <Text style={styles.emptySubtitle}>Scan your device to find audio files</Text>
       {onScanPress ? (
         <Pressable
-          style={styles.scanButton}
+          style={({pressed}) => [styles.scanButton, pressed && {opacity: 0.8, transform: [{scale: 0.98}]}]}
+          android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
           onPress={onScanPress}
           accessibilityRole="button"
           accessibilityLabel="Scan device for audio files">
