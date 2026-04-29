@@ -1,5 +1,12 @@
-import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, {useEffect, useMemo, useState} from 'react';
+import {
+  InteractionManager,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
 import { SongList } from '../components/SongList';
 import { colors, radii, spacing, typography } from '../theme';
@@ -20,6 +27,53 @@ export function LibraryScreen({
   onOpenPlayer,
   onScan,
 }: LibraryScreenProps) {
+  const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      InteractionManager.runAfterInteractions(() => {
+        setDebouncedQuery(query);
+      });
+    }, 180);
+
+    return () => clearTimeout(timeout);
+  }, [query]);
+
+  useEffect(() => {
+    if (!__DEV__) {
+      return;
+    }
+
+    const perfStart = Date.now();
+    const id = setTimeout(() => {
+      const elapsed = Date.now() - perfStart;
+      console.log(`[perf] library:first-paint ${elapsed}ms`);
+    }, 0);
+
+    return () => clearTimeout(id);
+  }, []);
+
+  const indexedSongs = useMemo(
+    () =>
+      songs.map(song => ({
+        song,
+        searchText: `${song.title} ${song.artist} ${song.album ?? ''}`.toLowerCase(),
+      })),
+    [songs],
+  );
+
+  const visibleSongs = useMemo(() => {
+    const normalizedQuery = debouncedQuery.trim().toLowerCase();
+    if (!normalizedQuery) {
+      return songs;
+    }
+
+    return indexedSongs
+      .filter(entry => entry.searchText.includes(normalizedQuery))
+      .map(entry => entry.song);
+  }, [debouncedQuery, indexedSongs, songs]);
+
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
@@ -38,9 +92,21 @@ export function LibraryScreen({
         </Pressable>
       </View>
 
+      <View style={styles.searchBar}>
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Filter local songs"
+          placeholderTextColor={colors.textMuted}
+          style={styles.searchInput}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+      </View>
+
       <View style={styles.listWrap}>
         <SongList
-          songs={songs}
+          songs={visibleSongs}
           currentTrackId={currentTrackId}
           onPressSong={onPressSong}
           onScanPress={onScan}
@@ -91,5 +157,16 @@ const styles = StyleSheet.create({
   listWrap: {
     flex: 1,
     marginTop: spacing.md,
+  },
+  searchBar: {
+    marginTop: spacing.sm,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surfaceElevated,
+    paddingHorizontal: spacing.md,
+  },
+  searchInput: {
+    color: colors.textPrimary,
+    paddingVertical: spacing.sm,
+    fontSize: 14,
   },
 });
