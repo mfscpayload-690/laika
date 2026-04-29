@@ -28,7 +28,15 @@ export function RootNavigator() {
 
   const activeSong = songs.find(s => s.id === currentTrackId);
   const activeRouteName = useNavigationState(state => {
-    const topRoute = state.routes[state.index];
+    if (!state || !state.routes || state.routes.length === 0) {
+      return undefined;
+    }
+
+    const safeIndex =
+      typeof state.index === 'number' && state.index >= 0 && state.index < state.routes.length
+        ? state.index
+        : 0;
+    const topRoute = state.routes[safeIndex];
     if (!topRoute || topRoute.name !== 'MainTabs') {
       return topRoute?.name;
     }
