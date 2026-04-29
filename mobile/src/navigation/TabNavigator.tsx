@@ -1,5 +1,5 @@
 import React from 'react';
-import {InteractionManager} from 'react-native';
+import {InteractionManager, Pressable} from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Home as HomeIcon, Search as SearchIcon, Library as LibraryIcon } from 'lucide-react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -98,6 +98,16 @@ export function TabNavigator() {
           justifyContent: 'center',
           alignItems: 'center',
         },
+        tabBarButton: (props) => (
+          <Pressable
+            {...props}
+            android_ripple={{ color: 'rgba(255,255,255,0.1)', borderless: false }}
+            style={({ pressed }) => [
+              props.style as any,
+              pressed && { opacity: 0.6 }
+            ]}
+          />
+        ),
       }}
     >
       <Tab.Screen
