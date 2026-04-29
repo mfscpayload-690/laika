@@ -1,14 +1,17 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
   Image,
+  PanResponder,
   Pressable,
+  type LayoutChangeEvent,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { Pause, Play, SkipBack, SkipForward, Shuffle, Repeat } from 'lucide-react-native';
+import { Pause, Play, SkipBack, SkipForward, Shuffle, Repeat, ChevronDown } from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
 import TrackPlayer from 'react-native-track-player';
 
 import { colors, radii, spacing, typography } from '../theme';
@@ -24,9 +27,13 @@ type PlayerScreenProps = {
   isReady: boolean;
   isPlaying: boolean;
   isLoading: boolean;
+  isShuffleEnabled: boolean;
+  repeatMode: 'off' | 'all' | 'one';
   onTogglePlayPause: () => void;
   onNext: () => void;
   onPrevious: () => void;
+  onToggleShuffle: () => void;
+  onCycleRepeatMode: () => void;
 };
 
 function formatTime(seconds: number): string {
@@ -41,21 +48,52 @@ export function PlayerScreen({
   currentAlbum,
   currentPath,
   currentThumbnail,
-  queueSize,
-  currentIndex,
+  queueSize: _queueSize,
+  currentIndex: _currentIndex,
   isReady,
   isPlaying,
   isLoading,
+  isShuffleEnabled,
+  repeatMode,
   onTogglePlayPause,
   onNext,
   onPrevious,
+  onToggleShuffle,
+  onCycleRepeatMode,
 }: PlayerScreenProps) {
+  const navigation = useNavigation();
   const hasTrack = Boolean(currentPath);
   const canControl = isReady && hasTrack;
 
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const [progress, setProgress] = useState({ position: 0, duration: 0 });
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const [scrubPosition, setScrubPosition] = useState(0);
   const [barWidth, setBarWidth] = useState(0);
+
+  const waveformBars = useMemo(() => {
+    const source = `${currentTitle}-${currentArtist}-${currentPath ?? 'local'}`;
+    let seed = 0;
+    for (let index = 0; index < source.length; index += 1) {
+      seed = (seed * 31 + source.charCodeAt(index)) % 2147483647;
+    }
+
+    const bars: number[] = [];
+    let nextSeed = seed || 1;
+    for (let index = 0; index < 56; index += 1) {
+      nextSeed = (nextSeed * 48271) % 2147483647;
+      bars.push((nextSeed % 1000) / 1000);
+    }
+    return bars;
+  }, [currentArtist, currentPath, currentTitle]);
+
+  const waveformBarHeights = useMemo(
+    () =>
+      waveformBars.map(value => ({
+        height: 6 + Math.round(value * 20),
+      })),
+    [waveformBars],
+  );
 
   // Pulse animation on play state change
   useEffect(() => {
@@ -67,9 +105,9 @@ export function PlayerScreen({
     }).start();
   }, [isPlaying, scaleAnim]);
 
-  // Poll progress when playing
+  // Poll progress unless user is actively scrubbing.
   useEffect(() => {
-    if (!isPlaying) {
+    if (!canControl || isScrubbing) {
       return;
     }
 
@@ -77,25 +115,101 @@ export function PlayerScreen({
       TrackPlayer.getProgress()
         .then(p => setProgress(p))
         .catch(() => undefined);
-    }, 500);
+    }, 250);
 
     return () => clearInterval(interval);
-  }, [isPlaying]);
+  }, [canControl, isScrubbing]);
 
-  const handleSeek = (event: { nativeEvent: { locationX: number } }) => {
-    if (!canControl || barWidth === 0 || progress.duration === 0) {
-      return;
-    }
+  const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
-    const seekPosition = (event.nativeEvent.locationX / barWidth) * progress.duration;
-    TrackPlayer.seekTo(seekPosition).catch(() => undefined);
+  const ratioToPosition = useCallback(
+    (ratio: number) => ratio * progress.duration,
+    [progress.duration],
+  );
+
+  const xToRatio = useCallback(
+    (x: number) => {
+      if (barWidth <= 0) {
+        return 0;
+      }
+      return clamp(x / barWidth, 0, 1);
+    },
+    [barWidth],
+  );
+
+  const handleWaveformLayout = (event: LayoutChangeEvent) => {
+    setBarWidth(event.nativeEvent.layout.width);
   };
 
-  const progressPercent =
-    progress.duration > 0 ? (progress.position / progress.duration) * 100 : 0;
+  const handleSeekFromX = useCallback(
+    (x: number) => {
+      if (!canControl || barWidth === 0 || progress.duration === 0) {
+        return;
+      }
+      const ratio = xToRatio(x);
+      setScrubPosition(ratioToPosition(ratio));
+    },
+    [barWidth, canControl, progress.duration, ratioToPosition, xToRatio],
+  );
+
+  const commitSeek = useCallback(
+    (x: number) => {
+      if (!canControl || barWidth === 0 || progress.duration === 0) {
+        setIsScrubbing(false);
+        return;
+      }
+      const ratio = xToRatio(x);
+      const seekPosition = ratioToPosition(ratio);
+      setProgress(prev => ({...prev, position: seekPosition}));
+      setScrubPosition(seekPosition);
+      TrackPlayer.seekTo(seekPosition).catch(() => undefined);
+      setIsScrubbing(false);
+    },
+    [barWidth, canControl, progress.duration, ratioToPosition, xToRatio],
+  );
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => canControl,
+        onMoveShouldSetPanResponder: () => canControl,
+        onPanResponderGrant: event => {
+          setIsScrubbing(true);
+          handleSeekFromX(event.nativeEvent.locationX);
+        },
+        onPanResponderMove: event => {
+          handleSeekFromX(event.nativeEvent.locationX);
+        },
+        onPanResponderRelease: event => {
+          commitSeek(event.nativeEvent.locationX);
+        },
+        onPanResponderTerminate: event => {
+          commitSeek(event.nativeEvent.locationX);
+        },
+      }),
+    [canControl, commitSeek, handleSeekFromX],
+  );
+
+  const displayPosition = isScrubbing ? scrubPosition : progress.position;
+  const progressRatio =
+    progress.duration > 0 ? clamp(displayPosition / progress.duration, 0, 1) : 0;
+  const activeBarCount = Math.round(progressRatio * waveformBars.length);
+  const thumbLeft = progressRatio * barWidth;
 
   return (
     <View style={styles.container}>
+      {/* Header / Dismiss */}
+      <View style={styles.header}>
+        <Pressable onPress={() => navigation.goBack()} style={styles.dismissBtn}>
+          <ChevronDown size={32} color={colors.textPrimary} />
+        </Pressable>
+        <View style={styles.headerTitleGroup}>
+          <Text style={styles.headerSubtitle}>PLAYING FROM LIBRARY</Text>
+          <Text style={styles.headerTitle} numberOfLines={1}>{currentAlbum || 'Laika Music'}</Text>
+        </View>
+        <View style={styles.headerSpacer} />
+      </View>
+
       {/* Album Art */}
       <Animated.View style={[styles.artworkContainer, { transform: [{ scale: scaleAnim }] }]}>
         {currentThumbnail ? (
@@ -121,27 +235,56 @@ export function PlayerScreen({
         </View>
       </View>
 
-      {/* Progress Bar */}
+      {/* Waveform Progress */}
       <View style={styles.progressSection}>
-        <Pressable
+        <View
           style={styles.progressBarContainer}
-          onPress={handleSeek}
-          onLayout={e => setBarWidth(e.nativeEvent.layout.width)}
-          disabled={!canControl}>
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
+          onLayout={handleWaveformLayout}
+          {...panResponder.panHandlers}>
+          <View style={styles.waveformTrack}>
+            {waveformBars.map((_, index) => (
+              <View
+                key={`wave-${index}`}
+                style={[
+                  styles.waveformBar,
+                  waveformBarHeights[index],
+                  index < activeBarCount ? styles.waveformBarActive : styles.waveformBarInactive,
+                ]}
+              />
+            ))}
           </View>
-        </Pressable>
+          <View
+            style={[
+              styles.waveformThumb,
+              {
+                left: thumbLeft,
+              },
+            ]}
+          />
+          <View style={[styles.waveformGlow, { width: thumbLeft }]} />
+          <View style={styles.waveformTouchOverlay}>
+            <Text style={styles.waveformTouchHint}>{isScrubbing ? 'Scrubbing...' : ' '}</Text>
+          </View>
+        </View>
         <View style={styles.timeRow}>
-          <Text style={styles.timeText}>{formatTime(progress.position)}</Text>
+          <Text style={styles.timeText}>{formatTime(displayPosition)}</Text>
           <Text style={styles.timeText}>{formatTime(progress.duration)}</Text>
         </View>
       </View>
 
       {/* Controls */}
       <View style={styles.controlsRow}>
-        <Pressable style={styles.secondaryControl} disabled={!canControl}>
-          <Shuffle size={20} color={colors.textSecondary} strokeWidth={2} />
+        <Pressable
+          style={[styles.secondaryControl, isShuffleEnabled && styles.secondaryControlActive]}
+          disabled={!canControl}
+          onPress={onToggleShuffle}
+          accessibilityRole="button"
+          accessibilityLabel="Toggle shuffle">
+          <Shuffle
+            size={20}
+            color={isShuffleEnabled ? colors.progressFill : colors.textSecondary}
+            strokeWidth={2}
+          />
         </Pressable>
 
         <Pressable
@@ -175,8 +318,18 @@ export function PlayerScreen({
           <SkipForward size={28} color={colors.textPrimary} strokeWidth={2} fill={colors.textPrimary} />
         </Pressable>
 
-        <Pressable style={styles.secondaryControl} disabled={!canControl}>
-          <Repeat size={20} color={colors.textSecondary} strokeWidth={2} />
+        <Pressable
+          style={[styles.secondaryControl, repeatMode !== 'off' && styles.secondaryControlActive]}
+          disabled={!canControl}
+          onPress={onCycleRepeatMode}
+          accessibilityRole="button"
+          accessibilityLabel="Cycle repeat mode">
+          <Repeat
+            size={20}
+            color={repeatMode !== 'off' ? colors.progressFill : colors.textSecondary}
+            strokeWidth={2}
+          />
+          {repeatMode === 'one' ? <Text style={styles.repeatOneLabel}>1</Text> : null}
         </Pressable>
       </View>
     </View>
@@ -187,9 +340,39 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     paddingHorizontal: spacing.xl,
     backgroundColor: colors.background,
+  },
+  header: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: spacing.md,
+    marginBottom: spacing.md,
+  },
+  dismissBtn: {
+    padding: spacing.xs,
+  },
+  headerTitleGroup: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  headerSpacer: {
+    width: 32,
+  },
+  headerSubtitle: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    letterSpacing: 1,
+  },
+  headerTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginTop: 2,
   },
   artworkContainer: {
     width: 280,
@@ -219,7 +402,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: spacing.xxl,
+    marginTop: spacing.lg,
   },
   trackTextGroup: {
     flex: 1,
@@ -236,22 +419,62 @@ const styles = StyleSheet.create({
   },
   progressSection: {
     width: '100%',
-    marginTop: spacing.xl,
+    marginTop: spacing.md,
   },
   progressBarContainer: {
     width: '100%',
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
+    justifyContent: 'center',
   },
-  progressTrack: {
-    height: 4,
+  waveformTrack: {
+    width: '100%',
+    height: 30,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    paddingHorizontal: 3,
+  },
+  waveformBar: {
+    width: 4,
     borderRadius: 2,
-    backgroundColor: colors.progressTrack,
-    overflow: 'hidden',
   },
-  progressFill: {
-    height: 4,
+  waveformBarActive: {
     backgroundColor: colors.progressFill,
-    borderRadius: 2,
+  },
+  waveformBarInactive: {
+    backgroundColor: colors.progressTrack,
+  },
+  waveformThumb: {
+    position: 'absolute',
+    top: '50%',
+    marginTop: -8,
+    marginLeft: -8,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: colors.textPrimary,
+    borderWidth: 2,
+    borderColor: colors.progressFill,
+  },
+  waveformGlow: {
+    position: 'absolute',
+    left: 0,
+    top: '50%',
+    marginTop: -1,
+    height: 2,
+    backgroundColor: colors.progressFill,
+    opacity: 0.35,
+    borderRadius: 1,
+  },
+  waveformTouchOverlay: {
+    position: 'absolute',
+    width: '100%',
+    top: -18,
+    alignItems: 'center',
+  },
+  waveformTouchHint: {
+    ...typography.caption,
+    color: colors.textMuted,
   },
   timeRow: {
     flexDirection: 'row',
@@ -263,7 +486,8 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
   },
   controlsRow: {
-    marginTop: spacing.xxl,
+    marginTop: spacing.xl,
+    marginBottom: spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -273,8 +497,20 @@ const styles = StyleSheet.create({
   secondaryControl: {
     width: 40,
     height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  secondaryControlActive: {
+    backgroundColor: 'rgba(29, 185, 84, 0.14)',
+  },
+  repeatOneLabel: {
+    position: 'absolute',
+    right: 4,
+    bottom: 2,
+    color: colors.progressFill,
+    fontSize: 10,
+    fontWeight: '800',
   },
   skipButton: {
     width: 48,
