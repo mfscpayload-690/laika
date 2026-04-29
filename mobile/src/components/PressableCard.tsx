@@ -46,8 +46,8 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   cardActive: {
-    borderColor: colors.active,
-    backgroundColor: colors.activeBg,
+    borderColor: colors.brand,
+    backgroundColor: colors.surfaceElevated,
   },
   cardPressed: {
     opacity: 0.8,
