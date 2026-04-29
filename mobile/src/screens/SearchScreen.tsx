@@ -1,7 +1,8 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, {useCallback, useMemo, useRef, useState} from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  InteractionManager,
   StyleSheet,
   Text,
   TextInput,
@@ -19,11 +20,12 @@ type SearchScreenProps = {
   onSelectTrack: (track: RemoteTrack) => void;
   resolvingId: string | null;
   activeTrackId: string | null;
-  onOpenPlayer: () => void;
 };
 
 function formatDuration(ms: number): string {
-  if (!ms) return '';
+  if (!ms) {
+    return '';
+  }
   const totalSec = Math.floor(ms / 1000);
   const min = Math.floor(totalSec / 60);
   const sec = totalSec % 60;
@@ -34,13 +36,13 @@ export function SearchScreen({
   onSelectTrack,
   resolvingId,
   activeTrackId,
-  onOpenPlayer,
 }: SearchScreenProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<RemoteTrack[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const queryStartRef = useRef<number | null>(null);
 
   const runSearch = useCallback(async (q: string) => {
     if (!q.trim()) {
@@ -52,7 +54,14 @@ export function SearchScreen({
     setError(null);
     try {
       const tracks = await searchTracks(q.trim());
-      setResults(tracks);
+      InteractionManager.runAfterInteractions(() => {
+        setResults(tracks);
+        if (__DEV__ && queryStartRef.current) {
+          const elapsed = Date.now() - queryStartRef.current;
+          console.log(`[perf] search:input->result ${elapsed}ms`);
+          queryStartRef.current = null;
+        }
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Search failed');
       setResults([]);
@@ -63,17 +72,26 @@ export function SearchScreen({
 
   const handleQueryChange = (value: string) => {
     setQuery(value);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => runSearch(value), 500);
+    if (__DEV__) {
+      queryStartRef.current = Date.now();
+    }
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    debounceRef.current = setTimeout(() => runSearch(value), 180);
   };
 
   const handleSubmit = () => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    void runSearch(query);
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    runSearch(query).catch(() => undefined);
   };
 
   const handleClear = () => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
     setQuery('');
     setResults([]);
     setError(null);
@@ -82,6 +100,15 @@ export function SearchScreen({
   const showTypePrompt = !loading && !error && query.trim() === '';
   const showNoResults =
     !loading && !error && query.trim() !== '' && results.length === 0;
+  const indexedResults = useMemo(
+    () =>
+      results.map(track => ({
+        track,
+        searchText: `${track.title} ${track.artist}`.toLowerCase(),
+      })),
+    [results],
+  );
+  const visibleResults = useMemo(() => indexedResults.map(entry => entry.track), [indexedResults]);
 
   return (
     <View style={styles.container}>
@@ -141,12 +168,17 @@ export function SearchScreen({
         </View>
       ) : (
         <FlatList
-          data={results}
+          data={visibleResults}
           keyExtractor={item => item.id}
           style={styles.list}
           contentContainerStyle={styles.listContent}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          updateCellsBatchingPeriod={50}
+          windowSize={5}
+          removeClippedSubviews
           renderItem={({ item }) => (
             <TrackRow
               title={item.title}
