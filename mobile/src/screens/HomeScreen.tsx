@@ -11,7 +11,7 @@ import {
 import { ChevronRight, Library, Music, RefreshCw, Search } from 'lucide-react-native';
 
 import { SectionHeader } from '../components/SectionHeader';
-import { colors, radii, shadows, spacing, typography } from '../theme';
+import { colors, radii, spacing, typography } from '../theme';
 
 type HomeScreenProps = {
   songsCount: number;
@@ -51,8 +51,12 @@ const MOCK_SUGGESTIONS: MockCard[] = [
 
 function getGreeting(): string {
   const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning';
-  if (hour < 18) return 'Good afternoon';
+  if (hour < 12) {
+    return 'Good morning';
+  }
+  if (hour < 18) {
+    return 'Good afternoon';
+  }
   return 'Good evening';
 }
 
@@ -96,13 +100,13 @@ export function HomeScreen({
       {/* Quick-access grid */}
       <View style={styles.quickGrid}>
         <Pressable style={styles.quickGridItem} onPress={onOpenSearch}>
-          <View style={[styles.quickGridArt, { backgroundColor: '#1DB954' }]}>
+          <View style={[styles.quickGridArt, styles.quickGridArtSearch]}>
             <Search size={16} color={colors.textPrimary} />
           </View>
           <Text style={styles.quickGridLabel} numberOfLines={1}>Search Music</Text>
         </Pressable>
         <Pressable style={styles.quickGridItem} onPress={onOpenLibrary}>
-          <View style={[styles.quickGridArt, { backgroundColor: '#535353' }]}>
+          <View style={[styles.quickGridArt, styles.quickGridArtLibrary]}>
             <Library size={16} color={colors.textPrimary} />
           </View>
           <Text style={styles.quickGridLabel} numberOfLines={1}>Your Library</Text>
@@ -111,7 +115,7 @@ export function HomeScreen({
           style={[styles.quickGridItem, scanning && styles.quickGridItemDisabled]}
           onPress={onScan}
           disabled={scanning}>
-          <View style={[styles.quickGridArt, { backgroundColor: '#282828' }]}>
+          <View style={[styles.quickGridArt, styles.quickGridArtScan]}>
             {scanning ? (
               <ActivityIndicator size="small" color={colors.brand} />
             ) : (
@@ -124,7 +128,7 @@ export function HomeScreen({
         </Pressable>
         {hasCurrentSong && (
           <Pressable style={styles.quickGridItem} onPress={onOpenPlayer}>
-            <View style={[styles.quickGridArt, { backgroundColor: '#1DB954' }]}>
+            <View style={[styles.quickGridArt, styles.quickGridArtNowPlaying]}>
               <Music size={16} color={colors.textPrimary} />
             </View>
             <Text style={styles.quickGridLabel} numberOfLines={1}>Now Playing</Text>
@@ -244,6 +248,18 @@ const styles = StyleSheet.create({
     height: 56,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  quickGridArtSearch: {
+    backgroundColor: '#1DB954',
+  },
+  quickGridArtLibrary: {
+    backgroundColor: '#535353',
+  },
+  quickGridArtScan: {
+    backgroundColor: '#282828',
+  },
+  quickGridArtNowPlaying: {
+    backgroundColor: '#1DB954',
   },
   quickGridLabel: {
     color: colors.textPrimary,
