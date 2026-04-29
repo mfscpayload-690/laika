@@ -17,8 +17,12 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  useAnimatedReaction,
 } from 'react-native-reanimated';
 import { ChevronDown, Music, Pause, Play, Repeat, Shuffle, SkipBack, SkipForward } from 'lucide-react-native';
+import TrackPlayer, { useProgress } from 'react-native-track-player';
+import { Svg, Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
+import { BlurView } from '@react-native-community/blur';
 
 import { usePlayback } from '../context/PlaybackContext';
 import { colors, radii, spacing, typography } from '../theme';
@@ -27,7 +31,90 @@ const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 const TAB_BAR_BASE_HEIGHT = 62;
 const MINI_PLAYER_HEIGHT = 64 + 10; // 64 height + 10 paddingTop approx
 
-const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+const clamp = (value: number, min: number, max: number) => {
+  'worklet';
+  return Math.min(max, Math.max(min, value));
+};
+
+function ProgressBar() {
+  const { position, duration } = useProgress(250);
+  const isDragging = useSharedValue(false);
+  const [isDraggingState, setIsDraggingState] = useState(false);
+  const seekPosition = useSharedValue(0);
+  const trackWidth = useSharedValue(0);
+  const [dragTime, setDragTime] = useState(0);
+
+  useEffect(() => {
+    if (!isDraggingState && duration > 0) {
+      seekPosition.value = position;
+    }
+  }, [position, duration, isDraggingState]);
+
+  useAnimatedReaction(
+    () => seekPosition.value,
+    (val) => {
+      if (isDragging.value) {
+        runOnJS(setDragTime)(val);
+      }
+    }
+  );
+
+  const panGesture = Gesture.Pan()
+    .activeOffsetX([-10, 10])
+    .onStart(() => {
+      isDragging.value = true;
+      runOnJS(setIsDraggingState)(true);
+    })
+    .onUpdate((e) => {
+      if (trackWidth.value > 0 && duration > 0) {
+        const newPos = (e.x / trackWidth.value) * duration;
+        seekPosition.value = clamp(newPos, 0, duration);
+      }
+    })
+    .onEnd(() => {
+      runOnJS(TrackPlayer.seekTo)(seekPosition.value);
+      isDragging.value = false;
+      runOnJS(setIsDraggingState)(false);
+    });
+
+  const progressStyle = useAnimatedStyle(() => {
+    const percent = duration > 0 ? (seekPosition.value / duration) * 100 : 0;
+    return { width: `${clamp(percent, 0, 100)}%` };
+  });
+
+  const thumbStyle = useAnimatedStyle(() => {
+    const percent = duration > 0 ? (seekPosition.value / duration) * 100 : 0;
+    return { left: `${clamp(percent, 0, 100)}%` };
+  });
+
+  const displayTime = isDraggingState ? dragTime : position;
+
+  const formatTime = (s: number) => {
+    const mins = Math.floor(s / 60);
+    const secs = Math.floor(s % 60);
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+
+  return (
+    <View style={styles.progressContainer}>
+      <GestureDetector gesture={panGesture}>
+        <View 
+          style={styles.progressBarHitbox} 
+          onLayout={(e) => { trackWidth.value = e.nativeEvent.layout.width; }}
+        >
+          <View style={styles.progressBarBg}>
+            <Animated.View style={[styles.progressBarFill, progressStyle]} />
+          </View>
+          <Animated.View style={[styles.progressThumb, thumbStyle]} />
+        </View>
+      </GestureDetector>
+      <View style={styles.progressTimeRow}>
+        <Text style={styles.progressTimeText}>{formatTime(displayTime)}</Text>
+        <Text style={styles.progressTimeText}>{formatTime(duration)}</Text>
+      </View>
+    </View>
+  );
+}
 
 export function PlayerSheet() {
   const insets = useSafeAreaInsets();
@@ -226,7 +313,7 @@ export function PlayerSheet() {
     const opacity = interpolate(
       translateY.value,
       [MIN_TRANSLATE, maxTranslateY],
-      [0.6, 0],
+      [1, 0],
       Extrapolation.CLAMP
     );
     return { 
@@ -248,14 +335,24 @@ export function PlayerSheet() {
       >
         {/* Full Player Background */}
         <Animated.View style={[StyleSheet.absoluteFill, animatedBgStyle]}>
-          {currentArtwork && (
+          {currentArtwork ? (
             <Image 
               source={{ uri: currentArtwork }} 
               style={StyleSheet.absoluteFill as any} 
               blurRadius={90} 
             />
+          ) : (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: '#1A1A1A' }]} />
           )}
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.6)' }]} />
+          <Svg height="100%" width="100%" style={StyleSheet.absoluteFill as any}>
+            <Defs>
+              <LinearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor="#000" stopOpacity="0.3" />
+                <Stop offset="1" stopColor="#121212" stopOpacity="1" />
+              </LinearGradient>
+            </Defs>
+            <Rect width="100%" height="100%" fill="url(#grad)" />
+          </Svg>
         </Animated.View>
 
         {/* ===================== MINI PLAYER ===================== */}
@@ -331,77 +428,93 @@ export function PlayerSheet() {
             <View style={styles.headerSpacer} />
           </View>
 
-          <Animated.View style={animatedHorizontalContentStyle}>
-            <View style={styles.artworkContainer}>
-              {currentArtwork ? (
-                <Image source={{ uri: currentArtwork }} style={styles.artworkImage} />
-              ) : (
-                <View style={styles.artworkFallback}>
-                  <Text style={styles.artworkInitial}>
-                    {currentTitle.slice(0, 1).toUpperCase() || 'L'}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            <View style={styles.trackInfo}>
-              <View style={styles.trackTextGroup}>
-                <Text style={styles.title} numberOfLines={1}>{currentTitle}</Text>
-                <Text style={styles.artist} numberOfLines={1}>{currentArtist}</Text>
+          <BlurView 
+            style={styles.mainGlassCard}
+            blurType="dark"
+            blurAmount={15}
+            reducedTransparencyFallbackColor="rgba(255,255,255,0.06)"
+          >
+            <Animated.View style={animatedHorizontalContentStyle}>
+              <View style={styles.artworkContainer}>
+                {currentArtwork ? (
+                  <Image source={{ uri: currentArtwork }} style={styles.artworkImage} />
+                ) : (
+                  <View style={styles.artworkFallback}>
+                    <Music size={48} color={colors.textMuted} />
+                  </View>
+                )}
               </View>
+
+              <View style={styles.trackInfo}>
+                <View style={styles.trackTextGroup}>
+                  <Text style={styles.title} numberOfLines={1}>{currentTitle}</Text>
+                  <Text style={styles.artist} numberOfLines={1}>{currentArtist}</Text>
+                </View>
+              </View>
+            </Animated.View>
+
+            <ProgressBar />
+
+            <View style={styles.controlsRow}>
+              <Pressable
+                style={({pressed}) => [styles.secondaryControl, isShuffleEnabled && styles.secondaryControlActive, pressed && {opacity: 0.7}]}
+                android_ripple={{ color: 'rgba(255,255,255,0.1)', borderless: true, radius: 24 }}
+                onPress={toggleShuffle}
+              >
+                <Shuffle size={20} color={isShuffleEnabled ? colors.progressFill : colors.textSecondary} strokeWidth={2} />
+              </Pressable>
+
+              <Pressable
+                style={({pressed}) => [styles.skipButton, pressed && {transform: [{scale: 0.9}]}]}
+                android_ripple={{ color: 'rgba(255,255,255,0.1)', borderless: true, radius: 32 }}
+                onPress={previous}
+              >
+                <SkipBack size={28} color={colors.textPrimary} strokeWidth={2} fill={colors.textPrimary} />
+              </Pressable>
+
+              <Pressable
+                onPress={togglePlayPause}
+                disabled={isLoading}
+                style={({pressed}) => [styles.playButton, isLoading && styles.controlDisabled, pressed && {transform: [{scale: 0.94}]}]}
+                android_ripple={{ color: 'rgba(0,0,0,0.1)', borderless: true, radius: 36 }}
+              >
+                {isLoading ? (
+                  <ActivityIndicator size="large" color={colors.background} />
+                ) : isPlaying ? (
+                  <Pause size={32} color={colors.background} strokeWidth={3} fill={colors.background} />
+                ) : (
+                  <Play size={32} color={colors.background} strokeWidth={3} fill={colors.background} />
+                )}
+              </Pressable>
+
+              <Pressable
+                style={({pressed}) => [styles.skipButton, pressed && {transform: [{scale: 0.9}]}]}
+                android_ripple={{ color: 'rgba(255,255,255,0.1)', borderless: true, radius: 32 }}
+                onPress={next}
+              >
+                <SkipForward size={28} color={colors.textPrimary} strokeWidth={2} fill={colors.textPrimary} />
+              </Pressable>
+
+              <Pressable
+                style={({pressed}) => [styles.secondaryControl, repeatMode !== 'off' && styles.secondaryControlActive, pressed && {opacity: 0.7}]}
+                android_ripple={{ color: 'rgba(255,255,255,0.1)', borderless: true, radius: 24 }}
+                onPress={cycleRepeatMode}
+              >
+                <Repeat size={20} color={repeatMode !== 'off' ? colors.progressFill : colors.textSecondary} strokeWidth={2} />
+                {repeatMode === 'one' ? <Text style={styles.repeatOneLabel}>1</Text> : null}
+              </Pressable>
             </View>
-          </Animated.View>
+          </BlurView>
 
-          {/* Simple controls for now, will add progress bar in next step */}
-          <View style={styles.controlsRow}>
-            <Pressable
-              style={({pressed}) => [styles.secondaryControl, isShuffleEnabled && styles.secondaryControlActive, pressed && {opacity: 0.7}]}
-              android_ripple={{ color: 'rgba(255,255,255,0.1)', borderless: true, radius: 24 }}
-              onPress={toggleShuffle}
-            >
-              <Shuffle size={20} color={isShuffleEnabled ? colors.progressFill : colors.textSecondary} strokeWidth={2} />
-            </Pressable>
-
-            <Pressable
-              style={({pressed}) => [styles.skipButton, pressed && {transform: [{scale: 0.9}]}]}
-              android_ripple={{ color: 'rgba(255,255,255,0.1)', borderless: true, radius: 32 }}
-              onPress={previous}
-            >
-              <SkipBack size={28} color={colors.textPrimary} strokeWidth={2} fill={colors.textPrimary} />
-            </Pressable>
-
-            <Pressable
-              onPress={togglePlayPause}
-              disabled={isLoading}
-              style={({pressed}) => [styles.playButton, isLoading && styles.controlDisabled, pressed && {transform: [{scale: 0.94}]}]}
-              android_ripple={{ color: 'rgba(0,0,0,0.1)', borderless: true, radius: 36 }}
-            >
-              {isLoading ? (
-                <ActivityIndicator size="large" color={colors.background} />
-              ) : isPlaying ? (
-                <Pause size={32} color={colors.background} strokeWidth={3} fill={colors.background} />
-              ) : (
-                <Play size={32} color={colors.background} strokeWidth={3} fill={colors.background} />
-              )}
-            </Pressable>
-
-            <Pressable
-              style={({pressed}) => [styles.skipButton, pressed && {transform: [{scale: 0.9}]}]}
-              android_ripple={{ color: 'rgba(255,255,255,0.1)', borderless: true, radius: 32 }}
-              onPress={next}
-            >
-              <SkipForward size={28} color={colors.textPrimary} strokeWidth={2} fill={colors.textPrimary} />
-            </Pressable>
-
-            <Pressable
-              style={({pressed}) => [styles.secondaryControl, repeatMode !== 'off' && styles.secondaryControlActive, pressed && {opacity: 0.7}]}
-              android_ripple={{ color: 'rgba(255,255,255,0.1)', borderless: true, radius: 24 }}
-              onPress={cycleRepeatMode}
-            >
-              <Repeat size={20} color={repeatMode !== 'off' ? colors.progressFill : colors.textSecondary} strokeWidth={2} />
-              {repeatMode === 'one' ? <Text style={styles.repeatOneLabel}>1</Text> : null}
-            </Pressable>
-          </View>
+          <BlurView 
+            style={styles.secondaryGlassCard}
+            blurType="dark"
+            blurAmount={20}
+            reducedTransparencyFallbackColor="rgba(0,0,0,0.2)"
+          >
+            <Text style={styles.secondaryCardTitle}>Up Next / Lyrics</Text>
+            <Text style={styles.secondaryCardPlaceholder}>Playing from Library...</Text>
+          </BlurView>
         </Animated.View>
       </Animated.View>
     </GestureDetector>
@@ -457,17 +570,57 @@ const styles = StyleSheet.create({
   headerTitle: { color: colors.textPrimary, fontSize: 14, fontWeight: '700' },
   headerSpacer: { width: 40 },
   
-  artworkContainer: { width: '100%', aspectRatio: 1, marginTop: spacing.xl, marginBottom: spacing.xxl, shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.4, shadowRadius: 16, elevation: 12 },
+  artworkContainer: { width: '100%', aspectRatio: 1, marginBottom: spacing.xl, shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.4, shadowRadius: 16, elevation: 12 },
   artworkImage: { width: '100%', height: '100%', borderRadius: radii.xl },
   artworkFallback: { width: '100%', height: '100%', borderRadius: radii.xl, backgroundColor: colors.surfaceElevated, alignItems: 'center', justifyContent: 'center' },
   artworkInitial: { ...typography.display, fontSize: 72, color: colors.textMuted },
   
-  trackInfo: { marginBottom: spacing.xl },
+  trackInfo: { marginBottom: spacing.lg },
   trackTextGroup: { flex: 1 },
-  title: { ...typography.display, fontSize: 26, marginBottom: spacing.xs },
-  artist: { ...typography.body, color: colors.textSecondary, fontSize: 18 },
+  title: { ...typography.display, fontSize: 22, marginBottom: spacing.xs },
+  artist: { ...typography.body, color: colors.textSecondary, fontSize: 16 },
+
+  mainGlassCard: {
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    padding: spacing.lg,
+    marginBottom: spacing.base,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
+    overflow: 'hidden',
+  },
+  secondaryGlassCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+    padding: spacing.lg,
+    minHeight: 120,
+    overflow: 'hidden',
+  },
+  secondaryCardTitle: {
+    ...typography.label,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+  },
+  secondaryCardPlaceholder: {
+    ...typography.body,
+    color: colors.textMuted,
+    fontStyle: 'italic',
+  },
+
+  progressContainer: { marginBottom: spacing.lg },
+  progressBarHitbox: { paddingVertical: 12, justifyContent: 'center' },
+  progressBarBg: { height: 4, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 2, overflow: 'hidden' },
+  progressBarFill: { height: '100%', backgroundColor: colors.textPrimary, borderRadius: 2 },
+  progressThumb: { position: 'absolute', width: 12, height: 12, borderRadius: 6, backgroundColor: '#FFF', top: 8, marginLeft: -6, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.5, shadowRadius: 3, elevation: 3 },
+  progressTimeRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
+  progressTimeText: { color: colors.textMuted, fontSize: 11, fontVariant: ['tabular-nums'] },
   
-  controlsRow: { marginTop: spacing.xl, marginBottom: spacing.lg, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.lg, width: '100%' },
+  controlsRow: { marginTop: spacing.sm, marginBottom: spacing.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.lg, width: '100%' },
   secondaryControl: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   secondaryControlActive: { backgroundColor: 'rgba(29, 185, 84, 0.14)' },
   repeatOneLabel: { position: 'absolute', right: 4, bottom: 2, color: colors.progressFill, fontSize: 10, fontWeight: '800' },
