@@ -1,17 +1,26 @@
-import React from 'react';
+import React, {memo, useCallback} from 'react';
 import {
   FlatList,
   Pressable,
-  SectionList,
   StyleSheet,
   Text,
   View,
+  type ListRenderItem,
 } from 'react-native';
-import { AudioLines, Music } from 'lucide-react-native';
+import {AudioLines, Music} from 'lucide-react-native';
 
-import { SectionHeader } from './SectionHeader';
-import { colors, radii, spacing, typography } from '../theme';
-import type { LocalSong } from '../types/music';
+import {colors, radii, spacing, typography} from '../theme';
+import type {LocalSong} from '../types/music';
+
+export const SONG_ROW_HEIGHT = 64;
+
+export const SONG_LIST_VIRTUALIZATION_CONFIG = {
+  initialNumToRender: 12,
+  maxToRenderPerBatch: 10,
+  updateCellsBatchingPeriod: 50,
+  windowSize: 7,
+  removeClippedSubviews: true,
+} as const;
 
 type SongListProps = {
   songs: LocalSong[];
@@ -22,7 +31,9 @@ type SongListProps = {
 };
 
 function formatDuration(ms: number): string {
-  if (!ms) return '';
+  if (!ms) {
+    return '';
+  }
   const totalSec = Math.floor(ms / 1000);
   const min = Math.floor(totalSec / 60);
   const sec = totalSec % 60;
@@ -32,16 +43,16 @@ function formatDuration(ms: number): string {
 type SongRowProps = {
   item: LocalSong;
   isActive: boolean;
-  onPress: () => void;
+  onPressSong: (songId: string) => void;
 };
 
-function SongRow({ item, isActive, onPress }: SongRowProps) {
+const SongRow = memo(function SongRow({item, isActive, onPressSong}: SongRowProps) {
   const duration = formatDuration(item.duration);
 
   return (
     <Pressable
       style={[styles.row, isActive && styles.activeRow]}
-      onPress={onPress}
+      onPress={() => onPressSong(item.id)}
       accessibilityRole="button"
       accessibilityLabel={`${item.title} by ${item.artist}${isActive ? ', currently playing' : ''}`}>
       <View style={styles.iconSquare}>
@@ -69,36 +80,34 @@ function SongRow({ item, isActive, onPress }: SongRowProps) {
       ) : null}
     </Pressable>
   );
-}
+});
 
-type SongSection = {
-  title: string;
-  data: LocalSong[];
-};
-
-function buildSections(songs: LocalSong[]): SongSection[] {
-  const map = new Map<string, LocalSong[]>();
-
-  for (const song of songs) {
-    const first = song.title.charAt(0).toUpperCase();
-    const key = /[A-Z]/.test(first) ? first : '#';
-    const bucket = map.get(key) ?? [];
-    bucket.push(song);
-    map.set(key, bucket);
-  }
-
-  const alpha = Array.from(map.entries())
-    .filter(([k]) => k !== '#')
-    .sort(([a], [b]) => a.localeCompare(b));
-
-  const hash = map.get('#');
-  const all = hash ? [...alpha, ['#', hash] as [string, LocalSong[]]] : alpha;
-
-  return all.map(([letter, data]) => ({
-    title: letter,
-    data: [...data].sort((a, b) => a.title.localeCompare(b.title)),
-  }));
-}
+const SongListEmpty = memo(function SongListEmpty({
+  emptyMessage,
+  onScanPress,
+}: {
+  emptyMessage: string;
+  onScanPress?: () => void;
+}) {
+  return (
+    <View style={styles.emptyContainer}>
+      <Music size={56} color={colors.surfaceElevated} />
+      <Text style={styles.emptyTitle}>No local songs yet</Text>
+      <Text style={styles.emptySubtitle}>Scan your device to find audio files</Text>
+      {onScanPress ? (
+        <Pressable
+          style={styles.scanButton}
+          onPress={onScanPress}
+          accessibilityRole="button"
+          accessibilityLabel="Scan device for audio files">
+          <Text style={styles.scanButtonLabel}>Scan Device</Text>
+        </Pressable>
+      ) : (
+        <Text style={styles.emptyMessage}>{emptyMessage}</Text>
+      )}
+    </View>
+  );
+});
 
 export function SongList({
   songs,
@@ -107,61 +116,34 @@ export function SongList({
   emptyMessage = 'No local songs found yet.',
   onScanPress,
 }: SongListProps) {
-  if (songs.length === 0) {
-    return (
-      <View style={styles.emptyContainer}>
-        <Music size={56} color={colors.surfaceElevated} />
-        <Text style={styles.emptyTitle}>No local songs yet</Text>
-        <Text style={styles.emptySubtitle}>Scan your device to find audio files</Text>
-        {onScanPress ? (
-          <Pressable
-            style={styles.scanButton}
-            onPress={onScanPress}
-            accessibilityRole="button"
-            accessibilityLabel="Scan device for audio files">
-            <Text style={styles.scanButtonLabel}>Scan Device</Text>
-          </Pressable>
-        ) : emptyMessage ? (
-          <Text style={styles.emptyMessage}>{emptyMessage}</Text>
-        ) : null}
-      </View>
-    );
-  }
+  const getItemLayout = useCallback(
+    (_: ArrayLike<LocalSong> | null | undefined, index: number) => ({
+      length: SONG_ROW_HEIGHT + spacing.xs,
+      offset: (SONG_ROW_HEIGHT + spacing.xs) * index,
+      index,
+    }),
+    [],
+  );
 
-  if (songs.length > 20) {
-    const sections = buildSections(songs);
-    return (
-      <SectionList
-        sections={sections}
-        keyExtractor={item => item.id}
-        stickySectionHeadersEnabled
-        contentContainerStyle={styles.content}
-        renderSectionHeader={({ section }) => (
-          <SectionHeader label={section.title} />
-        )}
-        renderItem={({ item }) => (
-          <SongRow
-            item={item}
-            isActive={item.id === currentTrackId}
-            onPress={() => onPressSong(item.id)}
-          />
-        )}
-      />
-    );
-  }
+  const keyExtractor = useCallback((item: LocalSong) => item.id, []);
+
+  const renderItem = useCallback<ListRenderItem<LocalSong>>(
+    ({item}) => (
+      <SongRow item={item} isActive={item.id === currentTrackId} onPressSong={onPressSong} />
+    ),
+    [currentTrackId, onPressSong],
+  );
 
   return (
     <FlatList
       data={songs}
-      keyExtractor={item => item.id}
-      contentContainerStyle={styles.content}
-      renderItem={({ item }) => (
-        <SongRow
-          item={item}
-          isActive={item.id === currentTrackId}
-          onPress={() => onPressSong(item.id)}
-        />
-      )}
+      keyExtractor={keyExtractor}
+      renderItem={renderItem}
+      getItemLayout={getItemLayout}
+      contentContainerStyle={songs.length === 0 ? styles.emptyListContent : styles.content}
+      keyboardShouldPersistTaps="handled"
+      {...SONG_LIST_VIRTUALIZATION_CONFIG}
+      ListEmptyComponent={<SongListEmpty emptyMessage={emptyMessage} onScanPress={onScanPress} />}
     />
   );
 }
@@ -170,11 +152,15 @@ const styles = StyleSheet.create({
   content: {
     paddingBottom: spacing.xl,
   },
+  emptyListContent: {
+    flexGrow: 1,
+  },
   row: {
+    height: SONG_ROW_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: radii.sm,
-    padding: spacing.sm,
+    paddingHorizontal: spacing.sm,
     marginBottom: spacing.xs,
     backgroundColor: 'transparent',
   },
