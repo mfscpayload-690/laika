@@ -19,12 +19,11 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { ChevronDown, Music, Pause, Play, Repeat, Shuffle, SkipBack, SkipForward } from 'lucide-react-native';
-import TrackPlayer from 'react-native-track-player';
 
 import { usePlayback } from '../context/PlaybackContext';
 import { colors, radii, spacing, typography } from '../theme';
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 const TAB_BAR_BASE_HEIGHT = 62;
 const MINI_PLAYER_HEIGHT = 64 + 10; // 64 height + 10 paddingTop approx
 
@@ -59,6 +58,8 @@ export function PlayerSheet() {
   const MIN_TRANSLATE = 0;
 
   const translateY = useSharedValue(MAX_TRANSLATE);
+  const translateX = useSharedValue(0);
+  const startTranslateX = useSharedValue(0);
   const isExpanded = useSharedValue(false);
 
   // Auto-expand or stay collapsed when a track loads? 
@@ -102,7 +103,32 @@ export function PlayerSheet() {
     }
   }, [maxTranslateY]);
 
-  const panGesture = Gesture.Pan()
+  // To ensure the new artwork is fully rendered before we spring it into view,
+  // we trigger the state change here, and handle the entrance animation in a useEffect.
+  const switchTrack = useCallback((direction: 'next' | 'prev') => {
+    if (direction === 'next') {
+      next();
+    } else {
+      previous();
+    }
+  }, [next, previous]);
+
+  useEffect(() => {
+    // When the track changes, React re-renders with the new artwork.
+    // This effect runs immediately after that render.
+    if (translateX.value < -50) {
+      // Old track swiped left. Bring new track in from the right.
+      translateX.value = SCREEN_WIDTH;
+      translateX.value = withSpring(0, { damping: 20, stiffness: 200 });
+    } else if (translateX.value > 50) {
+      // Old track swiped right. Bring new track in from the left.
+      translateX.value = -SCREEN_WIDTH;
+      translateX.value = withSpring(0, { damping: 20, stiffness: 200 });
+    }
+  }, [currentTrackId]);
+
+  const verticalPanGesture = Gesture.Pan()
+    .activeOffsetY([-10, 10])
     .onUpdate((event) => {
       const newTranslateY = (isExpanded.value ? MIN_TRANSLATE : maxTranslateY) + event.translationY;
       translateY.value = Math.max(MIN_TRANSLATE, Math.min(newTranslateY, maxTranslateY));
@@ -124,6 +150,38 @@ export function PlayerSheet() {
         }
       }
     });
+
+  const horizontalPanGesture = Gesture.Pan()
+    .activeOffsetX([-20, 20])
+    .onStart(() => {
+      startTranslateX.value = translateX.value;
+    })
+    .onUpdate((event) => {
+      if (isExpanded.value) {
+        translateX.value = startTranslateX.value + event.translationX;
+      }
+    })
+    .onEnd((event) => {
+      if (!isExpanded.value) return;
+      
+      const velocity = event.velocityX;
+      const THRESHOLD = SCREEN_WIDTH * 0.3;
+
+      if (translateX.value < -THRESHOLD || velocity < -500) {
+        // Swipe left -> Next
+        translateX.value = withSpring(-SCREEN_WIDTH, { damping: 20, stiffness: 200 });
+        runOnJS(switchTrack)('next');
+      } else if (translateX.value > THRESHOLD || velocity > 500) {
+        // Swipe right -> Previous
+        translateX.value = withSpring(SCREEN_WIDTH, { damping: 20, stiffness: 200 });
+        runOnJS(switchTrack)('prev');
+      } else {
+        // Snap back
+        translateX.value = withSpring(0, { damping: 20, stiffness: 200 });
+      }
+    });
+
+  const composedGesture = Gesture.Simultaneous(verticalPanGesture, horizontalPanGesture);
 
   const animatedSheetStyle = useAnimatedStyle(() => {
     return {
@@ -157,6 +215,12 @@ export function PlayerSheet() {
     };
   });
 
+  const animatedHorizontalContentStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateX: translateX.value }],
+    };
+  });
+
   // Background blur opacity
   const animatedBgStyle = useAnimatedStyle(() => {
     const opacity = interpolate(
@@ -165,7 +229,10 @@ export function PlayerSheet() {
       [0.6, 0],
       Extrapolation.CLAMP
     );
-    return { opacity };
+    return { 
+      opacity,
+      pointerEvents: translateY.value < maxTranslateY - 10 ? 'auto' : 'none',
+    };
   });
 
   if (!hasTrack) {
@@ -173,10 +240,11 @@ export function PlayerSheet() {
   }
 
   return (
-    <GestureDetector gesture={panGesture}>
+    <GestureDetector gesture={composedGesture}>
       <Animated.View 
         style={[styles.sheetContainer, animatedSheetStyle]}
         onLayout={(e) => setContainerHeight(e.nativeEvent.layout.height)}
+        pointerEvents="box-none"
       >
         {/* Full Player Background */}
         <Animated.View style={[StyleSheet.absoluteFill, animatedBgStyle]}>
@@ -263,24 +331,26 @@ export function PlayerSheet() {
             <View style={styles.headerSpacer} />
           </View>
 
-          <View style={styles.artworkContainer}>
-            {currentArtwork ? (
-              <Image source={{ uri: currentArtwork }} style={styles.artworkImage} />
-            ) : (
-              <View style={styles.artworkFallback}>
-                <Text style={styles.artworkInitial}>
-                  {currentTitle.slice(0, 1).toUpperCase() || 'L'}
-                </Text>
-              </View>
-            )}
-          </View>
-
-          <View style={styles.trackInfo}>
-            <View style={styles.trackTextGroup}>
-              <Text style={styles.title} numberOfLines={1}>{currentTitle}</Text>
-              <Text style={styles.artist} numberOfLines={1}>{currentArtist}</Text>
+          <Animated.View style={animatedHorizontalContentStyle}>
+            <View style={styles.artworkContainer}>
+              {currentArtwork ? (
+                <Image source={{ uri: currentArtwork }} style={styles.artworkImage} />
+              ) : (
+                <View style={styles.artworkFallback}>
+                  <Text style={styles.artworkInitial}>
+                    {currentTitle.slice(0, 1).toUpperCase() || 'L'}
+                  </Text>
+                </View>
+              )}
             </View>
-          </View>
+
+            <View style={styles.trackInfo}>
+              <View style={styles.trackTextGroup}>
+                <Text style={styles.title} numberOfLines={1}>{currentTitle}</Text>
+                <Text style={styles.artist} numberOfLines={1}>{currentArtist}</Text>
+              </View>
+            </View>
+          </Animated.View>
 
           {/* Simple controls for now, will add progress bar in next step */}
           <View style={styles.controlsRow}>
