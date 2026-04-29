@@ -29,6 +29,9 @@ type SongListProps = {
   onPressSong: (songId: string) => void;
   emptyMessage?: string;
   onScanPress?: () => void;
+  onScroll?: (event: any) => void;
+  onScrollBeginDrag?: () => void;
+  onScrollEndDrag?: () => void;
 };
 
 function formatDuration(ms: number): string {
@@ -104,6 +107,9 @@ export function SongList({
   onPressSong,
   emptyMessage = 'No local songs found yet.',
   onScanPress,
+  onScroll,
+  onScrollBeginDrag,
+  onScrollEndDrag,
 }: SongListProps) {
   const getItemLayout = useCallback(
     (_: ArrayLike<LocalSong> | null | undefined, index: number) => ({
@@ -132,6 +138,10 @@ export function SongList({
       contentContainerStyle={songs.length === 0 ? styles.emptyListContent : styles.content}
       keyboardShouldPersistTaps="handled"
       {...SONG_LIST_VIRTUALIZATION_CONFIG}
+      onScroll={onScroll}
+      onScrollBeginDrag={onScrollBeginDrag}
+      onScrollEndDrag={onScrollEndDrag}
+      scrollEventThrottle={16}
       ListEmptyComponent={<SongListEmpty emptyMessage={emptyMessage} onScanPress={onScanPress} />}
     />
   );
