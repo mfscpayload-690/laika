@@ -115,18 +115,26 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
 
   const playSong = useCallback(async (songId: string) => {
     setError(null);
+    setCurrentTrackId(songId);
+    setPlaybackState(State.Loading);
     try {
+      let targetIndex = localTracks.findIndex(t => String(t.id) === songId);
+
       if (mode !== 'local' || !hasLoadedLocalQueue.current) {
         await TrackPlayer.reset();
         await TrackPlayer.add(localTracks);
         hasLoadedLocalQueue.current = true;
         setMode('local');
         setActiveRemoteTrack(null);
+        setIsShuffleEnabled(false); // Reset shuffle when a new local queue is loaded
+      } else {
+        // If the queue is already loaded (and potentially shuffled), find the index in the actual queue
+        const currentQueue = await TrackPlayer.getQueue();
+        targetIndex = currentQueue.findIndex(t => String(t.id) === songId);
       }
 
-      const index = localTracks.findIndex(t => String(t.id) === songId);
-      if (index >= 0) {
-        await TrackPlayer.skip(index);
+      if (targetIndex >= 0) {
+        await TrackPlayer.skip(targetIndex);
         await TrackPlayer.play();
       }
     } catch (e) {
@@ -137,6 +145,8 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
   const playRemote = useCallback(async (track: RemoteTrack) => {
     setIsResolving(true);
     setError(null);
+    setActiveRemoteTrack(track);
+    setPlaybackState(State.Loading);
     try {
       const resolved = await resolveTrack(track.title, track.artist, track.duration_ms);
       await TrackPlayer.reset();
@@ -161,6 +171,9 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const togglePlayPause = useCallback(async () => {
+    // Optimistic update for instant UI feedback
+    setPlaybackState(prev => prev === State.Playing ? State.Paused : State.Playing);
+    
     const { state } = await TrackPlayer.getPlaybackState();
     if (state === State.Playing) {
       await TrackPlayer.pause();
