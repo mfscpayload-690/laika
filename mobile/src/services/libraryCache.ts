@@ -19,6 +19,26 @@ function isValidSong(value: unknown): value is LocalSong {
   );
 }
 
+function normalizeCachedDurations(songs: LocalSong[]): LocalSong[] {
+  const positiveDurations = songs
+    .map(song => song.duration)
+    .filter(duration => duration > 0);
+
+  if (positiveDurations.length === 0) {
+    return songs;
+  }
+
+  const looksLikeSeconds = positiveDurations.every(duration => duration < 1000);
+  if (!looksLikeSeconds) {
+    return songs;
+  }
+
+  return songs.map(song => ({
+    ...song,
+    duration: song.duration > 0 ? song.duration * 1000 : 0,
+  }));
+}
+
 export async function loadCachedSongs(): Promise<LocalSong[]> {
   try {
     const exists = await RNFS.exists(CACHE_FILE_PATH);
@@ -32,7 +52,7 @@ export async function loadCachedSongs(): Promise<LocalSong[]> {
       return [];
     }
 
-    return parsed.filter(isValidSong);
+    return normalizeCachedDurations(parsed.filter(isValidSong));
   } catch {
     return [];
   }

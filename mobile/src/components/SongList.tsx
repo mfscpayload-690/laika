@@ -7,8 +7,9 @@ import {
   View,
   type ListRenderItem,
 } from 'react-native';
-import {AudioLines, Music} from 'lucide-react-native';
+import {Music} from 'lucide-react-native';
 
+import {TrackRow} from './TrackRow';
 import {colors, radii, spacing, typography} from '../theme';
 import type {LocalSong} from '../types/music';
 
@@ -48,37 +49,25 @@ type SongRowProps = {
 
 const SongRow = memo(function SongRow({item, isActive, onPressSong}: SongRowProps) {
   const duration = formatDuration(item.duration);
+  const artistLabel = item.album ? `${item.artist} · ${item.album}` : item.artist;
 
   return (
-    <Pressable
-      style={[styles.row, isActive && styles.activeRow]}
+    <TrackRow
+      title={item.title}
+      artist={artistLabel}
+      thumbnail={item.artwork}
+      isActive={isActive}
       onPress={() => onPressSong(item.id)}
-      accessibilityRole="button"
-      accessibilityLabel={`${item.title} by ${item.artist}${isActive ? ', currently playing' : ''}`}>
-      <View style={styles.iconSquare}>
-        {isActive ? (
-          <AudioLines size={20} color={colors.brand} strokeWidth={2} />
-        ) : (
-          <Music size={20} color={colors.textMuted} strokeWidth={2} />
-        )}
-      </View>
-
-      <View style={styles.textWrap}>
-        <Text style={[styles.title, isActive && styles.titleActive]} numberOfLines={1}>
-          {item.title}
-        </Text>
-        <Text style={styles.artist} numberOfLines={1}>
-          {item.artist}
-          {duration ? `  ·  ${duration}` : ''}
-        </Text>
-      </View>
-
-      {isActive ? (
-        <View style={styles.playingBadge}>
-          <Text style={styles.playingText}>PLAYING</Text>
-        </View>
-      ) : null}
-    </Pressable>
+      rightSlot={
+        isActive ? (
+          <View style={styles.playingBadge}>
+            <Text style={styles.playingText}>PLAYING</Text>
+          </View>
+        ) : duration ? (
+          <Text style={styles.durationText}>{duration}</Text>
+        ) : undefined
+      }
+    />
   );
 });
 
@@ -155,44 +144,6 @@ const styles = StyleSheet.create({
   emptyListContent: {
     flexGrow: 1,
   },
-  row: {
-    height: SONG_ROW_HEIGHT,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: radii.sm,
-    paddingHorizontal: spacing.sm,
-    marginBottom: spacing.xs,
-    backgroundColor: 'transparent',
-  },
-  activeRow: {
-    backgroundColor: colors.surfaceElevated,
-  },
-  iconSquare: {
-    width: 44,
-    height: 44,
-    borderRadius: radii.xs,
-    backgroundColor: colors.surfaceElevated,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.md,
-  },
-  textWrap: {
-    flex: 1,
-    marginRight: spacing.sm,
-  },
-  title: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  titleActive: {
-    color: colors.brand,
-  },
-  artist: {
-    ...typography.caption,
-    marginTop: 2,
-    color: colors.textSecondary,
-  },
   playingBadge: {
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
@@ -204,6 +155,11 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 0.5,
+  },
+  durationText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    fontWeight: '600',
   },
   emptyContainer: {
     flex: 1,

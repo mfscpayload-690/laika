@@ -66,7 +66,7 @@ class AudioScannerModule(reactContext: ReactApplicationContext) :
               putString("artist", artist)
               putString("album", album)
               putString("artwork", artworkUri)
-              putDouble("duration", duration.toDouble() / 1000.0)
+              putDouble("duration", duration.toDouble())
               putString("path", contentUri.toString())
             }
 
