@@ -142,6 +142,7 @@ export function SongList({
       onScrollBeginDrag={onScrollBeginDrag}
       onScrollEndDrag={onScrollEndDrag}
       scrollEventThrottle={16}
+      showsVerticalScrollIndicator={false}
       ListEmptyComponent={<SongListEmpty emptyMessage={emptyMessage} onScanPress={onScanPress} />}
     />
   );
