@@ -5,6 +5,8 @@ export type LocalSong = {
   album?: string;
   artwork?: string;
   duration: number;
+  addedAt?: number;
+  modifiedAt?: number;
   path: string;
 };
 
