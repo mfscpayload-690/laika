@@ -24,8 +24,7 @@ export const AlphabetSidebar = React.memo(({ currentFilter, onLetterChange, onIn
   // Update visual index on prop change when not dragging
   React.useEffect(() => {
     if (!draggingLetter) {
-      let idx = currentFilter === 'all' ? 0 : ALPHABET.indexOf(currentFilter) + 1;
-      if (idx < 0) idx = 0;
+      let idx = ALPHABET.indexOf(currentFilter);
       Animated.spring(activeIndexAnim, {
         toValue: idx,
         useNativeDriver: true,
@@ -35,24 +34,21 @@ export const AlphabetSidebar = React.memo(({ currentFilter, onLetterChange, onIn
     }
   }, [currentFilter, draggingLetter]);
 
-  const handleTouch = (pageY: number, isFinal: boolean) => {
+  const handleTouch = (locationY: number, isFinal: boolean) => {
     if (sidebarLayout.current.height === 0) return;
 
-    // Expand the hit area slightly above and below
-    const relativeY = pageY - sidebarLayout.current.y;
-    const totalItems = ALPHABET.length + 1; // +1 for 'all'
+    const totalItems = ALPHABET.length;
     const itemHeight = sidebarLayout.current.height / totalItems;
 
-    // Use a slight offset so it's easier to hit the first and last items
-    let index = Math.floor((relativeY) / itemHeight);
+    let index = Math.floor(locationY / itemHeight);
     
     // More forgiving bounds
     index = Math.max(0, Math.min(index, totalItems - 1));
 
-    const selected = index === 0 ? 'all' : ALPHABET[index - 1];
+    const selected = ALPHABET[index];
     
     // Animate bubble position
-    popY.setValue(pageY - sidebarLayout.current.y - 27);
+    popY.setValue(locationY - 27);
 
     if (selected !== draggingLetter) {
       if (!isFinal) setDraggingLetter(selected);
@@ -74,7 +70,7 @@ export const AlphabetSidebar = React.memo(({ currentFilter, onLetterChange, onIn
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: (evt) => {
         onInteractStart();
-        handleTouch(evt.nativeEvent.pageY, false);
+        handleTouch(evt.nativeEvent.locationY, false);
         Animated.spring(popAnim, {
           toValue: 1,
           useNativeDriver: true,
@@ -83,10 +79,10 @@ export const AlphabetSidebar = React.memo(({ currentFilter, onLetterChange, onIn
         }).start();
       },
       onPanResponderMove: (evt) => {
-        handleTouch(evt.nativeEvent.pageY, false);
+        handleTouch(evt.nativeEvent.locationY, false);
       },
       onPanResponderRelease: (evt) => {
-        handleTouch(evt.nativeEvent.pageY, true);
+        handleTouch(evt.nativeEvent.locationY, true);
         setDraggingLetter(null);
         Animated.timing(popAnim, {
           toValue: 0,
@@ -105,7 +101,7 @@ export const AlphabetSidebar = React.memo(({ currentFilter, onLetterChange, onIn
     })
   ).current;
 
-  const displayLetter = draggingLetter === 'all' ? '•' : draggingLetter;
+  const displayLetter = draggingLetter;
   // If we are dragging, visual selection follows draggingLetter. Else follows currentFilter.
   const visualActiveLetter = draggingLetter !== null ? draggingLetter : currentFilter;
 
@@ -118,39 +114,18 @@ export const AlphabetSidebar = React.memo(({ currentFilter, onLetterChange, onIn
           {
             opacity: opacityAnim,
           }
-        ]}
-        {...panResponder.panHandlers}>
+        ]}>
         <View style={styles.sidebar}>
           <View 
             ref={contentRef}
-            onLayout={() => {
-              contentRef.current?.measure((x, y, width, height, pageX, pageY) => {
-                sidebarLayout.current = { y: pageY, height };
-              });
+            onLayout={(e) => {
+              sidebarLayout.current = { y: 0, height: e.nativeEvent.layout.height };
             }}
-            style={styles.content}>
-            <View style={styles.chip}>
-              <Animated.Text
-                style={[
-                  styles.label,
-                  visualActiveLetter === 'all' && styles.labelActive,
-                  {
-                    transform: [{
-                      scale: activeIndexAnim.interpolate({
-                        inputRange: [-1, 0, 1],
-                        outputRange: [1, 1.5, 1],
-                        extrapolate: 'clamp',
-                      })
-                    }]
-                  }
-                ]}>
-                •
-              </Animated.Text>
-            </View>
+            style={[styles.content, { width: 40 }]}
+            {...panResponder.panHandlers}>
             {ALPHABET.map((letter, idx) => {
-              const letterIndex = idx + 1; // +1 because 'all' is 0
               return (
-                <View key={letter} style={styles.chip}>
+                <View key={letter} style={styles.chip} pointerEvents="none">
                   <Animated.Text
                     style={[
                       styles.label,
@@ -158,13 +133,13 @@ export const AlphabetSidebar = React.memo(({ currentFilter, onLetterChange, onIn
                       {
                         transform: [{
                           scale: activeIndexAnim.interpolate({
-                            inputRange: [letterIndex - 1.5, letterIndex, letterIndex + 1.5],
+                            inputRange: [idx - 1.5, idx, idx + 1.5],
                             outputRange: [1, 1.6, 1],
                             extrapolate: 'clamp',
                           })
                         }, {
                           translateX: activeIndexAnim.interpolate({
-                            inputRange: [letterIndex - 1.5, letterIndex, letterIndex + 1.5],
+                            inputRange: [idx - 1.5, idx, idx + 1.5],
                             outputRange: [0, -4, 0],
                             extrapolate: 'clamp',
                           })
