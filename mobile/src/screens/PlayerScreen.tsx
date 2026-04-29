@@ -198,9 +198,24 @@ export function PlayerScreen({
 
   return (
     <View style={styles.container}>
-      {/* Header / Dismiss */}
-      <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.dismissBtn}>
+      {/* Dynamic Blurred Background */}
+      {currentThumbnail && (
+        <>
+          <Image 
+            source={{ uri: currentThumbnail }} 
+            style={[StyleSheet.absoluteFill, { width: '100%', height: '100%', opacity: 0.6 }]} 
+            blurRadius={90} 
+          />
+          {/* Dark gradient/overlay to ensure crisp text readability */}
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.45)' }]} />
+        </>
+      )}
+
+      {/* Content Wrapper to handle padding independent of full-bleed background */}
+      <View style={styles.content}>
+        {/* Header / Dismiss */}
+        <View style={styles.header}>
+          <Pressable onPress={() => navigation.goBack()} style={styles.dismissBtn}>
           <ChevronDown size={32} color={colors.textPrimary} />
         </Pressable>
         <View style={styles.headerTitleGroup}>
@@ -332,6 +347,7 @@ export function PlayerScreen({
           {repeatMode === 'one' ? <Text style={styles.repeatOneLabel}>1</Text> : null}
         </Pressable>
       </View>
+      </View>
     </View>
   );
 }
@@ -339,10 +355,13 @@ export function PlayerScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.background,
+  },
+  content: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'flex-start',
     paddingHorizontal: spacing.xl,
-    backgroundColor: colors.background,
   },
   header: {
     width: '100%',
