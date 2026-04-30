@@ -10,7 +10,7 @@ import {
   FlatList,
   Dimensions,
 } from 'react-native';
-import { ChevronRight, Library, Music, RefreshCw, Search, Play } from 'lucide-react-native';
+import { ChevronRight, Library, Music, RefreshCw, Search, Play, User } from 'lucide-react-native';
 
 import { SectionHeader } from '../components/SectionHeader';
 import { colors, radii, spacing, typography } from '../theme';
@@ -37,6 +37,7 @@ type HomeScreenProps = {
   nowPlayingArtist?: string;
   nowPlayingThumbnail?: string;
   onOpenSearch: () => void;
+  onOpenProfile?: () => void;
   onPlayTrack?: (track: RemoteTrack) => void;
   currentTrackId?: string | null;
   activeRemoteTrackId?: string | null;
@@ -100,6 +101,7 @@ export function HomeScreen({
   nowPlayingArtist,
   nowPlayingThumbnail,
   onOpenSearch,
+  onOpenProfile,
   onPlayTrack,
   currentTrackId,
   activeRemoteTrackId,
@@ -149,10 +151,24 @@ export function HomeScreen({
       
       {/* Greeting Header */}
       <View style={styles.header}>
-        <Text style={styles.greeting}>{getGreeting()}</Text>
-        <Pressable onPress={onOpenSearch} style={styles.iconButton}>
-          <Search size={24} color={colors.textPrimary} />
-        </Pressable>
+        <Text style={styles.greeting}>
+          {getGreeting()}{user?.user_metadata?.full_name ? `, ${user.user_metadata.full_name.split(' ')[0]}` : ''}
+        </Text>
+        <View style={styles.headerButtons}>
+          <Pressable onPress={onOpenSearch} style={styles.iconButton}>
+            <Search size={24} color={colors.textPrimary} />
+          </Pressable>
+          <Pressable onPress={onOpenProfile} style={[styles.iconButton, { marginLeft: spacing.sm }]}>
+            {user?.user_metadata?.avatar_url ? (
+              <Image 
+                source={{ uri: user.user_metadata.avatar_url }} 
+                style={styles.avatarImage} 
+              />
+            ) : (
+              <User size={24} color={colors.textPrimary} />
+            )}
+          </Pressable>
+        </View>
       </View>
 
       {loading ? (
@@ -227,7 +243,9 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: spacing.lg, paddingTop: spacing.xl * 2, paddingBottom: spacing.xxxl * 1.5 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg },
   greeting: { fontSize: 24, fontWeight: '700', color: colors.textPrimary },
+  headerButtons: { flexDirection: 'row', alignItems: 'center' },
   iconButton: { padding: spacing.xs },
+  avatarImage: { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.1)' },
   
   // Quick Pick Grid
   quickGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: spacing.xl },

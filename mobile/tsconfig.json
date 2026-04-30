@@ -10,10 +10,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "baseUrl": ".",
-    "paths": {
-      "@react-native-async-storage/async-storage": ["node_modules/@react-native-async-storage/async-storage"]
-    }
+    "types": ["react"]
   },
   "include": ["src", "index.js"]
 }
