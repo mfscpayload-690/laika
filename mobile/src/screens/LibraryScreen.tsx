@@ -12,7 +12,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { ChevronDown, ChevronUp } from 'lucide-react-native';
+import { ChevronDown, ChevronUp, Search as SearchIcon } from 'lucide-react-native';
 
 import { SongList } from '../components/SongList';
 import { AlphabetSidebar } from '../components/AlphabetSidebar';
@@ -163,18 +163,17 @@ export function LibraryScreen({
       <View style={styles.headerRow}>
         <View>
           <Text style={styles.title}>Your Library</Text>
-          <Text style={styles.subtitle}>{songs.length} songs</Text>
         </View>
       </View>
 
       <View style={styles.metaRow}>
-        <Text style={styles.subtitle}>{visibleSongs.length} shown • {songs.length} total</Text>
         {activeFilterCount > 0 ? (
-          <Text style={styles.filterSummary}>{activeFilterCount} filters active</Text>
+          <Text style={styles.filterSummary}>{activeFilterCount} filters active • {visibleSongs.length} items found</Text>
         ) : null}
       </View>
 
       <View style={styles.searchBar}>
+        <SearchIcon size={18} color={colors.textMuted} style={styles.searchIcon} />
         <TextInput
           value={query}
           onChangeText={setQuery}
@@ -268,14 +267,21 @@ const styles = StyleSheet.create({
   },
   searchBar: {
     marginTop: spacing.sm,
-    borderRadius: radii.sm,
-    backgroundColor: colors.surfaceElevated,
+    borderRadius: radii.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: spacing.md,
   },
+  searchIcon: {
+    marginRight: spacing.xs,
+  },
   searchInput: {
+    flex: 1,
     color: colors.textPrimary,
-    paddingVertical: spacing.sm,
-    fontSize: 14,
+    paddingVertical: spacing.md,
+    fontSize: 15,
+    fontWeight: '500',
   },
   filterSection: {
     marginTop: spacing.md,
