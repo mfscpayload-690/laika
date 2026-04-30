@@ -19,6 +19,7 @@ interface PlaybackContextType {
   error: string | null;
   isShuffleEnabled: boolean;
   repeatMode: RepeatSetting;
+  isResolving: boolean;
 
   // Actions
   playSong: (songId: string) => Promise<void>;
@@ -148,8 +149,9 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
     setActiveRemoteTrack(track);
     setPlaybackState(State.Loading);
     try {
-      const resolved = await resolveTrack(track.title, track.artist, track.duration_ms);
+      // UX Fix: Stop old playback immediately while resolving new metadata
       await TrackPlayer.reset();
+      const resolved = await resolveTrack(track.title, track.artist, track.duration_ms);
       await TrackPlayer.add({
         id: track.id,
         url: resolved.url,
@@ -303,6 +305,7 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
     error,
     isShuffleEnabled,
     repeatMode,
+    isResolving,
     playSong,
     playRemote,
     togglePlayPause,
