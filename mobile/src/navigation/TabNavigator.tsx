@@ -1,8 +1,9 @@
 import React from 'react';
-import {InteractionManager, Pressable} from 'react-native';
+import {InteractionManager, Pressable, View, StyleSheet} from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Home as HomeIcon, Search as SearchIcon, Library as LibraryIcon } from 'lucide-react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from '@react-native-community/blur';
 
 import { HomeScreen } from '../screens/HomeScreen';
 import { SearchScreen } from '../screens/SearchScreen';
@@ -14,7 +15,6 @@ import {scanDeviceForAudio} from '../services/audioScanner';
 import { saveCachedSongs, saveCachedSongsChunk } from '../services/libraryCache';
 
 const Tab = createBottomTabNavigator<MainTabsParamList>();
-const TAB_BAR_BASE_HEIGHT = 62;
 
 export function TabNavigator() {
   const insets = useSafeAreaInsets();
@@ -80,13 +80,28 @@ export function TabNavigator() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: colors.background,
-          borderTopColor: colors.borderSubtle,
-          borderTopWidth: 1,
-          paddingTop: 6,
-          paddingBottom: Math.max(6, insets.bottom),
-          height: TAB_BAR_BASE_HEIGHT + Math.max(insets.bottom, 0),
+          position: 'absolute',
+          backgroundColor: 'transparent',
+          borderTopWidth: 0,
+          elevation: 0,
+          left: '10%',
+          right: '10%',
+          bottom: 20 + Math.max(0, insets.bottom),
+          height: 64,
+          borderRadius: 32,
+          overflow: 'hidden',
         },
+        tabBarBackground: () => (
+          <View style={[StyleSheet.absoluteFill, { borderRadius: 32, overflow: 'hidden' }]}>
+            <BlurView
+              style={StyleSheet.absoluteFill}
+              blurType="dark"
+              blurAmount={25}
+              reducedTransparencyFallbackColor="rgba(18, 18, 18, 0.9)"
+              overlayColor="rgba(0, 0, 0, 0.5)"
+            />
+          </View>
+        ),
         tabBarActiveTintColor: colors.textPrimary,
         tabBarInactiveTintColor: colors.inactiveIcon,
         tabBarLabelStyle: {
@@ -102,10 +117,10 @@ export function TabNavigator() {
         tabBarButton: (props) => (
           <Pressable
             {...props}
-            android_ripple={{ color: 'rgba(255,255,255,0.1)', borderless: false }}
+            android_ripple={{ color: 'rgba(255,255,255,0.12)', borderless: true, radius: 32 }}
             style={({ pressed }) => [
               props.style as any,
-              pressed && { opacity: 0.6 }
+              pressed && { opacity: 0.7 }
             ]}
           />
         ),
@@ -124,7 +139,7 @@ export function TabNavigator() {
             onScan={handleScan}
             scanning={scanning}
             onOpenLibrary={() => props.navigation.navigate('Library')}
-            onOpenPlayer={() => props.navigation.navigate('Player')}
+            onOpenPlayer={() => { /* Player is a global sheet */ }}
             hasCurrentSong={hasCurrentSong}
             nowPlayingTitle={activeRemoteTrack?.title || activeLocalSong?.title}
             nowPlayingArtist={activeRemoteTrack?.artist || activeLocalSong?.artist}
@@ -166,7 +181,7 @@ export function TabNavigator() {
             songs={songs}
             currentTrackId={currentTrackId}
             onPressSong={(id) => playSong(id)}
-            onOpenPlayer={() => props.navigation.navigate('Player')}
+            onOpenPlayer={() => { /* Player is a global sheet */ }}
             onScan={handleScan}
           />
         )}
