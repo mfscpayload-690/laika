@@ -7,6 +7,8 @@ import {
   Dimensions,
   Pressable,
   ActivityIndicator,
+  TextInput,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -32,11 +34,6 @@ const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 const TAB_BAR_BASE_HEIGHT = 62;
 const MINI_PLAYER_HEIGHT = 64 + 10; // 64 height + 10 paddingTop approx
 
-const clamp = (value: number, min: number, max: number) => {
-  'worklet';
-  return Math.min(max, Math.max(min, value));
-};
-
 const BUTTER_SPRING_CONFIG = {
   damping: 18,
   stiffness: 120,
@@ -44,64 +41,71 @@ const BUTTER_SPRING_CONFIG = {
   overshootClamping: false,
 };
 
+const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
+
 function ProgressBar() {
   const { position, duration } = useProgress(250);
   const isDragging = useSharedValue(false);
-  const [isDraggingState, setIsDraggingState] = useState(false);
   const seekPosition = useSharedValue(0);
   const trackWidth = useSharedValue(0);
-  const [dragTime, setDragTime] = useState(0);
 
   useEffect(() => {
-    if (!isDraggingState && duration > 0) {
+    if (!isDragging.value && duration > 0) {
       seekPosition.value = position;
     }
-  }, [position, duration, isDraggingState]);
+  }, [position, duration]);
 
-  useAnimatedReaction(
-    () => seekPosition.value,
-    (val) => {
-      if (isDragging.value) {
-        runOnJS(setDragTime)(val);
-      }
-    }
-  );
+  const handleSeek = useCallback((pos: number) => {
+    TrackPlayer.seekTo(pos).catch(err => console.warn('ProgressBar: seek failed', err));
+  }, []);
 
   const panGesture = Gesture.Pan()
     .activeOffsetX([-10, 10])
     .onStart(() => {
       isDragging.value = true;
-      runOnJS(setIsDraggingState)(true);
     })
     .onUpdate((e) => {
       if (trackWidth.value > 0 && duration > 0) {
         const newPos = (e.x / trackWidth.value) * duration;
-        seekPosition.value = clamp(newPos, 0, duration);
+        seekPosition.value = Math.min(duration, Math.max(0, newPos));
       }
     })
     .onEnd(() => {
-      runOnJS(TrackPlayer.seekTo)(seekPosition.value);
+      runOnJS(handleSeek)(seekPosition.value);
       isDragging.value = false;
-      runOnJS(setIsDraggingState)(false);
     });
 
   const progressStyle = useAnimatedStyle(() => {
     const percent = duration > 0 ? (seekPosition.value / duration) * 100 : 0;
-    return { width: `${clamp(percent, 0, 100)}%` };
+    return { width: `${Math.min(100, Math.max(0, percent))}%` };
   });
 
   const thumbStyle = useAnimatedStyle(() => {
-    const percent = duration > 0 ? (seekPosition.value / duration) * 100 : 0;
-    return { left: `${clamp(percent, 0, 100)}%` };
+    const trackW = trackWidth.value || 0;
+    // Keep thumb center within bounds or use a fixed offset
+    const x = duration > 0 ? (seekPosition.value / duration) * (trackW - 12) : 0;
+    return {
+      transform: [{ translateX: Math.min(trackW - 12, Math.max(0, x)) }],
+    };
   });
 
-  const displayTime = isDraggingState ? dragTime : position;
-
-  const formatTime = (s: number) => {
+  const animatedTimeProps = useAnimatedProps(() => {
+    const s = Math.floor(seekPosition.value);
     const mins = Math.floor(s / 60);
     const secs = Math.floor(s % 60);
-    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-  };
+    return {
+      text: `${mins}:${secs < 10 ? '0' : ''}${secs}`,
+    } as any;
+  });
+
+  const animatedDurationProps = useAnimatedProps(() => {
+    const s = Math.floor(duration);
+    const mins = Math.floor(s / 60);
+    const secs = Math.floor(s % 60);
+    return {
+      text: `${mins}:${secs < 10 ? '0' : ''}${secs}`,
+    } as any;
+  });
 
   return (
     <View style={styles.progressContainer}>
@@ -117,8 +121,20 @@ function ProgressBar() {
         </View>
       </GestureDetector>
       <View style={styles.progressTimeRow}>
-        <Text style={styles.progressTimeText}>{formatTime(displayTime)}</Text>
-        <Text style={styles.progressTimeText}>{formatTime(duration)}</Text>
+        <AnimatedTextInput
+          underlineColorAndroid="transparent"
+          editable={false}
+          value=""
+          style={[styles.progressTimeText, { padding: 0 }]}
+          animatedProps={animatedTimeProps as any}
+        />
+        <AnimatedTextInput
+          underlineColorAndroid="transparent"
+          editable={false}
+          value=""
+          style={[styles.progressTimeText, { padding: 0 }]}
+          animatedProps={animatedDurationProps as any}
+        />
       </View>
     </View>
   );
@@ -249,8 +265,10 @@ export function PlayerSheet() {
     });
 
   const horizontalPanGesture = Gesture.Pan()
+    .enabled(!activeRemoteTrack) // Only enable if not in remote mode
     .activeOffsetX([-20, 20])
     .onStart(() => {
+      if (!isExpanded.value) return;
       startTranslateX.value = translateX.value;
     })
     .onUpdate((event) => {
@@ -654,7 +672,7 @@ const styles = StyleSheet.create({
   progressBarHitbox: { paddingVertical: 12, justifyContent: 'center' },
   progressBarBg: { height: 4, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 2, overflow: 'hidden' },
   progressBarFill: { height: '100%', backgroundColor: colors.textPrimary, borderRadius: 2 },
-  progressThumb: { position: 'absolute', width: 12, height: 12, borderRadius: 6, backgroundColor: '#FFF', top: 8, marginLeft: -6, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.5, shadowRadius: 3, elevation: 3 },
+  progressThumb: { position: 'absolute', width: 12, height: 12, borderRadius: 6, backgroundColor: '#FFF', top: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.5, shadowRadius: 3, elevation: 3 },
   progressTimeRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm },
   progressTimeText: { color: colors.textSecondary, fontSize: 12, fontWeight: '600', opacity: 0.8, fontVariant: ['tabular-nums'] },
   

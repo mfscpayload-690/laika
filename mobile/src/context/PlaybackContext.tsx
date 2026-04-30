@@ -185,39 +185,46 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
   const next = useCallback(async () => {
     if (mode === 'local') {
       try {
-        // Optimistically update the UI to avoid animation delays
         const queue = await TrackPlayer.getQueue();
         const activeIndex = await TrackPlayer.getActiveTrackIndex();
+        
         if (activeIndex !== undefined && activeIndex !== null && queue.length > 0) {
           const nextIndex = activeIndex + 1 < queue.length ? activeIndex + 1 : 0;
           setCurrentTrackId(String(queue[nextIndex].id));
         }
         await TrackPlayer.skipToNext();
-      } catch {
-        if (localTracks.length > 0) {
-          setCurrentTrackId(String(localTracks[0].id));
+      } catch (err) {
+        console.warn('PlaybackContext: next failed', err);
+        // Fallback: if skipToNext fails, try to jump to the first track
+        const queue = await TrackPlayer.getQueue();
+        if (queue.length > 0) {
+          setCurrentTrackId(String(queue[0].id));
           await TrackPlayer.skip(0);
         }
       }
     }
-  }, [mode, localTracks]);
+  }, [mode]);
 
   const previous = useCallback(async () => {
     if (mode === 'local') {
       try {
-        // Optimistically update the UI to avoid animation delays
         const queue = await TrackPlayer.getQueue();
         const activeIndex = await TrackPlayer.getActiveTrackIndex();
+        const position = await TrackPlayer.getPosition();
         
-        // If we're more than 3 seconds in, previous should usually just seek to 0.
-        // We'll optimistically update to the previous track assuming the user wants to skip back.
         if (activeIndex !== undefined && activeIndex !== null && queue.length > 0) {
+          // Standard behavior: if > 3s into song, previous just restarts current song
+          if (position > 3) {
+            await TrackPlayer.seekTo(0);
+            return;
+          }
+          
           const prevIndex = activeIndex - 1 >= 0 ? activeIndex - 1 : 0;
           setCurrentTrackId(String(queue[prevIndex].id));
         }
-        
         await TrackPlayer.skipToPrevious();
-      } catch {
+      } catch (err) {
+        console.warn('PlaybackContext: previous failed', err);
         await TrackPlayer.seekTo(0);
       }
     } else {
