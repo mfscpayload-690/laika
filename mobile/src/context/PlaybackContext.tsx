@@ -4,6 +4,7 @@ import { ensureRemotePlayerReady } from '../hooks/remotePlayerSetup';
 import { resolveTrack } from '../services/api';
 import { ensureAudioPermission } from '../services/audioScanner';
 import { loadCachedSongs } from '../services/libraryCache';
+import { logEvent } from '../services/eventLogger';
 import type { LocalSong, RemoteTrack } from '../types/music';
 
 type PlaybackMode = 'local' | 'remote' | 'none';
@@ -50,6 +51,7 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
   const [isResolving, setIsResolving] = useState(false);
   const [isShuffleEnabled, setIsShuffleEnabled] = useState(false);
   const [repeatMode, setRepeatMode] = useState<RepeatSetting>('all');
+  const lastLoggedTrackRef = useRef<{track_id: string, title: string, artist: string, thumbnail?: string, source?: string} | null>(null);
 
   const hasLoadedLocalQueue = useRef(false);
 
@@ -137,6 +139,13 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
       if (targetIndex >= 0) {
         await TrackPlayer.skip(targetIndex);
         await TrackPlayer.play();
+        
+        const track = localTracks[targetIndex];
+        lastLoggedTrackRef.current = { track_id: String(track.id), title: track.title, artist: track.artist || 'Unknown', thumbnail: track.artwork, source: 'local' };
+        logEvent({
+          ...lastLoggedTrackRef.current,
+          action: 'play'
+        });
       }
     } catch (e) {
       setError('Failed to play local song');
@@ -162,6 +171,12 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
       });
       await TrackPlayer.play();
 
+      lastLoggedTrackRef.current = { track_id: track.id, title: track.title, artist: track.artist, thumbnail: track.thumbnail, source: track.source };
+      logEvent({
+        ...lastLoggedTrackRef.current,
+        action: 'play'
+      });
+
       setMode('remote');
       setActiveRemoteTrack(track);
       hasLoadedLocalQueue.current = false;
@@ -185,6 +200,14 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const next = useCallback(async () => {
+    // Log skip event before moving
+    if (lastLoggedTrackRef.current && playbackState === State.Playing) {
+      logEvent({
+        ...lastLoggedTrackRef.current,
+        action: 'skip'
+      });
+    }
+
     if (mode === 'local') {
       try {
         const queue = await TrackPlayer.getQueue();
@@ -193,6 +216,13 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
         if (activeIndex !== undefined && activeIndex !== null && queue.length > 0) {
           const nextIndex = activeIndex + 1 < queue.length ? activeIndex + 1 : 0;
           setCurrentTrackId(String(queue[nextIndex].id));
+          
+          const nextTrack = queue[nextIndex];
+          lastLoggedTrackRef.current = { track_id: String(nextTrack.id), title: nextTrack.title || 'Unknown', artist: nextTrack.artist || 'Unknown', thumbnail: nextTrack.artwork, source: mode === 'local' ? 'local' : 'remote' };
+          logEvent({ 
+            ...lastLoggedTrackRef.current, 
+            action: 'play'
+          });
         }
         await TrackPlayer.skipToNext();
       } catch (err) {
@@ -202,12 +232,27 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
         if (queue.length > 0) {
           setCurrentTrackId(String(queue[0].id));
           await TrackPlayer.skip(0);
+
+          const nextTrack = queue[0];
+          lastLoggedTrackRef.current = { track_id: String(nextTrack.id), title: nextTrack.title || 'Unknown', artist: nextTrack.artist || 'Unknown', thumbnail: nextTrack.artwork, source: mode === 'local' ? 'local' : 'remote' };
+          logEvent({ 
+            ...lastLoggedTrackRef.current, 
+            action: 'play'
+          });
         }
       }
     }
-  }, [mode]);
+  }, [mode, playbackState]);
 
   const previous = useCallback(async (forcePreviousTrack: boolean = false) => {
+    // Log skip event before moving backwards
+    if (lastLoggedTrackRef.current && playbackState === State.Playing) {
+      logEvent({
+        ...lastLoggedTrackRef.current,
+        action: 'skip'
+      });
+    }
+
     if (mode === 'local') {
       try {
         const queue = await TrackPlayer.getQueue();
@@ -224,6 +269,13 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
           
           const prevIndex = activeIndex - 1 >= 0 ? activeIndex - 1 : 0;
           setCurrentTrackId(String(queue[prevIndex].id));
+
+          const prevTrack = queue[prevIndex];
+          lastLoggedTrackRef.current = { track_id: String(prevTrack.id), title: prevTrack.title || 'Unknown', artist: prevTrack.artist || 'Unknown', thumbnail: prevTrack.artwork, source: mode === 'local' ? 'local' : 'remote' };
+          logEvent({ 
+            ...lastLoggedTrackRef.current, 
+            action: 'play'
+          });
         }
         await TrackPlayer.skipToPrevious();
       } catch (err) {
@@ -233,7 +285,7 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
     } else {
       await TrackPlayer.seekTo(0);
     }
-  }, [mode]);
+  }, [mode, playbackState]);
 
   const toggleShuffle = useCallback(async () => {
     if (mode !== 'local' || localTracks.length <= 1) {
