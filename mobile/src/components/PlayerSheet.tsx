@@ -469,61 +469,68 @@ export function PlayerSheet() {
           <Animated.View style={[styles.miniPlayerWrapper, animatedMiniPlayerStyle]}>
             <Pressable
               style={({pressed}) => [styles.miniPlayer, {paddingBottom: 10 + Math.max(insets.bottom - 4, 0)}, pressed && hasTrack && {backgroundColor: 'rgba(255,255,255,0.05)'}, !hasTrack && { opacity: 0.7 }]}
-            android_ripple={hasTrack ? { color: 'rgba(255,255,255,0.1)' } : null}
-            onPress={() => {
-              if (hasTrack) snapTo(MIN_TRANSLATE);
-            }}
-          >
-            {currentArtwork ? (
-              <Image source={{uri: currentArtwork}} style={styles.miniArtwork} />
-            ) : (
-              <View style={styles.miniArtworkFallback}>
-                <Music size={18} color={colors.textMuted} />
+              android_ripple={hasTrack ? { color: 'rgba(255,255,255,0.1)' } : null}
+              onPress={() => {
+                if (hasTrack) snapTo(MIN_TRANSLATE);
+              }}
+            >
+              <BlurView
+                style={StyleSheet.absoluteFill}
+                blurType="dark"
+                blurAmount={hasTrack ? 20 : 50}
+                reducedTransparencyFallbackColor="rgba(42, 42, 42, 0.9)"
+                overlayColor={hasTrack ? "rgba(0, 0, 0, 0.3)" : "rgba(0, 0, 0, 0.5)"}
+              />
+              {currentArtwork ? (
+                <Image source={{uri: currentArtwork}} style={styles.miniArtwork} />
+              ) : (
+                <View style={styles.miniArtworkFallback}>
+                  <Music size={18} color={colors.textMuted} />
+                </View>
+              )}
+              <View style={styles.miniPlayerInfo}>
+                <Text style={styles.miniPlayerTitle} numberOfLines={1}>{currentTitle}</Text>
+                <Text style={styles.miniPlayerArtist} numberOfLines={1}>{currentArtist}</Text>
               </View>
-            )}
-            <View style={styles.miniPlayerInfo}>
-              <Text style={styles.miniPlayerTitle} numberOfLines={1}>{currentTitle}</Text>
-              <Text style={styles.miniPlayerArtist} numberOfLines={1}>{currentArtist}</Text>
-            </View>
 
-            <View style={[styles.miniControls, !hasTrack && { opacity: 0.5 }]}>
-              <Pressable 
-                style={({pressed}) => [styles.miniControlBtn, pressed && hasTrack && {transform: [{scale: 0.85}]}]} 
-                android_ripple={hasTrack ? { color: 'rgba(255,255,255,0.1)', borderless: true, radius: 20 } : null}
-                onPress={(e) => { e.stopPropagation(); if (hasTrack) previous(); }} 
-                disabled={!hasTrack}
-                accessibilityRole="button"
-              >
-                <SkipBack size={18} color={colors.textPrimary} strokeWidth={2.2} />
-              </Pressable>
-              <Pressable 
-                style={({pressed}) => [styles.miniControlBtn, pressed && hasTrack && {transform: [{scale: 0.85}]}]} 
-                android_ripple={hasTrack ? { color: 'rgba(255,255,255,0.1)', borderless: true, radius: 24 } : null}
-                onPress={(e) => { e.stopPropagation(); if (hasTrack) togglePlayPause(); }} 
-                disabled={!hasTrack}
-                accessibilityRole="button"
-              >
-                {isLoading ? (
-                  <ActivityIndicator size="small" color={colors.textPrimary} />
-                ) : isPlaying ? (
-                  <Pause size={18} color={colors.textPrimary} strokeWidth={2.5} fill={colors.textPrimary} />
-                ) : (
-                  <Play size={18} color={colors.textPrimary} strokeWidth={2.5} fill={colors.textPrimary} />
-                )}
-              </Pressable>
-              <Pressable 
-                style={({pressed}) => [styles.miniControlBtn, pressed && hasTrack && {transform: [{scale: 0.85}]}]} 
-                android_ripple={hasTrack ? { color: 'rgba(255,255,255,0.1)', borderless: true, radius: 20 } : null}
-                onPress={(e) => { e.stopPropagation(); if (hasTrack) next(); }} 
-                disabled={!hasTrack}
-                accessibilityRole="button"
-              >
-                <SkipForward size={18} color={colors.textPrimary} strokeWidth={2.2} />
-              </Pressable>
-            </View>
-          </Pressable>
-        </Animated.View>
-      </GestureDetector>
+              <View style={[styles.miniControls, !hasTrack && { opacity: 0.5 }]}>
+                <Pressable 
+                  style={({pressed}) => [styles.miniControlBtn, pressed && hasTrack && {transform: [{scale: 0.85}]}]} 
+                  android_ripple={hasTrack ? { color: 'rgba(255,255,255,0.1)', borderless: true, radius: 20 } : null}
+                  onPress={(e) => { e.stopPropagation(); if (hasTrack) previous(); }} 
+                  disabled={!hasTrack}
+                  accessibilityRole="button"
+                >
+                  <SkipBack size={18} color={colors.textPrimary} strokeWidth={2.2} />
+                </Pressable>
+                <Pressable 
+                  style={({pressed}) => [styles.miniControlBtn, pressed && hasTrack && {transform: [{scale: 0.85}]}]} 
+                  android_ripple={hasTrack ? { color: 'rgba(255,255,255,0.1)', borderless: true, radius: 24 } : null}
+                  onPress={(e) => { e.stopPropagation(); if (hasTrack) togglePlayPause(); }} 
+                  disabled={!hasTrack}
+                  accessibilityRole="button"
+                >
+                  {isLoading ? (
+                    <ActivityIndicator size="small" color={colors.textPrimary} />
+                  ) : isPlaying ? (
+                    <Pause size={18} color={colors.textPrimary} strokeWidth={2.5} fill={colors.textPrimary} />
+                  ) : (
+                    <Play size={18} color={colors.textPrimary} strokeWidth={2.5} fill={colors.textPrimary} />
+                  )}
+                </Pressable>
+                <Pressable 
+                  style={({pressed}) => [styles.miniControlBtn, pressed && hasTrack && {transform: [{scale: 0.85}]}]} 
+                  android_ripple={hasTrack ? { color: 'rgba(255,255,255,0.1)', borderless: true, radius: 20 } : null}
+                  onPress={(e) => { e.stopPropagation(); if (hasTrack) next(); }} 
+                  disabled={!hasTrack}
+                  accessibilityRole="button"
+                >
+                  <SkipForward size={18} color={colors.textPrimary} strokeWidth={2.2} />
+                </Pressable>
+              </View>
+            </Pressable>
+          </Animated.View>
+        </GestureDetector>
 
         {/* ===================== FULL PLAYER ===================== */}
         <Animated.View style={[styles.fullPlayerWrapper, { paddingTop: insets.top }, animatedFullPlayerStyle]}>
@@ -691,7 +698,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 10,
     borderRadius: 24,
-    backgroundColor: '#2A2A2A',
+    backgroundColor: 'transparent',
+    overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
     shadowColor: '#000',
