@@ -1,7 +1,7 @@
 import React from 'react';
-import {InteractionManager, Pressable, View, StyleSheet} from 'react-native';
+import {InteractionManager, Pressable, View, StyleSheet, Text} from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Home as HomeIcon, Search as SearchIcon, Library as LibraryIcon } from 'lucide-react-native';
+import { Home as HomeIcon, Search as SearchIcon, Library as LibraryIcon, Settings as SettingsIcon } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from '@react-native-community/blur';
 
@@ -184,6 +184,20 @@ export function TabNavigator() {
             onOpenPlayer={() => { /* Player is a global sheet */ }}
             onScan={handleScan}
           />
+        )}
+      </Tab.Screen>
+
+      <Tab.Screen
+        name="Settings"
+        options={{
+          tabBarIcon: ({ color }) => <SettingsIcon size={22} color={color} />,
+        }}
+      >
+        {() => (
+          <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }}>
+            <SettingsIcon size={48} color={colors.textMuted} />
+            <Text style={{ color: colors.textSecondary, marginTop: 16, fontSize: 16 }}>Settings Page (Coming Soon)</Text>
+          </View>
         )}
       </Tab.Screen>
     </Tab.Navigator>
