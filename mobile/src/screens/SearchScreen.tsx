@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: spacing.base,
     paddingTop: spacing.xs,
-    paddingBottom: spacing.xxl + spacing.xl,
+    paddingBottom: spacing.xxxl * 1.5,
   },
   // Centered states
   centeredState: {
