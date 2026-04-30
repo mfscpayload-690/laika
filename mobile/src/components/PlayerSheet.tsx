@@ -416,7 +416,7 @@ export function PlayerSheet() {
         </Animated.View>
 
         {/* ===================== FULL PLAYER ===================== */}
-        <Animated.View style={[styles.fullPlayerWrapper, { paddingTop: Math.max(insets.top, 20) }, animatedFullPlayerStyle]}>
+        <Animated.View style={[styles.fullPlayerWrapper, { paddingTop: insets.top }, animatedFullPlayerStyle]}>
           <View style={styles.header}>
             <Pressable 
               onPress={() => snapTo(maxTranslateY)} 
@@ -573,10 +573,10 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: spacing.base,
   },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.md },
-  dismissBtn: { padding: spacing.xs, marginLeft: -spacing.xs, borderRadius: 24 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 0, marginTop: -spacing.xs },
+  dismissBtn: { padding: 0, marginLeft: -spacing.xs, borderRadius: 24 },
   headerTitleGroup: { alignItems: 'center', flex: 1, paddingHorizontal: spacing.base },
-  headerSubtitle: { color: colors.textMuted, fontSize: 11, fontWeight: '700', letterSpacing: 1, marginBottom: 2 },
+  headerSubtitle: { color: colors.textSecondary, fontSize: 10, fontWeight: '800', letterSpacing: 1.5, marginBottom: 0, opacity: 1.0 },
   headerTitle: { color: colors.textPrimary, fontSize: 14, fontWeight: '700' },
   headerSpacer: { width: 40 },
   
@@ -585,17 +585,18 @@ const styles = StyleSheet.create({
   artworkFallback: { width: '100%', height: '100%', borderRadius: radii.xl, backgroundColor: colors.surfaceElevated, alignItems: 'center', justifyContent: 'center' },
   artworkInitial: { ...typography.display, fontSize: 72, color: colors.textMuted },
   
-  trackInfo: { marginBottom: spacing.lg },
-  trackTextGroup: { flex: 1 },
-  title: { ...typography.display, fontSize: 22, marginBottom: spacing.xs },
-  artist: { ...typography.body, color: colors.textSecondary, fontSize: 16 },
+  trackInfo: { marginTop: spacing.md, marginBottom: spacing.lg, paddingHorizontal: spacing.xs },
+  trackTextGroup: { width: '100%' },
+  title: { ...typography.display, color: colors.textPrimary, fontSize: 24, fontWeight: '800', marginBottom: 4 },
+  artist: { ...typography.body, color: colors.textSecondary, fontSize: 17, fontWeight: '500' },
 
   mainGlassCard: {
     borderRadius: 24,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
     padding: spacing.lg,
-    marginBottom: spacing.base,
+    marginTop: spacing.md,
+    marginBottom: spacing.lg,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
@@ -629,8 +630,8 @@ const styles = StyleSheet.create({
   progressBarBg: { height: 4, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 2, overflow: 'hidden' },
   progressBarFill: { height: '100%', backgroundColor: colors.textPrimary, borderRadius: 2 },
   progressThumb: { position: 'absolute', width: 12, height: 12, borderRadius: 6, backgroundColor: '#FFF', top: 8, marginLeft: -6, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.5, shadowRadius: 3, elevation: 3 },
-  progressTimeRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
-  progressTimeText: { color: colors.textMuted, fontSize: 11, fontVariant: ['tabular-nums'] },
+  progressTimeRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm },
+  progressTimeText: { color: colors.textSecondary, fontSize: 12, fontWeight: '600', opacity: 0.8, fontVariant: ['tabular-nums'] },
   
   controlsRow: { marginTop: spacing.sm, marginBottom: spacing.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.lg, width: '100%' },
   secondaryControl: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
