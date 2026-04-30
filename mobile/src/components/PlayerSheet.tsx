@@ -17,18 +17,112 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  useAnimatedReaction,
+  useAnimatedProps,
 } from 'react-native-reanimated';
 import { ChevronDown, Music, Pause, Play, Repeat, Shuffle, SkipBack, SkipForward } from 'lucide-react-native';
-import TrackPlayer from 'react-native-track-player';
+import TrackPlayer, { useProgress } from 'react-native-track-player';
+import { Svg, Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
+import { BlurView } from '@react-native-community/blur';
 
 import { usePlayback } from '../context/PlaybackContext';
 import { colors, radii, spacing, typography } from '../theme';
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 const TAB_BAR_BASE_HEIGHT = 62;
 const MINI_PLAYER_HEIGHT = 64 + 10; // 64 height + 10 paddingTop approx
 
-const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+const clamp = (value: number, min: number, max: number) => {
+  'worklet';
+  return Math.min(max, Math.max(min, value));
+};
+
+const BUTTER_SPRING_CONFIG = {
+  damping: 18,
+  stiffness: 120,
+  mass: 0.8,
+  overshootClamping: false,
+};
+
+function ProgressBar() {
+  const { position, duration } = useProgress(250);
+  const isDragging = useSharedValue(false);
+  const [isDraggingState, setIsDraggingState] = useState(false);
+  const seekPosition = useSharedValue(0);
+  const trackWidth = useSharedValue(0);
+  const [dragTime, setDragTime] = useState(0);
+
+  useEffect(() => {
+    if (!isDraggingState && duration > 0) {
+      seekPosition.value = position;
+    }
+  }, [position, duration, isDraggingState]);
+
+  useAnimatedReaction(
+    () => seekPosition.value,
+    (val) => {
+      if (isDragging.value) {
+        runOnJS(setDragTime)(val);
+      }
+    }
+  );
+
+  const panGesture = Gesture.Pan()
+    .activeOffsetX([-10, 10])
+    .onStart(() => {
+      isDragging.value = true;
+      runOnJS(setIsDraggingState)(true);
+    })
+    .onUpdate((e) => {
+      if (trackWidth.value > 0 && duration > 0) {
+        const newPos = (e.x / trackWidth.value) * duration;
+        seekPosition.value = clamp(newPos, 0, duration);
+      }
+    })
+    .onEnd(() => {
+      runOnJS(TrackPlayer.seekTo)(seekPosition.value);
+      isDragging.value = false;
+      runOnJS(setIsDraggingState)(false);
+    });
+
+  const progressStyle = useAnimatedStyle(() => {
+    const percent = duration > 0 ? (seekPosition.value / duration) * 100 : 0;
+    return { width: `${clamp(percent, 0, 100)}%` };
+  });
+
+  const thumbStyle = useAnimatedStyle(() => {
+    const percent = duration > 0 ? (seekPosition.value / duration) * 100 : 0;
+    return { left: `${clamp(percent, 0, 100)}%` };
+  });
+
+  const displayTime = isDraggingState ? dragTime : position;
+
+  const formatTime = (s: number) => {
+    const mins = Math.floor(s / 60);
+    const secs = Math.floor(s % 60);
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+
+  return (
+    <View style={styles.progressContainer}>
+      <GestureDetector gesture={panGesture}>
+        <View 
+          style={styles.progressBarHitbox} 
+          onLayout={(e) => { trackWidth.value = e.nativeEvent.layout.width; }}
+        >
+          <View style={styles.progressBarBg}>
+            <Animated.View style={[styles.progressBarFill, progressStyle]} />
+          </View>
+          <Animated.View style={[styles.progressThumb, thumbStyle]} />
+        </View>
+      </GestureDetector>
+      <View style={styles.progressTimeRow}>
+        <Text style={styles.progressTimeText}>{formatTime(displayTime)}</Text>
+        <Text style={styles.progressTimeText}>{formatTime(duration)}</Text>
+      </View>
+    </View>
+  );
+}
 
 export function PlayerSheet() {
   const insets = useSafeAreaInsets();
@@ -59,6 +153,8 @@ export function PlayerSheet() {
   const MIN_TRANSLATE = 0;
 
   const translateY = useSharedValue(MAX_TRANSLATE);
+  const translateX = useSharedValue(0);
+  const startTranslateX = useSharedValue(0);
   const isExpanded = useSharedValue(false);
 
   // Auto-expand or stay collapsed when a track loads? 
@@ -74,12 +170,7 @@ export function PlayerSheet() {
   const snapTo = useCallback((destination: number) => {
     'worklet';
     isExpanded.value = destination === MIN_TRANSLATE;
-    translateY.value = withSpring(destination, {
-      damping: 20,
-      stiffness: 200,
-      mass: 0.8,
-      overshootClamping: false,
-    });
+    translateY.value = withSpring(destination, BUTTER_SPRING_CONFIG);
   }, [translateY, isExpanded]);
 
   useEffect(() => {
@@ -98,11 +189,43 @@ export function PlayerSheet() {
 
   useEffect(() => {
     if (!isExpanded.value) {
-      translateY.value = withSpring(maxTranslateY, { damping: 20, stiffness: 200 });
+      translateY.value = withSpring(maxTranslateY, BUTTER_SPRING_CONFIG);
     }
   }, [maxTranslateY]);
 
-  const panGesture = Gesture.Pan()
+  const switchTrack = useCallback((direction: 'next' | 'prev') => {
+    if (direction === 'next') {
+      next();
+    } else {
+      previous();
+    }
+    
+    // Safety fallback: If the track doesn't change (e.g. end of queue), 
+    // the card might get stuck at the edge. We force it back after a delay.
+    setTimeout(() => {
+      if (Math.abs(translateX.value) > 100) {
+        translateX.value = withSpring(0, BUTTER_SPRING_CONFIG);
+      }
+    }, 600);
+  }, [next, previous, translateX]);
+
+  useEffect(() => {
+    // When the track changes, React re-renders with the new metadata.
+    // If we're off-screen from a swipe, trigger the entrance animation.
+    if (Math.abs(translateX.value) > 100) {
+      if (translateX.value < 0) {
+        // Swiped left (Next). Bring new track in from the right.
+        translateX.value = SCREEN_WIDTH;
+      } else {
+        // Swiped right (Prev). Bring new track in from the left.
+        translateX.value = -SCREEN_WIDTH;
+      }
+      translateX.value = withSpring(0, BUTTER_SPRING_CONFIG);
+    }
+  }, [currentTrackId]);
+
+  const verticalPanGesture = Gesture.Pan()
+    .activeOffsetY([-10, 10])
     .onUpdate((event) => {
       const newTranslateY = (isExpanded.value ? MIN_TRANSLATE : maxTranslateY) + event.translationY;
       translateY.value = Math.max(MIN_TRANSLATE, Math.min(newTranslateY, maxTranslateY));
@@ -124,6 +247,38 @@ export function PlayerSheet() {
         }
       }
     });
+
+  const horizontalPanGesture = Gesture.Pan()
+    .activeOffsetX([-20, 20])
+    .onStart(() => {
+      startTranslateX.value = translateX.value;
+    })
+    .onUpdate((event) => {
+      if (isExpanded.value) {
+        translateX.value = startTranslateX.value + event.translationX;
+      }
+    })
+    .onEnd((event) => {
+      if (!isExpanded.value) return;
+      
+      const velocity = event.velocityX;
+      const THRESHOLD = SCREEN_WIDTH * 0.3;
+
+      if (translateX.value < -THRESHOLD || velocity < -500) {
+        // Swipe left -> Next
+        translateX.value = withSpring(-SCREEN_WIDTH, BUTTER_SPRING_CONFIG);
+        runOnJS(switchTrack)('next');
+      } else if (translateX.value > THRESHOLD || velocity > 500) {
+        // Swipe right -> Previous
+        translateX.value = withSpring(SCREEN_WIDTH, BUTTER_SPRING_CONFIG);
+        runOnJS(switchTrack)('prev');
+      } else {
+        // Snap back
+        translateX.value = withSpring(0, BUTTER_SPRING_CONFIG);
+      }
+    });
+
+  const composedGesture = Gesture.Simultaneous(verticalPanGesture, horizontalPanGesture);
 
   const animatedSheetStyle = useAnimatedStyle(() => {
     return {
@@ -157,15 +312,43 @@ export function PlayerSheet() {
     };
   });
 
+  const animatedHorizontalContentStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      Math.abs(translateX.value),
+      [0, SCREEN_WIDTH * 0.4],
+      [1, 0.7],
+      Extrapolation.CLAMP
+    );
+    const scale = interpolate(
+      Math.abs(translateX.value),
+      [0, SCREEN_WIDTH * 0.4],
+      [1, 0.96],
+      Extrapolation.CLAMP
+    );
+    return {
+      transform: [
+        { translateX: translateX.value },
+        { scale }
+      ],
+      opacity,
+    };
+  });
+
   // Background blur opacity
   const animatedBgStyle = useAnimatedStyle(() => {
     const opacity = interpolate(
       translateY.value,
       [MIN_TRANSLATE, maxTranslateY],
-      [0.6, 0],
+      [1, 0],
       Extrapolation.CLAMP
     );
     return { opacity };
+  });
+
+  const animatedBgProps = useAnimatedProps(() => {
+    return {
+      pointerEvents: translateY.value < maxTranslateY - 10 ? 'auto' : 'none',
+    } as any;
   });
 
   if (!hasTrack) {
@@ -173,21 +356,32 @@ export function PlayerSheet() {
   }
 
   return (
-    <GestureDetector gesture={panGesture}>
+    <GestureDetector gesture={composedGesture}>
       <Animated.View 
         style={[styles.sheetContainer, animatedSheetStyle]}
         onLayout={(e) => setContainerHeight(e.nativeEvent.layout.height)}
+        pointerEvents="box-none"
       >
         {/* Full Player Background */}
-        <Animated.View style={[StyleSheet.absoluteFill, animatedBgStyle]}>
-          {currentArtwork && (
+        <Animated.View style={[StyleSheet.absoluteFill, animatedBgStyle]} animatedProps={animatedBgProps}>
+          {currentArtwork ? (
             <Image 
               source={{ uri: currentArtwork }} 
               style={StyleSheet.absoluteFill as any} 
               blurRadius={90} 
             />
+          ) : (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: '#1A1A1A' }]} />
           )}
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.6)' }]} />
+          <Svg height="100%" width="100%" style={StyleSheet.absoluteFill as any}>
+            <Defs>
+              <LinearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor="#000" stopOpacity="0.3" />
+                <Stop offset="1" stopColor="#121212" stopOpacity="1" />
+              </LinearGradient>
+            </Defs>
+            <Rect width="100%" height="100%" fill="url(#grad)" />
+          </Svg>
         </Animated.View>
 
         {/* ===================== MINI PLAYER ===================== */}
@@ -247,7 +441,7 @@ export function PlayerSheet() {
         </Animated.View>
 
         {/* ===================== FULL PLAYER ===================== */}
-        <Animated.View style={[styles.fullPlayerWrapper, { paddingTop: Math.max(insets.top, 20) }, animatedFullPlayerStyle]}>
+        <Animated.View style={[styles.fullPlayerWrapper, { paddingTop: insets.top }, animatedFullPlayerStyle]}>
           <View style={styles.header}>
             <Pressable 
               onPress={() => snapTo(maxTranslateY)} 
@@ -263,74 +457,98 @@ export function PlayerSheet() {
             <View style={styles.headerSpacer} />
           </View>
 
-          <View style={styles.artworkContainer}>
-            {currentArtwork ? (
-              <Image source={{ uri: currentArtwork }} style={styles.artworkImage} />
-            ) : (
-              <View style={styles.artworkFallback}>
-                <Text style={styles.artworkInitial}>
-                  {currentTitle.slice(0, 1).toUpperCase() || 'L'}
-                </Text>
+          <View style={styles.mainGlassCard}>
+            <BlurView 
+              style={StyleSheet.absoluteFill}
+              blurType="dark"
+              blurAmount={15}
+              reducedTransparencyFallbackColor="rgba(255,255,255,0.06)"
+              overlayColor="rgba(0,0,0,0.3)"
+            />
+            <Animated.View style={animatedHorizontalContentStyle}>
+              <View style={styles.artworkContainer}>
+                {currentArtwork ? (
+                  <Image source={{ uri: currentArtwork }} style={styles.artworkImage} />
+                ) : (
+                  <View style={styles.artworkFallback}>
+                    <Music size={48} color={colors.textMuted} />
+                  </View>
+                )}
               </View>
-            )}
-          </View>
 
-          <View style={styles.trackInfo}>
-            <View style={styles.trackTextGroup}>
-              <Text style={styles.title} numberOfLines={1}>{currentTitle}</Text>
-              <Text style={styles.artist} numberOfLines={1}>{currentArtist}</Text>
+              <View style={styles.trackInfo}>
+                <View style={styles.trackTextGroup}>
+                  <Text style={styles.title} numberOfLines={1}>{currentTitle}</Text>
+                  <Text style={styles.artist} numberOfLines={1}>{currentArtist}</Text>
+                </View>
+              </View>
+            </Animated.View>
+
+            <ProgressBar />
+
+            <View style={styles.controlsRow}>
+              <Pressable
+                style={({pressed}) => [styles.secondaryControl, isShuffleEnabled && styles.secondaryControlActive, pressed && {opacity: 0.7}]}
+                android_ripple={{ color: 'rgba(255,255,255,0.1)', borderless: true, radius: 24 }}
+                onPress={toggleShuffle}
+              >
+                <Shuffle size={20} color={isShuffleEnabled ? colors.progressFill : colors.textSecondary} strokeWidth={2} />
+              </Pressable>
+
+              <Pressable
+                style={({pressed}) => [styles.skipButton, pressed && {transform: [{scale: 0.9}]}]}
+                android_ripple={{ color: 'rgba(255,255,255,0.1)', borderless: true, radius: 32 }}
+                onPress={previous}
+              >
+                <SkipBack size={28} color={colors.textPrimary} strokeWidth={2} fill={colors.textPrimary} />
+              </Pressable>
+
+              <Pressable
+                onPress={togglePlayPause}
+                disabled={isLoading}
+                style={({pressed}) => [styles.playButton, isLoading && styles.controlDisabled, pressed && {transform: [{scale: 0.94}]}]}
+                android_ripple={{ color: 'rgba(0,0,0,0.1)', borderless: true, radius: 36 }}
+              >
+                {isLoading ? (
+                  <ActivityIndicator size="large" color={colors.background} />
+                ) : isPlaying ? (
+                  <Pause size={32} color={colors.background} strokeWidth={3} fill={colors.background} />
+                ) : (
+                  <Play size={32} color={colors.background} strokeWidth={3} fill={colors.background} />
+                )}
+              </Pressable>
+
+              <Pressable
+                style={({pressed}) => [styles.skipButton, pressed && {transform: [{scale: 0.9}]}]}
+                android_ripple={{ color: 'rgba(255,255,255,0.1)', borderless: true, radius: 32 }}
+                onPress={next}
+              >
+                <SkipForward size={28} color={colors.textPrimary} strokeWidth={2} fill={colors.textPrimary} />
+              </Pressable>
+
+              <Pressable
+                style={({pressed}) => [styles.secondaryControl, repeatMode !== 'off' && styles.secondaryControlActive, pressed && {opacity: 0.7}]}
+                android_ripple={{ color: 'rgba(255,255,255,0.1)', borderless: true, radius: 24 }}
+                onPress={cycleRepeatMode}
+              >
+                <Repeat size={20} color={repeatMode !== 'off' ? colors.progressFill : colors.textSecondary} strokeWidth={2} />
+                {repeatMode === 'one' ? <Text style={styles.repeatOneLabel}>1</Text> : null}
+              </Pressable>
             </View>
           </View>
 
-          {/* Simple controls for now, will add progress bar in next step */}
-          <View style={styles.controlsRow}>
-            <Pressable
-              style={({pressed}) => [styles.secondaryControl, isShuffleEnabled && styles.secondaryControlActive, pressed && {opacity: 0.7}]}
-              android_ripple={{ color: 'rgba(255,255,255,0.1)', borderless: true, radius: 24 }}
-              onPress={toggleShuffle}
-            >
-              <Shuffle size={20} color={isShuffleEnabled ? colors.progressFill : colors.textSecondary} strokeWidth={2} />
-            </Pressable>
-
-            <Pressable
-              style={({pressed}) => [styles.skipButton, pressed && {transform: [{scale: 0.9}]}]}
-              android_ripple={{ color: 'rgba(255,255,255,0.1)', borderless: true, radius: 32 }}
-              onPress={previous}
-            >
-              <SkipBack size={28} color={colors.textPrimary} strokeWidth={2} fill={colors.textPrimary} />
-            </Pressable>
-
-            <Pressable
-              onPress={togglePlayPause}
-              disabled={isLoading}
-              style={({pressed}) => [styles.playButton, isLoading && styles.controlDisabled, pressed && {transform: [{scale: 0.94}]}]}
-              android_ripple={{ color: 'rgba(0,0,0,0.1)', borderless: true, radius: 36 }}
-            >
-              {isLoading ? (
-                <ActivityIndicator size="large" color={colors.background} />
-              ) : isPlaying ? (
-                <Pause size={32} color={colors.background} strokeWidth={3} fill={colors.background} />
-              ) : (
-                <Play size={32} color={colors.background} strokeWidth={3} fill={colors.background} />
-              )}
-            </Pressable>
-
-            <Pressable
-              style={({pressed}) => [styles.skipButton, pressed && {transform: [{scale: 0.9}]}]}
-              android_ripple={{ color: 'rgba(255,255,255,0.1)', borderless: true, radius: 32 }}
-              onPress={next}
-            >
-              <SkipForward size={28} color={colors.textPrimary} strokeWidth={2} fill={colors.textPrimary} />
-            </Pressable>
-
-            <Pressable
-              style={({pressed}) => [styles.secondaryControl, repeatMode !== 'off' && styles.secondaryControlActive, pressed && {opacity: 0.7}]}
-              android_ripple={{ color: 'rgba(255,255,255,0.1)', borderless: true, radius: 24 }}
-              onPress={cycleRepeatMode}
-            >
-              <Repeat size={20} color={repeatMode !== 'off' ? colors.progressFill : colors.textSecondary} strokeWidth={2} />
-              {repeatMode === 'one' ? <Text style={styles.repeatOneLabel}>1</Text> : null}
-            </Pressable>
+          <View style={styles.secondaryGlassCard}>
+            <BlurView 
+              style={StyleSheet.absoluteFill}
+              blurType="dark"
+              blurAmount={20}
+              reducedTransparencyFallbackColor="rgba(0,0,0,0.2)"
+              overlayColor="rgba(0,0,0,0.5)"
+            />
+            <View style={styles.secondaryGlassCardContent}>
+              <Text style={styles.secondaryCardTitle}>Up Next / Lyrics</Text>
+              <Text style={styles.secondaryCardPlaceholder}>Playing from Library...</Text>
+            </View>
           </View>
         </Animated.View>
       </Animated.View>
@@ -380,24 +598,67 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: spacing.base,
   },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.md },
-  dismissBtn: { padding: spacing.xs, marginLeft: -spacing.xs, borderRadius: 24 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 0, marginTop: -spacing.xs },
+  dismissBtn: { padding: 0, marginLeft: -spacing.xs, borderRadius: 24 },
   headerTitleGroup: { alignItems: 'center', flex: 1, paddingHorizontal: spacing.base },
-  headerSubtitle: { color: colors.textMuted, fontSize: 11, fontWeight: '700', letterSpacing: 1, marginBottom: 2 },
+  headerSubtitle: { color: colors.textSecondary, fontSize: 10, fontWeight: '800', letterSpacing: 1.5, marginBottom: 0, opacity: 1.0 },
   headerTitle: { color: colors.textPrimary, fontSize: 14, fontWeight: '700' },
   headerSpacer: { width: 40 },
   
-  artworkContainer: { width: '100%', aspectRatio: 1, marginTop: spacing.xl, marginBottom: spacing.xxl, shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.4, shadowRadius: 16, elevation: 12 },
+  artworkContainer: { width: '100%', aspectRatio: 1, marginBottom: spacing.xl, shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.4, shadowRadius: 16, elevation: 12 },
   artworkImage: { width: '100%', height: '100%', borderRadius: radii.xl },
   artworkFallback: { width: '100%', height: '100%', borderRadius: radii.xl, backgroundColor: colors.surfaceElevated, alignItems: 'center', justifyContent: 'center' },
   artworkInitial: { ...typography.display, fontSize: 72, color: colors.textMuted },
   
-  trackInfo: { marginBottom: spacing.xl },
-  trackTextGroup: { flex: 1 },
-  title: { ...typography.display, fontSize: 26, marginBottom: spacing.xs },
-  artist: { ...typography.body, color: colors.textSecondary, fontSize: 18 },
+  trackInfo: { marginTop: spacing.md, marginBottom: spacing.lg, paddingHorizontal: spacing.xs },
+  trackTextGroup: { width: '100%' },
+  title: { ...typography.display, color: colors.textPrimary, fontSize: 24, fontWeight: '800', marginBottom: 4 },
+  artist: { ...typography.body, color: colors.textSecondary, fontSize: 17, fontWeight: '500' },
+
+  mainGlassCard: {
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    padding: spacing.lg,
+    marginTop: spacing.md,
+    marginBottom: spacing.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
+    overflow: 'hidden',
+  },
+  secondaryGlassCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+    minHeight: 120,
+    overflow: 'hidden',
+  },
+  secondaryGlassCardContent: {
+    padding: spacing.lg,
+  },
+  secondaryCardTitle: {
+    ...typography.label,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+  },
+  secondaryCardPlaceholder: {
+    ...typography.body,
+    color: colors.textMuted,
+    fontStyle: 'italic',
+  },
+
+  progressContainer: { marginBottom: spacing.lg },
+  progressBarHitbox: { paddingVertical: 12, justifyContent: 'center' },
+  progressBarBg: { height: 4, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 2, overflow: 'hidden' },
+  progressBarFill: { height: '100%', backgroundColor: colors.textPrimary, borderRadius: 2 },
+  progressThumb: { position: 'absolute', width: 12, height: 12, borderRadius: 6, backgroundColor: '#FFF', top: 8, marginLeft: -6, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.5, shadowRadius: 3, elevation: 3 },
+  progressTimeRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm },
+  progressTimeText: { color: colors.textSecondary, fontSize: 12, fontWeight: '600', opacity: 0.8, fontVariant: ['tabular-nums'] },
   
-  controlsRow: { marginTop: spacing.xl, marginBottom: spacing.lg, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.lg, width: '100%' },
+  controlsRow: { marginTop: spacing.sm, marginBottom: spacing.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.lg, width: '100%' },
   secondaryControl: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   secondaryControlActive: { backgroundColor: 'rgba(29, 185, 84, 0.14)' },
   repeatOneLabel: { position: 'absolute', right: 4, bottom: 2, color: colors.progressFill, fontSize: 10, fontWeight: '800' },
