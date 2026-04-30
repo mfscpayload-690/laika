@@ -7,7 +7,6 @@ import {
   Dimensions,
   Pressable,
   ActivityIndicator,
-  TextInput,
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,6 +18,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withDelay,
   useAnimatedReaction,
   useAnimatedProps,
 } from 'react-native-reanimated';
@@ -41,7 +41,7 @@ const BUTTER_SPRING_CONFIG = {
   overshootClamping: false,
 };
 
-const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
+
 
 function ProgressBar() {
   const { position, duration } = useProgress(250);
@@ -89,23 +89,12 @@ function ProgressBar() {
     };
   });
 
-  const animatedTimeProps = useAnimatedProps(() => {
-    const s = Math.floor(seekPosition.value);
+  const formatTime = (seconds: number) => {
+    const s = Math.floor(seconds);
     const mins = Math.floor(s / 60);
     const secs = Math.floor(s % 60);
-    return {
-      text: `${mins}:${secs < 10 ? '0' : ''}${secs}`,
-    } as any;
-  });
-
-  const animatedDurationProps = useAnimatedProps(() => {
-    const s = Math.floor(duration);
-    const mins = Math.floor(s / 60);
-    const secs = Math.floor(s % 60);
-    return {
-      text: `${mins}:${secs < 10 ? '0' : ''}${secs}`,
-    } as any;
-  });
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
 
   return (
     <View style={styles.progressContainer}>
@@ -121,20 +110,12 @@ function ProgressBar() {
         </View>
       </GestureDetector>
       <View style={styles.progressTimeRow}>
-        <AnimatedTextInput
-          underlineColorAndroid="transparent"
-          editable={false}
-          value=""
-          style={[styles.progressTimeText, { padding: 0 }]}
-          animatedProps={animatedTimeProps as any}
-        />
-        <AnimatedTextInput
-          underlineColorAndroid="transparent"
-          editable={false}
-          value=""
-          style={[styles.progressTimeText, { padding: 0 }]}
-          animatedProps={animatedDurationProps as any}
-        />
+        <Text style={styles.progressTimeText}>
+          {formatTime(isDragging.value ? seekPosition.value : position)}
+        </Text>
+        <Text style={styles.progressTimeText}>
+          {formatTime(duration)}
+        </Text>
       </View>
     </View>
   );
@@ -217,12 +198,8 @@ export function PlayerSheet() {
     }
     
     // Safety fallback: If the track doesn't change (e.g. end of queue), 
-    // the card might get stuck at the edge. We force it back after a delay.
-    setTimeout(() => {
-      if (Math.abs(translateX.value) > 100) {
-        translateX.value = withSpring(0, BUTTER_SPRING_CONFIG);
-      }
-    }, 600);
+    // the card might get stuck at the edge. We force it back after a delay on the UI thread.
+    translateX.value = withDelay(800, withSpring(0, BUTTER_SPRING_CONFIG));
   }, [next, previous, translateX]);
 
   useEffect(() => {
