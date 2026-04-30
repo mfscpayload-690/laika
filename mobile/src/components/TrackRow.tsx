@@ -6,6 +6,7 @@ import { colors, radii, spacing, typography } from '../theme';
 type TrackRowProps = {
   title: string;
   artist: string;
+  album?: string;
   thumbnail?: string;
   isActive?: boolean;
   isLoading?: boolean;
@@ -18,6 +19,7 @@ type TrackRowProps = {
 export function TrackRow({
   title,
   artist,
+  album,
   thumbnail,
   isActive,
   isLoading,
@@ -32,7 +34,7 @@ export function TrackRow({
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="button"
-      accessibilityLabel={`${title} by ${artist}`}>
+      accessibilityLabel={`${title} by ${artist}${album ? ` on ${album}` : ''}`}>
       {thumbnail ? (
         <Image source={{ uri: thumbnail }} style={styles.thumb} />
       ) : (
@@ -46,7 +48,7 @@ export function TrackRow({
           {title}
         </Text>
         <Text style={styles.artist} numberOfLines={1}>
-          {artist}
+          {artist}{album ? ` • ${album}` : ''}
         </Text>
       </View>
 
