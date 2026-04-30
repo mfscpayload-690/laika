@@ -15,6 +15,8 @@ import { ChevronRight, Library, Music, RefreshCw, Search, Play } from 'lucide-re
 import { SectionHeader } from '../components/SectionHeader';
 import { colors, radii, spacing, typography } from '../theme';
 import { RemoteTrack } from '../types/music';
+import { API_BASE_URL } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -103,24 +105,35 @@ export function HomeScreen({
   activeRemoteTrackId,
   resolvingId,
 }: HomeScreenProps) {
+  const { user } = useAuth();
   const [sections, setSections] = useState<HomeSection[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('http://localhost:8000/home/') // Works for both physical devices (via adb reverse) and emulators
-      .then(res => res.json())
+    setLoading(true);
+    const fetchUrl = user?.id 
+      ? `${API_BASE_URL}/home/?user_id=${user.id}`
+      : `${API_BASE_URL}/home/`;
+
+    fetch(fetchUrl)
+      .then(async res => {
+        if (!res.ok) {
+          const errorText = await res.text();
+          throw new Error(`HTTP ${res.status}: ${errorText}`);
+        }
+        return res.json();
+      })
       .then(data => {
-        console.log('HomeScreen: Received data', data);
         if (data.sections) {
           setSections(data.sections);
         }
         setLoading(false);
       })
       .catch(err => {
-        console.error('HomeScreen: fetch failed', err);
+        console.error('HomeScreen: fetch failed', err.message || err);
         setLoading(false);
       });
-  }, []);
+  }, [user?.id]);
 
   const handlePlay = (track: RemoteTrack) => {
     if (onPlayTrack) {
@@ -142,43 +155,43 @@ export function HomeScreen({
         </Pressable>
       </View>
 
-      {/* Quick Access Grid (The 2-column professional grid) */}
-      {sections.length > 0 && sections[0].items.length > 0 && (
-        <View style={styles.quickGrid}>
-          {sections[0].items.slice(0, 6).map(track => (
-            <QuickPickItem 
-              key={track.id} 
-              track={track} 
-              onPress={() => handlePlay(track)} 
-              isActive={track.id === currentTrackId || track.id === activeRemoteTrackId}
-              isResolving={track.id === resolvingId}
-            />
-          ))}
-        </View>
-      )}
-
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.brand} />
         </View>
       ) : (
-        sections.slice(1).map((section, idx) => (
+        sections.map((section, idx) => (
           <View key={idx} style={styles.section}>
             <SectionHeader label={section.title} />
-            <FlatList
-              horizontal
-              data={section.items}
-              keyExtractor={item => item.id}
-              showsHorizontalScrollIndicator={false}
-              renderItem={({ item }) => (
-                <MusicCarouselItem 
-                  item={item} 
-                  onPress={() => handlePlay(item)} 
-                  isResolving={item.id === resolvingId}
-                />
-              )}
-              contentContainerStyle={styles.carouselList}
-            />
+            
+            {section.type === 'grid' ? (
+              <View style={styles.quickGrid}>
+                {section.items.slice(0, 8).map(track => (
+                  <QuickPickItem 
+                    key={track.id} 
+                    track={track} 
+                    onPress={() => handlePlay(track)} 
+                    isActive={track.id === currentTrackId || track.id === activeRemoteTrackId}
+                    isResolving={track.id === resolvingId}
+                  />
+                ))}
+              </View>
+            ) : (
+              <FlatList
+                horizontal
+                data={section.items}
+                keyExtractor={item => item.id}
+                showsHorizontalScrollIndicator={false}
+                renderItem={({ item }) => (
+                  <MusicCarouselItem 
+                    item={item} 
+                    onPress={() => handlePlay(item)} 
+                    isResolving={item.id === resolvingId}
+                  />
+                )}
+                contentContainerStyle={styles.carouselList}
+              />
+            )}
           </View>
         ))
       )}
