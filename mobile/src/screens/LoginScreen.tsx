@@ -43,10 +43,10 @@ export function LoginScreen() {
         resizeMode="cover"
       >
         <View style={styles.overlay} />
-        
-        <Animated.View 
+
+        <Animated.View
           style={[
-            styles.content, 
+            styles.content,
             { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }
           ]}
         >
@@ -56,25 +56,25 @@ export function LoginScreen() {
           </View>
 
           <View style={styles.buttonContainer}>
-            <LoginButton 
+            <LoginButton
               icon={<Code size={24} color={colors.textPrimary} />}
               label="Continue with GitHub"
-              onPress={() => {/* TODO: Supabase GitHub OAuth */}}
+              onPress={() => {/* TODO: Supabase GitHub OAuth */ }}
             />
-            <LoginButton 
+            <LoginButton
               icon={<Globe size={24} color={colors.textPrimary} />}
               label="Continue with Google"
-              onPress={() => {/* TODO: Supabase Google OAuth */}}
+              onPress={() => {/* TODO: Supabase Google OAuth */ }}
             />
-            
+
             <View style={styles.divider}>
               <View style={styles.line} />
               <Text style={styles.dividerText}>OR</Text>
               <View style={styles.line} />
             </View>
 
-            <Pressable 
-              style={styles.guestButton} 
+            <Pressable
+              style={styles.guestButton}
               onPress={setAsGuest}
             >
               <User size={20} color={colors.textSecondary} />

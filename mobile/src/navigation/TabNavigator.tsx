@@ -145,6 +145,7 @@ export function TabNavigator() {
             nowPlayingArtist={activeRemoteTrack?.artist || activeLocalSong?.artist}
             nowPlayingThumbnail={activeRemoteTrack?.thumbnail}
             onOpenSearch={() => props.navigation.navigate('Search')}
+            onOpenProfile={() => props.navigation.navigate('Settings')}
             onPlayTrack={playRemote}
             currentTrackId={currentTrackId}
             activeRemoteTrackId={activeRemoteTrack?.id}
