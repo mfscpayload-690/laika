@@ -165,15 +165,6 @@ export function LibraryScreen({
           <Text style={styles.title}>Your Library</Text>
           <Text style={styles.subtitle}>{songs.length} songs</Text>
         </View>
-
-        <Pressable
-          style={[styles.playerButton, songs.length === 0 && styles.playerButtonDisabled]}
-          onPress={onOpenPlayer}
-          disabled={songs.length === 0}
-          accessibilityRole="button"
-          accessibilityLabel="Open player">
-          <Text style={styles.playerButtonLabel}>Player</Text>
-        </Pressable>
       </View>
 
       <View style={styles.metaRow}>
@@ -274,20 +265,6 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textMuted,
     fontWeight: '600',
-  },
-  playerButton: {
-    borderRadius: radii.pill,
-    backgroundColor: colors.textPrimary,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  playerButtonDisabled: {
-    opacity: 0.45,
-  },
-  playerButtonLabel: {
-    color: colors.background,
-    fontWeight: '700',
-    fontSize: 12,
   },
   searchBar: {
     marginTop: spacing.sm,
