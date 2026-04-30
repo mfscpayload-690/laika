@@ -36,3 +36,4 @@ mobile/ios/*.xcodeproj
 
 # Local Data
 /local/*
+backend/cache/*
