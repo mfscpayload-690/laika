@@ -15,9 +15,12 @@ export type RemoteTrack = {
   id: string;
   title: string;
   artist: string;
+  album?: string;
   duration_ms: number;
   thumbnail?: string;
   youtube_id?: string;
+  source: string;
+  metadata?: any;
 };
 
 /** Response from POST /resolve */
