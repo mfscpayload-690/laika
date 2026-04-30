@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -28,6 +28,8 @@ import {
 } from 'lucide-react-native';
 
 import { useAuth } from '../context/AuthContext';
+import { useLikes } from '../context/LikesContext';
+import { getProfile, type UserProfile } from '../services/libraryService';
 import { colors, radii, spacing, typography } from '../theme';
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -99,6 +101,17 @@ function SettingsGroup({ children }: { children: React.ReactNode }) {
 export function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { user, isGuest, signOut } = useAuth();
+  const { likedTracks } = useLikes();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+
+  // Fetch real profile data from Supabase
+  useEffect(() => {
+    if (!isGuest && user) {
+      getProfile()
+        .then(setProfile)
+        .catch(err => console.warn('[SettingsScreen] getProfile failed:', err));
+    }
+  }, [user, isGuest]);
 
   // Preferences state
   const [highQualityAudio, setHighQualityAudio] = useState(true);
@@ -106,12 +119,14 @@ export function SettingsScreen() {
   const [notifications, setNotifications] = useState(true);
 
   const displayName =
+    profile?.full_name ||
     user?.user_metadata?.full_name ||
+    profile?.username ||
     user?.email?.split('@')[0] ||
     (isGuest ? 'Guest User' : 'Laika User');
 
-  const email = user?.email ?? (isGuest ? 'Not signed in' : '');
-  const avatarUrl = user?.user_metadata?.avatar_url;
+  const email = profile?.email ?? user?.email ?? (isGuest ? 'Not signed in' : '');
+  const avatarUrl = profile?.avatar_url ?? user?.user_metadata?.avatar_url;
 
   const handleSignOut = () => {
     Alert.alert(
@@ -173,6 +188,14 @@ export function SettingsScreen() {
                 {isGuest ? '🎧  Guest Mode' : '✦  Laika Account'}
               </Text>
             </View>
+            {!isGuest && (
+              <View style={styles.profileStats}>
+                <View style={styles.profileStat}>
+                  <Text style={styles.profileStatNum}>{likedTracks.length}</Text>
+                  <Text style={styles.profileStatLabel}>Liked</Text>
+                </View>
+              </View>
+            )}
           </View>
         </View>
       </View>
@@ -472,5 +495,26 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: 'rgba(255,255,255,0.05)',
     marginLeft: 52 + spacing.md * 2, // align with text, not icon
+  },
+
+  // ── Profile Stats ──
+  profileStats: {
+    flexDirection: 'row',
+    gap: spacing.lg,
+    marginTop: spacing.sm,
+  },
+  profileStat: {
+    alignItems: 'center',
+  },
+  profileStatNum: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  profileStatLabel: {
+    fontSize: 11,
+    color: colors.textMuted,
+    fontWeight: '500',
+    marginTop: 1,
   },
 });

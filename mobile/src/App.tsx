@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { PlaybackProvider } from './context/PlaybackContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { LikesProvider } from './context/LikesContext';
 import { RootNavigator } from './navigation/RootNavigator';
 import { LoginScreen } from './screens/LoginScreen';
 import { colors } from './theme';
@@ -41,7 +42,9 @@ export default function App() {
       <SafeAreaProvider>
         <AuthProvider>
           <PlaybackProvider>
-            <NavigationWrapper />
+            <LikesProvider>
+              <NavigationWrapper />
+            </LikesProvider>
           </PlaybackProvider>
         </AuthProvider>
       </SafeAreaProvider>

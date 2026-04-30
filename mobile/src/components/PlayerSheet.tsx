@@ -26,13 +26,14 @@ import Animated, {
   useAnimatedProps,
   useAnimatedScrollHandler,
 } from 'react-native-reanimated';
-import { ChevronDown, Music, Pause, Play, Repeat, Shuffle, SkipBack, SkipForward, Mic2 } from 'lucide-react-native';
+import { ChevronDown, Music, Pause, Play, Repeat, Shuffle, SkipBack, SkipForward, Mic2, Heart } from 'lucide-react-native';
 import TrackPlayer, { useProgress } from 'react-native-track-player';
 import { Svg, Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { BlurView } from '@react-native-community/blur';
 import { SyncedLyrics } from './SyncedLyrics';
 
 import { usePlayback } from '../context/PlaybackContext';
+import { useLikes } from '../context/LikesContext';
 import { colors, radii, spacing, typography } from '../theme';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -161,6 +162,8 @@ export function PlayerSheet() {
   });
 
   const shouldHidePlayer = focusedRouteName === 'Settings';
+
+  const { isLiked, toggleLike } = useLikes();
 
   const hasTrack = Boolean(currentTrackId || activeRemoteTrack);
   const activeSong = songs.find(s => s.id === currentTrackId);
@@ -586,6 +589,25 @@ export function PlayerSheet() {
                     <Text style={styles.title} numberOfLines={1}>{currentTitle}</Text>
                     <Text style={styles.artist} numberOfLines={1}>{currentArtist}</Text>
                   </View>
+                  {hasTrack && (
+                    <Pressable
+                      onPress={() => {
+                        const track = activeRemoteTrack || songs.find(s => s.id === currentTrackId);
+                        if (track) toggleLike(track as any);
+                      }}
+                      style={({ pressed }) => [styles.heartBtn, pressed && { transform: [{ scale: 0.85 }] }]}
+                      android_ripple={{ color: 'rgba(255,100,100,0.2)', borderless: true, radius: 24 }}
+                      accessibilityRole="button"
+                      accessibilityLabel={isLiked(activeRemoteTrack?.id ?? currentTrackId ?? '') ? 'Unlike track' : 'Like track'}
+                    >
+                      <Heart
+                        size={26}
+                        color={isLiked(activeRemoteTrack?.id ?? currentTrackId ?? '') ? '#FF4D6D' : colors.textSecondary}
+                        fill={isLiked(activeRemoteTrack?.id ?? currentTrackId ?? '') ? '#FF4D6D' : 'none'}
+                        strokeWidth={2}
+                      />
+                    </Pressable>
+                  )}
                 </View>
               </Animated.View>
             </GestureDetector>
@@ -745,10 +767,11 @@ const styles = StyleSheet.create({
   artworkFallback: { width: '100%', height: '100%', borderRadius: radii.xl, backgroundColor: colors.surfaceElevated, alignItems: 'center', justifyContent: 'center' },
   artworkInitial: { ...typography.display, fontSize: 72, color: colors.textMuted },
   
-  trackInfo: { marginTop: spacing.md, marginBottom: spacing.lg, paddingHorizontal: spacing.xs },
-  trackTextGroup: { width: '100%' },
+  trackInfo: { marginTop: spacing.md, marginBottom: spacing.lg, paddingHorizontal: spacing.xs, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  trackTextGroup: { flex: 1, marginRight: spacing.md },
   title: { ...typography.display, color: colors.textPrimary, fontSize: 24, fontWeight: '800', marginBottom: 4 },
   artist: { ...typography.body, color: colors.textSecondary, fontSize: 17, fontWeight: '500' },
+  heartBtn: { padding: spacing.sm, alignItems: 'center', justifyContent: 'center' },
 
   mainGlassCard: {
     borderRadius: 24,
