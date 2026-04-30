@@ -37,6 +37,13 @@ const clamp = (value: number, min: number, max: number) => {
   return Math.min(max, Math.max(min, value));
 };
 
+const BUTTER_SPRING_CONFIG = {
+  damping: 18,
+  stiffness: 120,
+  mass: 0.8,
+  overshootClamping: false,
+};
+
 function ProgressBar() {
   const { position, duration } = useProgress(250);
   const isDragging = useSharedValue(false);
@@ -163,12 +170,7 @@ export function PlayerSheet() {
   const snapTo = useCallback((destination: number) => {
     'worklet';
     isExpanded.value = destination === MIN_TRANSLATE;
-    translateY.value = withSpring(destination, {
-      damping: 20,
-      stiffness: 200,
-      mass: 0.8,
-      overshootClamping: false,
-    });
+    translateY.value = withSpring(destination, BUTTER_SPRING_CONFIG);
   }, [translateY, isExpanded]);
 
   useEffect(() => {
@@ -187,31 +189,38 @@ export function PlayerSheet() {
 
   useEffect(() => {
     if (!isExpanded.value) {
-      translateY.value = withSpring(maxTranslateY, { damping: 20, stiffness: 200 });
+      translateY.value = withSpring(maxTranslateY, BUTTER_SPRING_CONFIG);
     }
   }, [maxTranslateY]);
 
-  // To ensure the new artwork is fully rendered before we spring it into view,
-  // we trigger the state change here, and handle the entrance animation in a useEffect.
   const switchTrack = useCallback((direction: 'next' | 'prev') => {
     if (direction === 'next') {
       next();
     } else {
       previous();
     }
-  }, [next, previous]);
+    
+    // Safety fallback: If the track doesn't change (e.g. end of queue), 
+    // the card might get stuck at the edge. We force it back after a delay.
+    setTimeout(() => {
+      if (Math.abs(translateX.value) > 100) {
+        translateX.value = withSpring(0, BUTTER_SPRING_CONFIG);
+      }
+    }, 600);
+  }, [next, previous, translateX]);
 
   useEffect(() => {
-    // When the track changes, React re-renders with the new artwork.
-    // This effect runs immediately after that render.
-    if (translateX.value < -50) {
-      // Old track swiped left. Bring new track in from the right.
-      translateX.value = SCREEN_WIDTH;
-      translateX.value = withSpring(0, { damping: 20, stiffness: 200 });
-    } else if (translateX.value > 50) {
-      // Old track swiped right. Bring new track in from the left.
-      translateX.value = -SCREEN_WIDTH;
-      translateX.value = withSpring(0, { damping: 20, stiffness: 200 });
+    // When the track changes, React re-renders with the new metadata.
+    // If we're off-screen from a swipe, trigger the entrance animation.
+    if (Math.abs(translateX.value) > 100) {
+      if (translateX.value < 0) {
+        // Swiped left (Next). Bring new track in from the right.
+        translateX.value = SCREEN_WIDTH;
+      } else {
+        // Swiped right (Prev). Bring new track in from the left.
+        translateX.value = -SCREEN_WIDTH;
+      }
+      translateX.value = withSpring(0, BUTTER_SPRING_CONFIG);
     }
   }, [currentTrackId]);
 
@@ -257,15 +266,15 @@ export function PlayerSheet() {
 
       if (translateX.value < -THRESHOLD || velocity < -500) {
         // Swipe left -> Next
-        translateX.value = withSpring(-SCREEN_WIDTH, { damping: 20, stiffness: 200 });
+        translateX.value = withSpring(-SCREEN_WIDTH, BUTTER_SPRING_CONFIG);
         runOnJS(switchTrack)('next');
       } else if (translateX.value > THRESHOLD || velocity > 500) {
         // Swipe right -> Previous
-        translateX.value = withSpring(SCREEN_WIDTH, { damping: 20, stiffness: 200 });
+        translateX.value = withSpring(SCREEN_WIDTH, BUTTER_SPRING_CONFIG);
         runOnJS(switchTrack)('prev');
       } else {
         // Snap back
-        translateX.value = withSpring(0, { damping: 20, stiffness: 200 });
+        translateX.value = withSpring(0, BUTTER_SPRING_CONFIG);
       }
     });
 
@@ -304,8 +313,24 @@ export function PlayerSheet() {
   });
 
   const animatedHorizontalContentStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      Math.abs(translateX.value),
+      [0, SCREEN_WIDTH * 0.4],
+      [1, 0.7],
+      Extrapolation.CLAMP
+    );
+    const scale = interpolate(
+      Math.abs(translateX.value),
+      [0, SCREEN_WIDTH * 0.4],
+      [1, 0.96],
+      Extrapolation.CLAMP
+    );
     return {
-      transform: [{ translateX: translateX.value }],
+      transform: [
+        { translateX: translateX.value },
+        { scale }
+      ],
+      opacity,
     };
   });
 
