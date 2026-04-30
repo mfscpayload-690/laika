@@ -5,25 +5,45 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { PlaybackProvider } from './context/PlaybackContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { RootNavigator } from './navigation/RootNavigator';
+import { LoginScreen } from './screens/LoginScreen';
 import { colors } from './theme';
+
+function NavigationWrapper() {
+  const { user, loading, isGuest } = useAuth();
+
+  if (loading) {
+    return null; // Or a splash screen
+  }
+
+  if (!user && !isGuest) {
+    return <LoginScreen />;
+  }
+
+  return (
+    <NavigationContainer theme={DarkTheme}>
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor={colors.background}
+        translucent={false}
+      />
+      <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
+        <RootNavigator />
+      </SafeAreaView>
+    </NavigationContainer>
+  );
+}
 
 export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <PlaybackProvider>
-          <NavigationContainer theme={DarkTheme}>
-            <StatusBar
-              barStyle="light-content"
-              backgroundColor={colors.background}
-              translucent={false}
-            />
-            <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
-              <RootNavigator />
-            </SafeAreaView>
-          </NavigationContainer>
-        </PlaybackProvider>
+        <AuthProvider>
+          <PlaybackProvider>
+            <NavigationWrapper />
+          </PlaybackProvider>
+        </AuthProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
