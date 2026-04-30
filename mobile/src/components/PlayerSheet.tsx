@@ -593,6 +593,7 @@ export function PlayerSheet() {
                     <Pressable
                       onPress={() => {
                         const track = activeRemoteTrack || songs.find(s => s.id === currentTrackId);
+                        console.log('[PlayerSheet] Heart pressed:', { trackId: track?.id, hasTrack: !!track });
                         if (track) toggleLike(track as any);
                       }}
                       style={({ pressed }) => [styles.heartBtn, pressed && { transform: [{ scale: 0.85 }] }]}

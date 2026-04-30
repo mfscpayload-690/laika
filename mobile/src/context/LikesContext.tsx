@@ -48,7 +48,17 @@ export function LikesProvider({ children }: { children: React.ReactNode }) {
   );
 
   const toggleLike = useCallback(async (track: LocalSong | RemoteTrack) => {
-    if (!session || isGuest) return;
+    console.log('[LikesContext] toggleLike attempt:', { trackId: track.id, isGuest, hasSession: !!session });
+    
+    if (isGuest || !session) {
+      const { Alert } = require('react-native');
+      Alert.alert(
+        'Sign in Required',
+        'Please sign in with Google or GitHub to save your favorite songs to your library.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
 
     const trackId = track.id;
     const alreadyLiked = likedTrackIds.has(trackId);

@@ -80,20 +80,29 @@ export async function likeTrack(track: LocalSong | RemoteTrack): Promise<void> {
     source: isLocal ? 'local' : 'remote',
   };
 
+  console.log('[libraryService] Liking track:', { trackId: track.id, userId: user.id });
+
   const { error } = await supabase.from('likes').insert({
     user_id: user.id,
     track_id: track.id,
     track_metadata: metadata,
   });
-  if (error) throw error;
+  if (error) {
+    console.error('[libraryService] likeTrack error:', error);
+    throw error;
+  }
 }
 
 export async function unlikeTrack(trackId: string): Promise<void> {
+  console.log('[libraryService] Unliking track:', trackId);
   const { error } = await supabase
     .from('likes')
     .delete()
     .eq('track_id', trackId);
-  if (error) throw error;
+  if (error) {
+    console.error('[libraryService] unlikeTrack error:', error);
+    throw error;
+  }
 }
 
 // ─── PLAYLISTS ────────────────────────────────────────────────────────────────
