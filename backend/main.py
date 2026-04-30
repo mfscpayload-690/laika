@@ -5,6 +5,12 @@ from routers.search import router as search_router
 from routers.resolve import router as resolve_router
 from routers.home import router as home_router
 from routers.lyrics import router as lyrics_router
+from routers.events import router as events_router
+from core.database import Base, engine
+from models.user_event import UserEvent # Import models to ensure they are registered
+
+# Create tables
+Base.metadata.create_all(bind=engine)
 
 
 def create_app() -> FastAPI:
@@ -14,6 +20,7 @@ def create_app() -> FastAPI:
     app.include_router(resolve_router)
     app.include_router(home_router)
     app.include_router(lyrics_router)
+    app.include_router(events_router)
     return app
 
 
