@@ -1,6 +1,11 @@
-from fastapi import APIRouter
-from typing import List
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+from sqlalchemy import func
+from core.database import get_db
+from models.user_event import UserEvent
+from typing import List, Optional
 import asyncio
+import datetime
 from core.schemas import HomeResponse, HomeSection, Track
 from services.deezer_service import deezer_service
 from services.saavn_service import saavn_service
@@ -8,11 +13,40 @@ from services.saavn_service import saavn_service
 router = APIRouter(prefix="/home", tags=["home"])
 
 @router.get("/", response_model=HomeResponse)
-async def get_home():
+async def get_home(
+    user_id: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
     """
     Fetches mixed content for the home dashboard.
     """
     
+    # 0. Fetch Recently Played from DB
+    query = db.query(UserEvent).filter(UserEvent.action == "play")
+    if user_id:
+        query = query.filter(UserEvent.user_id == user_id)
+    else:
+        query = query.filter(UserEvent.user_id == None)
+        
+    recent_events = query.order_by(UserEvent.timestamp.desc()).limit(50).all()
+    
+    # Deduplicate by track_id
+    seen_ids = set()
+    recent_tracks = []
+    for event in recent_events:
+        if event.track_id not in seen_ids:
+            recent_tracks.append(Track(
+                id=event.track_id,
+                title=event.title,
+                artist=event.artist,
+                thumbnail=event.thumbnail,
+                source=event.source or "unknown",
+                duration_ms=0 # We don't store duration yet
+            ))
+            seen_ids.add(event.track_id)
+        if len(recent_tracks) >= 8:
+            break
+
     # 1. Fetch Global Charts (Deezer)
     # 2. Fetch Trending Hindi (Saavn)
     # 3. Fetch Top Punjabi (Saavn)
@@ -33,6 +67,53 @@ async def get_home():
     top_malayalam = results[3] if isinstance(results[3], list) else []
     
     sections = []
+
+    if recent_tracks:
+        sections.append(HomeSection(
+            title="Jump Back In",
+            type="grid",
+            items=recent_tracks
+        ))
+
+    seven_days_ago = datetime.datetime.utcnow() - datetime.timedelta(days=7)
+    mp_query = db.query(
+        UserEvent.track_id, 
+        UserEvent.title, 
+        UserEvent.artist, 
+        UserEvent.thumbnail,
+        UserEvent.source,
+        func.count(UserEvent.id).label('play_count')
+    ).filter(
+        UserEvent.action == "play",
+        UserEvent.timestamp >= seven_days_ago
+    )
+    
+    if user_id:
+        mp_query = mp_query.filter(UserEvent.user_id == user_id)
+    else:
+        mp_query = mp_query.filter(UserEvent.user_id == None)
+
+    most_played_events = mp_query.group_by(
+        UserEvent.track_id, 
+        UserEvent.title, 
+        UserEvent.artist, 
+        UserEvent.thumbnail, 
+        UserEvent.source
+    ).order_by(func.count(UserEvent.id).desc()).limit(8).all()
+
+    if most_played_events:
+        sections.append(HomeSection(
+            title="Most Played This Week",
+            type="carousel",
+            items=[Track(
+                id=e.track_id,
+                title=e.title,
+                artist=e.artist,
+                thumbnail=e.thumbnail,
+                source=e.source or "unknown",
+                duration_ms=0
+            ) for e in most_played_events]
+        ))
     
     if global_charts:
         sections.append(HomeSection(

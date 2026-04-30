@@ -1,5 +1,5 @@
 import React from 'react';
-import {InteractionManager, Pressable, View, StyleSheet, Text} from 'react-native';
+import {InteractionManager, Pressable, View, StyleSheet} from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Home as HomeIcon, Search as SearchIcon, Library as LibraryIcon, Settings as SettingsIcon } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,6 +8,7 @@ import { BlurView } from '@react-native-community/blur';
 import { HomeScreen } from '../screens/HomeScreen';
 import { SearchScreen } from '../screens/SearchScreen';
 import { LibraryScreen } from '../screens/LibraryScreen';
+import { SettingsScreen } from '../screens/SettingsScreen';
 import { colors } from '../theme';
 import { MainTabsParamList } from './types';
 import { usePlayback } from '../context/PlaybackContext';
@@ -145,6 +146,7 @@ export function TabNavigator() {
             nowPlayingArtist={activeRemoteTrack?.artist || activeLocalSong?.artist}
             nowPlayingThumbnail={activeRemoteTrack?.thumbnail}
             onOpenSearch={() => props.navigation.navigate('Search')}
+            onOpenProfile={() => props.navigation.navigate('Settings')}
             onPlayTrack={playRemote}
             currentTrackId={currentTrackId}
             activeRemoteTrackId={activeRemoteTrack?.id}
@@ -193,12 +195,7 @@ export function TabNavigator() {
           tabBarIcon: ({ color }) => <SettingsIcon size={22} color={color} />,
         }}
       >
-        {() => (
-          <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }}>
-            <SettingsIcon size={48} color={colors.textMuted} />
-            <Text style={{ color: colors.textSecondary, marginTop: 16, fontSize: 16 }}>Settings Page (Coming Soon)</Text>
-          </View>
-        )}
+        {() => <SettingsScreen />}
       </Tab.Screen>
     </Tab.Navigator>
   );

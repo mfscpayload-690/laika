@@ -106,6 +106,10 @@ export const typography = {
     letterSpacing: 1.2,
     textTransform: 'uppercase' as const,
   },
+  // Font weight aliases for ease of use
+  bold: 'System', // On RN, fontFamily can often just be the font name, or we use fontWeight
+  medium: 'System',
+  regular: 'System',
 } as const;
 
 export const shadows = {

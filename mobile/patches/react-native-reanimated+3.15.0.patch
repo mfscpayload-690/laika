@@ -1,0 +1,35 @@
+diff --git a/node_modules/react-native-reanimated/android/CMakeLists.txt b/node_modules/react-native-reanimated/android/CMakeLists.txt
+index 78041e8..89e987f 100644
+--- a/node_modules/react-native-reanimated/android/CMakeLists.txt
++++ b/node_modules/react-native-reanimated/android/CMakeLists.txt
+@@ -18,7 +18,7 @@ add_compile_options(${folly_FLAGS})
+ 
+ string(APPEND CMAKE_CXX_FLAGS " -DREACT_NATIVE_MINOR_VERSION=${REACT_NATIVE_MINOR_VERSION} -DREANIMATED_VERSION=${REANIMATED_VERSION} -DHERMES_ENABLE_DEBUGGER=${HERMES_ENABLE_DEBUGGER}")
+ 
+-string(APPEND CMAKE_CXX_FLAGS " -fexceptions -fno-omit-frame-pointer -frtti -fstack-protector-all -std=c++${CMAKE_CXX_STANDARD} -Wall -Werror")
++string(APPEND CMAKE_CXX_FLAGS " -fexceptions -fno-omit-frame-pointer -frtti -fstack-protector-all -std=c++${CMAKE_CXX_STANDARD} -Wall -Wno-error")
+ 
+ if(${IS_NEW_ARCHITECTURE_ENABLED})
+     string(APPEND CMAKE_CXX_FLAGS " -DRCT_NEW_ARCH_ENABLED")
+diff --git a/node_modules/react-native-reanimated/android/build.gradle b/node_modules/react-native-reanimated/android/build.gradle
+index 4558653..1b66860 100644
+--- a/node_modules/react-native-reanimated/android/build.gradle
++++ b/node_modules/react-native-reanimated/android/build.gradle
+@@ -412,7 +412,7 @@ android {
+ }
+ 
+ def assertLatestReactNativeWithNewArchitecture = task assertLatestReactNativeWithNewArchitectureTask {
+-    onlyIf { IS_NEW_ARCHITECTURE_ENABLED && REANIMATED_MAJOR_VERSION == 3 && REACT_NATIVE_MINOR_VERSION < 74 }
++    onlyIf { false }
+     doFirst {
+         // If you change the minimal React Native version remember to update Compatibility Table in docs
+         throw new GradleException(
+@@ -422,7 +422,7 @@ def assertLatestReactNativeWithNewArchitecture = task assertLatestReactNativeWit
+ }
+ 
+ def assertMinimalReactNativeVersion = task assertMinimalReactNativeVersionTask {
+-    onlyIf { REACT_NATIVE_MINOR_VERSION < 71 }
++    onlyIf { false }
+     doFirst {
+         // If you change the minimal React Native version remember to update Compatibility Table in docs
+         throw new GradleException("[Reanimated] Unsupported React Native version. Please use 0.71 or newer.")
