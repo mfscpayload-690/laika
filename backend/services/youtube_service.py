@@ -14,10 +14,15 @@ YOUTUBE_VIDEOS_URL = "https://www.googleapis.com/youtube/v3/videos"
 class YoutubeService:
     def __init__(self):
         self._client: Optional[httpx.AsyncClient] = None
+        self._resolution_cache = {}  # {metadata_key: video_url}
+        self._stream_cache = {}      # {video_url: (stream_url, expiry)}
 
     def _get_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(timeout=10.0)
+            self._client = httpx.AsyncClient(
+                timeout=30.0,
+                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"}
+            )
         return self._client
 
     def _api_key(self) -> str:
@@ -208,80 +213,89 @@ class YoutubeService:
 
     async def extract_audio_url(self, video_url: str) -> dict:
         """
-        Uses yt-dlp to extract the direct audio stream URL.
-        Tries multiple format selectors and retries once on 429.
+        Uses yt-dlp to extract the direct audio stream URL efficiently with caching.
         """
-        # Format fallback chain: audio-only → best available → any
-        format_attempts = ["bestaudio/best", "best", "worstaudio/worst"]
+        now = asyncio.get_event_loop().time()
+        
+        # 1. Check Cache
+        if video_url in self._stream_cache:
+            stream_url, expiry = self._stream_cache[video_url]
+            if now < expiry:
+                return {
+                    "url": stream_url,
+                    "title": "Cached Track", # Optional: store title in cache too
+                    "duration": 0, # Optional: store duration in cache too
+                }
 
-        last_stderr = ""
+        command = [
+            "yt-dlp",
+            "-j",
+            "--no-playlist",
+            "--flat-playlist",
+            "--no-warnings",
+            "--quiet",
+            "--no-check-certificates",
+            "--geo-bypass",
+            "-f", "ba[ext=m4a]/ba/b",
+            video_url,
+        ]
 
-        for fmt in format_attempts:
-            command = [
-                "yt-dlp",
-                "-j",
-                "--no-playlist",
-                "--remote-components", "ejs:github",
-                "--no-warnings",
-                "-f", fmt,
-                video_url,
-            ]
+        try:
+            process = await asyncio.create_subprocess_exec(
+                *command,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
 
-            for attempt in range(2):  # retry once on 429
-                if attempt > 0:
-                    print(f"DEBUG: yt-dlp retrying after 429, attempt {attempt + 1}")
-                    await asyncio.sleep(3)
+            try:
+                stdout, stderr = await asyncio.wait_for(
+                    process.communicate(), timeout=45.0
+                )
+            except asyncio.TimeoutError:
+                process.kill()
+                raise HTTPException(
+                    status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                    detail="Audio extraction timed out"
+                )
 
-                try:
-                    process = await asyncio.create_subprocess_exec(
-                        *command,
-                        stdout=asyncio.subprocess.PIPE,
-                        stderr=asyncio.subprocess.PIPE
-                    )
+            last_stderr = stderr.decode()
 
-                    try:
-                        stdout, stderr = await asyncio.wait_for(
-                            process.communicate(), timeout=45.0
-                        )
-                    except asyncio.TimeoutError:
-                        process.kill()
-                        raise HTTPException(
-                            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-                            detail="Audio extraction timed out"
-                        )
+            if process.returncode == 0:
+                data = json.loads(stdout.decode())
+                audio_url = data.get("url")
+                if audio_url:
+                    # 2. Extract Expiry from URL or default to 2 hours
+                    ttl = 7200 # 2 hours default
+                    expire_match = re.search(r"expire=(\d+)", audio_url)
+                    if expire_match:
+                        # YouTube expiration is absolute epoch time
+                        import time
+                        yt_expire = int(expire_match.group(1))
+                        ttl = yt_expire - int(time.time()) - 300 # Buffer of 5 mins
+                    
+                    self._stream_cache[video_url] = (audio_url, now + ttl)
+                    
+                    return {
+                        "url": audio_url,
+                        "title": data.get("title"),
+                        "duration": data.get("duration", 0) * 1000,
+                    }
 
-                    last_stderr = stderr.decode()
+            print(f"DEBUG: yt-dlp failed: {last_stderr[:300]}")
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Could not extract audio."
+            )
 
-                    if process.returncode == 0:
-                        data = json.loads(stdout.decode())
-                        audio_url = data.get("url")
-                        if audio_url:
-                            print(f"DEBUG: yt-dlp success with format={fmt}")
-                            return {
-                                "url": audio_url,
-                                "title": data.get("title"),
-                                "duration": data.get("duration", 0) * 1000,
-                            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            print(f"DEBUG: yt-dlp exception: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=str(e)
+            )
 
-                    # 429 → retry same format after sleep
-                    if "429" in last_stderr:
-                        continue
-
-                    # Any other error → try next format
-                    print(f"DEBUG: yt-dlp failed format={fmt}: {last_stderr[:200]}")
-                    break
-
-                except HTTPException:
-                    raise
-                except Exception as e:
-                    print(f"DEBUG: yt-dlp exception: {e}")
-                    break
-
-        print(f"DEBUG: yt-dlp all formats exhausted. Last error: {last_stderr[:300]}")
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Could not extract audio. YouTube may be rate-limiting — try again in a moment."
-        )
 
     async def close(self):
         if self._client:

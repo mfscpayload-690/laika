@@ -26,6 +26,7 @@ export function TabNavigator() {
     currentTrackId,
     activeRemoteTrack,
     isLoading,
+    isResolving,
   } = usePlayback();
 
   const [scanning, setScanning] = React.useState(false);
@@ -129,6 +130,10 @@ export function TabNavigator() {
             nowPlayingArtist={activeRemoteTrack?.artist || activeLocalSong?.artist}
             nowPlayingThumbnail={activeRemoteTrack?.thumbnail}
             onOpenSearch={() => props.navigation.navigate('Search')}
+            onPlayTrack={playRemote}
+            currentTrackId={currentTrackId}
+            activeRemoteTrackId={activeRemoteTrack?.id}
+            resolvingId={isResolving ? activeRemoteTrack?.id : null}
           />
         )}
       </Tab.Screen>
@@ -143,7 +148,7 @@ export function TabNavigator() {
           <SearchScreen
             {...props}
             onSelectTrack={playRemote}
-            resolvingId={isLoading ? activeRemoteTrack?.id || null : null}
+            resolvingId={isResolving ? activeRemoteTrack?.id || null : null}
             activeTrackId={activeRemoteTrack?.id || null}
           />
         )}

@@ -183,6 +183,7 @@ export function SearchScreen({
             <TrackRow
               title={item.title}
               artist={item.artist}
+              album={item.album}
               thumbnail={item.thumbnail}
               isActive={item.id === activeTrackId}
               isLoading={item.id === resolvingId}

@@ -4,11 +4,12 @@ from core.schemas import Track
 
 class MatchingService:
     def __init__(self):
-        self.penalized_keywords = ["live", "remix", "cover", "slowed", "intro", "reaction", "video", "official video"]
+        self.penalized_keywords = ["live", "remix", "cover", "slowed", "intro", "reaction", "teaser", "trailer", "short", "reverb"]
+        self.boost_keywords = ["official", "audio", "lyrical", "full song", "high quality"]
         self.weights = {
-            "title": 0.4,
-            "artist": 0.3,
-            "duration": 0.3
+            "title": 0.45,
+            "artist": 0.35,
+            "duration": 0.20
         }
 
     def select_best_candidate(self, track: Track, candidates: List[dict]) -> Optional[dict]:
@@ -40,6 +41,7 @@ class MatchingService:
         
         # Apply penalties for unwanted keywords if they aren't in the original track title
         penalty = self._calculate_penalty(track.title, candidate.get("title", ""))
+        boost = self._calculate_boost(candidate.get("title", ""))
         
         total_score = (
             (title_score * self.weights["title"]) +
@@ -47,7 +49,15 @@ class MatchingService:
             (duration_score * self.weights["duration"])
         )
         
-        return max(0.0, total_score - penalty)
+        return max(0.0, total_score - penalty + boost)
+
+    def _calculate_boost(self, candidate_title: str) -> float:
+        candidate_title = candidate_title.lower()
+        boost = 0.0
+        for word in self.boost_keywords:
+            if word in candidate_title:
+                boost += 0.05
+        return min(0.15, boost)
 
     def _score_title(self, target: str, candidate: str) -> float:
         target = target.lower()

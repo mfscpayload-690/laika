@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -7,11 +7,22 @@ import {
   StyleSheet,
   Text,
   View,
+  FlatList,
+  Dimensions,
 } from 'react-native';
-import { ChevronRight, Library, Music, RefreshCw, Search } from 'lucide-react-native';
+import { ChevronRight, Library, Music, RefreshCw, Search, Play } from 'lucide-react-native';
 
 import { SectionHeader } from '../components/SectionHeader';
 import { colors, radii, spacing, typography } from '../theme';
+import { RemoteTrack } from '../types/music';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+type HomeSection = {
+  title: string;
+  type: string;
+  items: RemoteTrack[];
+};
 
 type HomeScreenProps = {
   songsCount: number;
@@ -24,55 +35,55 @@ type HomeScreenProps = {
   nowPlayingArtist?: string;
   nowPlayingThumbnail?: string;
   onOpenSearch: () => void;
+  onPlayTrack?: (track: RemoteTrack) => void;
+  currentTrackId?: string | null;
+  activeRemoteTrackId?: string | null;
+  resolvingId?: string | null;
 };
-
-type MockCard = {
-  id: string;
-  title: string;
-  artist: string;
-  color: string;
-};
-
-const MOCK_RECENT: MockCard[] = [
-  { id: '1', title: 'Blinding Lights', artist: 'The Weeknd', color: '#7c3aed' },
-  { id: '2', title: 'Levitating', artist: 'Dua Lipa', color: '#0369a1' },
-  { id: '3', title: 'Stay', artist: 'Kid Laroi', color: '#065f46' },
-  { id: '4', title: 'Peaches', artist: 'Justin Bieber', color: '#92400e' },
-  { id: '5', title: 'Good 4 U', artist: 'Olivia Rodrigo', color: '#9f1239' },
-];
-
-const MOCK_SUGGESTIONS: MockCard[] = [
-  { id: '1', title: 'As It Was', artist: 'Harry Styles', color: '#1d4ed8' },
-  { id: '2', title: 'Heat Waves', artist: 'Glass Animals', color: '#0f766e' },
-  { id: '3', title: 'Easy On Me', artist: 'Adele', color: '#7f1d1d' },
-  { id: '4', title: 'Industry Baby', artist: 'Lil Nas X', color: '#4d7c0f' },
-  { id: '5', title: 'Shivers', artist: 'Ed Sheeran', color: '#6b21a8' },
-];
 
 function getGreeting(): string {
   const hour = new Date().getHours();
-  if (hour < 12) {
-    return 'Good morning';
-  }
-  if (hour < 18) {
-    return 'Good afternoon';
-  }
+  if (hour < 12) return 'Good morning';
+  if (hour < 18) return 'Good afternoon';
   return 'Good evening';
 }
 
-function MusicCard({ item }: { item: MockCard }) {
+function QuickPickItem({ track, onPress, isActive, isResolving }: { track: RemoteTrack; onPress: () => void; isActive?: boolean; isResolving?: boolean }) {
   return (
-    <View style={styles.musicCard}>
-      <View style={[styles.musicCardArt, { backgroundColor: item.color }]}>
-        <Music size={28} color="rgba(255,255,255,0.6)" />
+    <Pressable style={[styles.quickPickItem, isActive && styles.quickPickActive]} onPress={onPress}>
+      <Image source={{ uri: track.thumbnail }} style={styles.quickPickArt} />
+      <View style={styles.quickPickText}>
+        <Text style={[styles.quickPickTitle, isActive && styles.quickPickTitleActive]} numberOfLines={1}>
+          {track.title}
+        </Text>
       </View>
-      <Text style={styles.musicCardTitle} numberOfLines={2}>
-        {item.title}
-      </Text>
-      <Text style={styles.musicCardArtist} numberOfLines={1}>
-        {item.artist}
-      </Text>
-    </View>
+      {isResolving ? (
+        <ActivityIndicator size="small" color={colors.brand} style={{ marginRight: 12 }} />
+      ) : isActive ? (
+        <View style={styles.activeDot} />
+      ) : null}
+    </Pressable>
+  );
+}
+
+function MusicCarouselItem({ item, onPress, isResolving }: { item: RemoteTrack; onPress: () => void; isResolving?: boolean }) {
+  return (
+    <Pressable style={styles.carouselItem} onPress={onPress}>
+      <View style={styles.carouselArtContainer}>
+        <Image source={{ uri: item.thumbnail }} style={styles.carouselArt} />
+        {isResolving ? (
+          <View style={[StyleSheet.absoluteFill, styles.carouselLoadingOverlay]}>
+            <ActivityIndicator size="small" color={colors.brand} />
+          </View>
+        ) : (
+          <View style={styles.carouselPlayOverlay}>
+            <Play size={20} color="#FFF" fill="#FFF" />
+          </View>
+        )}
+      </View>
+      <Text style={styles.carouselTitle} numberOfLines={1}>{item.title}</Text>
+      <Text style={styles.carouselArtist} numberOfLines={1}>{item.artist}</Text>
+    </Pressable>
   );
 }
 
@@ -87,282 +98,193 @@ export function HomeScreen({
   nowPlayingArtist,
   nowPlayingThumbnail,
   onOpenSearch,
+  onPlayTrack,
+  currentTrackId,
+  activeRemoteTrackId,
+  resolvingId,
 }: HomeScreenProps) {
+  const [sections, setSections] = useState<HomeSection[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('http://localhost:8000/home/') // Works for both physical devices (via adb reverse) and emulators
+      .then(res => res.json())
+      .then(data => {
+        console.log('HomeScreen: Received data', data);
+        if (data.sections) {
+          setSections(data.sections);
+        }
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('HomeScreen: fetch failed', err);
+        setLoading(false);
+      });
+  }, []);
+
+  const handlePlay = (track: RemoteTrack) => {
+    if (onPlayTrack) {
+      onPlayTrack(track);
+    }
+  };
+
   return (
     <ScrollView
+      style={styles.container}
       contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled">
-
-      {/* Greeting */}
-      <Text style={styles.greeting}>{getGreeting()}</Text>
-
-      {/* Quick-access grid */}
-      <View style={styles.quickGrid}>
-        <Pressable style={styles.quickGridItem} onPress={onOpenSearch}>
-          <View style={[styles.quickGridArt, styles.quickGridArtSearch]}>
-            <Search size={16} color={colors.textPrimary} />
-          </View>
-          <Text style={styles.quickGridLabel} numberOfLines={1}>Search Music</Text>
+      showsVerticalScrollIndicator={false}>
+      
+      {/* Greeting Header */}
+      <View style={styles.header}>
+        <Text style={styles.greeting}>{getGreeting()}</Text>
+        <Pressable onPress={onOpenSearch} style={styles.iconButton}>
+          <Search size={24} color={colors.textPrimary} />
         </Pressable>
-        <Pressable style={styles.quickGridItem} onPress={onOpenLibrary}>
-          <View style={[styles.quickGridArt, styles.quickGridArtLibrary]}>
-            <Library size={16} color={colors.textPrimary} />
-          </View>
-          <Text style={styles.quickGridLabel} numberOfLines={1}>Your Library</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.quickGridItem, scanning && styles.quickGridItemDisabled]}
-          onPress={onScan}
-          disabled={scanning}>
-          <View style={[styles.quickGridArt, styles.quickGridArtScan]}>
-            {scanning ? (
-              <ActivityIndicator size="small" color={colors.brand} />
-            ) : (
-              <RefreshCw size={16} color={colors.textPrimary} />
-            )}
-          </View>
-          <Text style={styles.quickGridLabel} numberOfLines={1}>
-            {scanning ? 'Scanning...' : 'Scan Device'}
-          </Text>
-        </Pressable>
-        {hasCurrentSong && (
-          <Pressable style={styles.quickGridItem} onPress={onOpenPlayer}>
-            <View style={[styles.quickGridArt, styles.quickGridArtNowPlaying]}>
-              <Music size={16} color={colors.textPrimary} />
-            </View>
-            <Text style={styles.quickGridLabel} numberOfLines={1}>Now Playing</Text>
-          </Pressable>
-        )}
       </View>
 
-      {/* Now Playing card */}
-      {hasCurrentSong && (
-        <Pressable
-          style={styles.nowPlayingCard}
-          onPress={onOpenPlayer}
-          accessibilityRole="button"
-          accessibilityLabel="Now playing">
-          {nowPlayingThumbnail ? (
-            <Image
-              source={{ uri: nowPlayingThumbnail }}
-              style={styles.nowPlayingThumb}
-              accessibilityIgnoresInvertColors
+      {/* Quick Access Grid (The 2-column professional grid) */}
+      {sections.length > 0 && sections[0].items.length > 0 && (
+        <View style={styles.quickGrid}>
+          {sections[0].items.slice(0, 6).map(track => (
+            <QuickPickItem 
+              key={track.id} 
+              track={track} 
+              onPress={() => handlePlay(track)} 
+              isActive={track.id === currentTrackId || track.id === activeRemoteTrackId}
+              isResolving={track.id === resolvingId}
             />
-          ) : (
-            <View style={styles.nowPlayingThumbFallback}>
-              <Music size={20} color={colors.brand} />
-            </View>
-          )}
-          <View style={styles.nowPlayingText}>
-            <Text style={styles.nowPlayingTitle} numberOfLines={1}>
-              {nowPlayingTitle ?? 'Unknown Track'}
-            </Text>
-            <Text style={styles.nowPlayingArtist} numberOfLines={1}>
-              {nowPlayingArtist ?? 'Unknown Artist'}
-            </Text>
-          </View>
-          <ChevronRight size={20} color={colors.textMuted} />
-        </Pressable>
+          ))}
+        </View>
       )}
 
-      {/* Recently Played */}
-      <View>
-        <SectionHeader label="Recently Played" />
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.horizontalList}>
-          {MOCK_RECENT.map(item => (
-            <MusicCard key={item.id} item={item} />
-          ))}
-        </ScrollView>
-      </View>
-
-      {/* Suggested */}
-      <View>
-        <SectionHeader label="Made For You" />
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.horizontalList}>
-          {MOCK_SUGGESTIONS.map(item => (
-            <MusicCard key={item.id} item={item} />
-          ))}
-        </ScrollView>
-      </View>
-
-      {/* Stats footer */}
-      <View style={styles.statsRow}>
-        <View style={styles.statItem}>
-          <Text style={styles.statValue}>{songsCount}</Text>
-          <Text style={styles.statLabel}>Local Songs</Text>
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.brand} />
         </View>
-        <View style={styles.statDivider} />
-        <View style={styles.statItem}>
-          <Text style={[styles.statValue, hasCurrentSong && styles.statValueActive]}>
-            {hasCurrentSong ? 'Live' : 'Idle'}
-          </Text>
-          <Text style={styles.statLabel}>Playback</Text>
+      ) : (
+        sections.slice(1).map((section, idx) => (
+          <View key={idx} style={styles.section}>
+            <SectionHeader label={section.title} />
+            <FlatList
+              horizontal
+              data={section.items}
+              keyExtractor={item => item.id}
+              showsHorizontalScrollIndicator={false}
+              renderItem={({ item }) => (
+                <MusicCarouselItem 
+                  item={item} 
+                  onPress={() => handlePlay(item)} 
+                  isResolving={item.id === resolvingId}
+                />
+              )}
+              contentContainerStyle={styles.carouselList}
+            />
+          </View>
+        ))
+      )}
+
+      {/* Library Stats / Call to Action */}
+      <View style={styles.libraryCard}>
+        <View style={styles.libraryText}>
+          <Text style={styles.libraryTitle}>Local Library</Text>
+          <Text style={styles.libraryCount}>{songsCount} songs scanned</Text>
         </View>
+        <Pressable 
+          style={[styles.scanButton, scanning && styles.buttonDisabled]} 
+          onPress={onScan}
+          disabled={scanning}>
+          {scanning ? (
+            <ActivityIndicator size="small" color="#FFF" />
+          ) : (
+            <>
+              <RefreshCw size={16} color="#FFF" />
+              <Text style={styles.scanButtonText}>Scan</Text>
+            </>
+          )}
+        </Pressable>
       </View>
+      
+      <View style={{ height: 120 }} />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  content: {
-    paddingHorizontal: spacing.base,
-    paddingBottom: spacing.xxl,
-    gap: spacing.xl,
-  },
-
-  // Greeting
-  greeting: {
-    color: colors.textPrimary,
-    fontSize: 24,
-    fontWeight: '700',
-    marginTop: spacing.sm,
-  },
-
-  // Quick-access grid (Spotify 2-col pill style)
-  quickGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  quickGridItem: {
-    width: '48%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surfaceElevated,
-    borderRadius: radii.sm,
-    overflow: 'hidden',
-    height: 56,
-  },
-  quickGridItemDisabled: {
-    opacity: 0.5,
-  },
-  quickGridArt: {
-    width: 56,
-    height: 56,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  quickGridArtSearch: {
-    backgroundColor: '#1DB954',
-  },
-  quickGridArtLibrary: {
-    backgroundColor: '#535353',
-  },
-  quickGridArtScan: {
-    backgroundColor: '#282828',
-  },
-  quickGridArtNowPlaying: {
-    backgroundColor: '#1DB954',
-  },
-  quickGridLabel: {
-    color: colors.textPrimary,
-    fontSize: 13,
-    fontWeight: '700',
-    paddingHorizontal: spacing.sm,
-    flex: 1,
-  },
-
-  // Now Playing
-  nowPlayingCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: radii.md,
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    gap: spacing.md,
-  },
-  nowPlayingThumb: {
-    width: 48,
-    height: 48,
-    borderRadius: radii.xs,
-  },
-  nowPlayingThumbFallback: {
-    width: 48,
-    height: 48,
-    borderRadius: radii.xs,
-    backgroundColor: colors.surfaceElevated,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  nowPlayingText: {
-    flex: 1,
-  },
-  nowPlayingTitle: {
-    color: colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  nowPlayingArtist: {
-    marginTop: 2,
-    color: colors.textSecondary,
-    fontSize: 12,
-  },
-
-  // Horizontal music cards
-  horizontalList: {
-    paddingRight: spacing.base,
-    gap: spacing.md,
-  },
-  musicCard: {
-    width: 140,
-  },
-  musicCardArt: {
-    width: 140,
-    height: 140,
-    borderRadius: radii.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
+  container: { flex: 1, backgroundColor: colors.background },
+  content: { paddingHorizontal: spacing.lg, paddingTop: spacing.xl * 2 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg },
+  greeting: { fontSize: 24, fontWeight: '700', color: colors.textPrimary },
+  iconButton: { padding: spacing.xs },
+  
+  // Quick Pick Grid
+  quickGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: spacing.xl },
+  quickPickItem: { 
+    width: '48.5%', 
+    height: 56, 
+    backgroundColor: 'rgba(255,255,255,0.05)', 
+    borderRadius: radii.md, 
+    flexDirection: 'row', 
+    alignItems: 'center', 
     marginBottom: spacing.sm,
+    overflow: 'hidden',
   },
-  musicCardTitle: {
-    color: colors.textPrimary,
-    fontSize: 13,
-    fontWeight: '600',
-    lineHeight: 17,
-  },
-  musicCardArtist: {
-    marginTop: 2,
-    color: colors.textMuted,
-    fontSize: 11,
-  },
-
-  // Stats
-  statsRow: {
-    flexDirection: 'row',
+  quickPickArt: { width: 56, height: 56 },
+  quickPickText: { flex: 1, paddingHorizontal: spacing.sm },
+  quickPickTitle: { color: colors.textPrimary, fontSize: 13, fontWeight: '600' },
+  quickPickTitleActive: { color: colors.brand },
+  quickPickActive: { backgroundColor: 'rgba(29, 185, 84, 0.1)' },
+  activeDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: colors.brand, marginRight: 8 },
+  
+  // Carousel
+  section: { marginBottom: spacing.xl },
+  carouselList: { paddingLeft: 0 },
+  carouselItem: { width: 140, marginRight: spacing.lg },
+  carouselArtContainer: { width: 140, height: 140, borderRadius: radii.lg, overflow: 'hidden', marginBottom: spacing.sm, position: 'relative' },
+  carouselLoadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  carouselArt: { width: '100%', height: '100%' },
+  carouselPlayOverlay: { 
+    position: 'absolute', 
+    bottom: 8, 
+    right: 8, 
+    backgroundColor: colors.brand, 
+    width: 32, 
+    height: 32, 
+    borderRadius: 16, 
+    justifyContent: 'center', 
     alignItems: 'center',
-    borderRadius: radii.md,
-    backgroundColor: colors.surface,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.base,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
-  statItem: {
-    flex: 1,
+  carouselTitle: { color: colors.textPrimary, fontSize: 14, fontWeight: '600' },
+  carouselArtist: { color: colors.textSecondary, fontSize: 12, opacity: 0.7, marginTop: 2 },
+  
+  loadingContainer: { height: 200, justifyContent: 'center', alignItems: 'center' },
+  
+  // Library Card
+  libraryCard: { 
+    flexDirection: 'row', 
+    backgroundColor: 'rgba(255,255,255,0.03)', 
+    borderRadius: radii.xl, 
+    padding: spacing.lg, 
+    alignItems: 'center', 
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  libraryText: { flex: 1 },
+  libraryTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: '700' },
+  libraryCount: { color: colors.textSecondary, fontSize: 13, opacity: 0.6, marginTop: 2 },
+  scanButton: { 
+    flexDirection: 'row', 
+    backgroundColor: colors.brand, 
+    paddingHorizontal: spacing.md, 
+    paddingVertical: spacing.sm, 
+    borderRadius: radii.full, 
     alignItems: 'center',
-    gap: spacing.xs,
   },
-  statDivider: {
-    width: 1,
-    height: 28,
-    backgroundColor: colors.borderSubtle,
-  },
-  statValue: {
-    color: colors.textPrimary,
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  statValueActive: {
-    color: colors.brand,
-  },
-  statLabel: {
-    ...typography.caption,
-    color: colors.textMuted,
-  },
+  scanButtonText: { color: '#FFF', fontWeight: '700', fontSize: 13, marginLeft: spacing.xs },
+  buttonDisabled: { opacity: 0.5 },
 });

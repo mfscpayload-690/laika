@@ -13,8 +13,19 @@ class Track(BaseModel):
     match_score: Optional[float] = None
     youtube_id: Optional[str] = None
     youtube_url: Optional[str] = None
+    metadata: Optional[dict] = None
 
 
 class SearchResponse(BaseModel):
     query: str
     tracks: List[Track]
+
+
+class HomeSection(BaseModel):
+    title: str
+    type: str  # "grid" or "carousel"
+    items: List[Track]
+
+
+class HomeResponse(BaseModel):
+    sections: List[HomeSection]
