@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { Linking } from 'react-native';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../services/supabase';
 
@@ -8,6 +9,7 @@ interface AuthContextType {
   loading: boolean;
   isGuest: boolean;
   setAsGuest: () => void;
+  signInWithOAuth: (provider: 'google' | 'github') => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -44,13 +46,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsGuest(true);
   };
 
+  const signInWithOAuth = async (provider: 'google' | 'github') => {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: 'laika-music://auth-callback',
+        skipBrowserRedirect: true,
+      },
+    });
+    if (error) throw error;
+    if (data?.url) {
+      await Linking.openURL(data.url);
+    }
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setIsGuest(false);
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, loading, isGuest, setAsGuest, signOut }}>
+    <AuthContext.Provider value={{ session, user, loading, isGuest, setAsGuest, signInWithOAuth, signOut }}>
       {children}
     </AuthContext.Provider>
   );
