@@ -10,6 +10,7 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
+import { useNavigationState, getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -152,6 +153,14 @@ export function PlayerSheet() {
     toggleShuffle,
     cycleRepeatMode,
   } = usePlayback();
+
+  const focusedRouteName = useNavigationState(state => {
+    const route = state?.routes[state.index];
+    if (!route) return null;
+    return getFocusedRouteNameFromRoute(route) ?? 'Home';
+  });
+
+  const shouldHidePlayer = focusedRouteName === 'Settings';
 
   const hasTrack = Boolean(currentTrackId || activeRemoteTrack);
   const activeSong = songs.find(s => s.id === currentTrackId);
@@ -431,6 +440,10 @@ export function PlayerSheet() {
       pointerEvents: translateY.value < maxTranslateY - 10 ? 'auto' : 'none',
     } as any;
   });
+
+  if (shouldHidePlayer) {
+    return null;
+  }
 
   // if (!hasTrack) {
   //   return null;
