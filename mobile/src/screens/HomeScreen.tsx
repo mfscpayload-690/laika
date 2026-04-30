@@ -204,14 +204,14 @@ export function HomeScreen({
         </Pressable>
       </View>
       
-      <View style={{ height: 120 }} />
+      <View style={{ height: 90 }} />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  content: { paddingHorizontal: spacing.lg, paddingTop: spacing.xl * 2 },
+  content: { paddingHorizontal: spacing.lg, paddingTop: spacing.xl * 2, paddingBottom: spacing.xxxl * 1.5 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg },
   greeting: { fontSize: 24, fontWeight: '700', color: colors.textPrimary },
   iconButton: { padding: spacing.xs },

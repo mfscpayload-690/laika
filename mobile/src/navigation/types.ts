@@ -7,4 +7,5 @@ export type MainTabsParamList = {
   Home: undefined;
   Search: undefined;
   Library: undefined;
+  Settings: undefined;
 };

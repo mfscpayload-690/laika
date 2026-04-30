@@ -12,7 +12,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { ChevronDown, ChevronUp } from 'lucide-react-native';
+import { ChevronDown, ChevronUp, Search as SearchIcon } from 'lucide-react-native';
 
 import { SongList } from '../components/SongList';
 import { AlphabetSidebar } from '../components/AlphabetSidebar';
@@ -163,27 +163,17 @@ export function LibraryScreen({
       <View style={styles.headerRow}>
         <View>
           <Text style={styles.title}>Your Library</Text>
-          <Text style={styles.subtitle}>{songs.length} songs</Text>
         </View>
-
-        <Pressable
-          style={[styles.playerButton, songs.length === 0 && styles.playerButtonDisabled]}
-          onPress={onOpenPlayer}
-          disabled={songs.length === 0}
-          accessibilityRole="button"
-          accessibilityLabel="Open player">
-          <Text style={styles.playerButtonLabel}>Player</Text>
-        </Pressable>
       </View>
 
       <View style={styles.metaRow}>
-        <Text style={styles.subtitle}>{visibleSongs.length} shown • {songs.length} total</Text>
         {activeFilterCount > 0 ? (
-          <Text style={styles.filterSummary}>{activeFilterCount} filters active</Text>
+          <Text style={styles.filterSummary}>{activeFilterCount} filters active • {visibleSongs.length} items found</Text>
         ) : null}
       </View>
 
       <View style={styles.searchBar}>
+        <SearchIcon size={18} color={colors.textMuted} style={styles.searchIcon} />
         <TextInput
           value={query}
           onChangeText={setQuery}
@@ -244,7 +234,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: spacing.base,
     paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
+    paddingBottom: 40,
     backgroundColor: colors.background,
   },
   headerRow: {
@@ -275,30 +265,23 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontWeight: '600',
   },
-  playerButton: {
-    borderRadius: radii.pill,
-    backgroundColor: colors.textPrimary,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  playerButtonDisabled: {
-    opacity: 0.45,
-  },
-  playerButtonLabel: {
-    color: colors.background,
-    fontWeight: '700',
-    fontSize: 12,
-  },
   searchBar: {
     marginTop: spacing.sm,
-    borderRadius: radii.sm,
-    backgroundColor: colors.surfaceElevated,
+    borderRadius: radii.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: spacing.md,
   },
+  searchIcon: {
+    marginRight: spacing.xs,
+  },
   searchInput: {
+    flex: 1,
     color: colors.textPrimary,
-    paddingVertical: spacing.sm,
-    fontSize: 14,
+    paddingVertical: spacing.md,
+    fontSize: 15,
+    fontWeight: '500',
   },
   filterSection: {
     marginTop: spacing.md,

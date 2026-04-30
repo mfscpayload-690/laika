@@ -26,7 +26,7 @@ interface PlaybackContextType {
   playRemote: (track: RemoteTrack) => Promise<void>;
   togglePlayPause: () => Promise<void>;
   next: () => Promise<void>;
-  previous: () => Promise<void>;
+  previous: (forcePreviousTrack?: boolean) => Promise<void>;
   toggleShuffle: () => Promise<void>;
   cycleRepeatMode: () => Promise<void>;
 
@@ -207,7 +207,7 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
     }
   }, [mode]);
 
-  const previous = useCallback(async () => {
+  const previous = useCallback(async (forcePreviousTrack: boolean = false) => {
     if (mode === 'local') {
       try {
         const queue = await TrackPlayer.getQueue();
@@ -216,7 +216,8 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
         
         if (activeIndex !== undefined && activeIndex !== null && queue.length > 0) {
           // Standard behavior: if > 3s into song, previous just restarts current song
-          if (position > 3) {
+          // If forcePreviousTrack is true (like from a swipe), we bypass this check.
+          if (!forcePreviousTrack && position > 3) {
             await TrackPlayer.seekTo(0);
             return;
           }

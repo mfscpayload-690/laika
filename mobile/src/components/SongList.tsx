@@ -151,7 +151,7 @@ export function SongList({
 
 const styles = StyleSheet.create({
   content: {
-    paddingBottom: spacing.xl,
+    paddingBottom: 100,
   },
   emptyListContent: {
     flexGrow: 1,

@@ -4,6 +4,7 @@ from routers.health import router as health_router
 from routers.search import router as search_router
 from routers.resolve import router as resolve_router
 from routers.home import router as home_router
+from routers.lyrics import router as lyrics_router
 
 
 def create_app() -> FastAPI:
@@ -12,6 +13,7 @@ def create_app() -> FastAPI:
     app.include_router(search_router)
     app.include_router(resolve_router)
     app.include_router(home_router)
+    app.include_router(lyrics_router)
     return app
 
 
