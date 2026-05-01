@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
   InteractionManager,
   Pressable,
@@ -12,7 +12,10 @@ import {
   Dimensions,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { ChevronDown, ChevronUp, Search as SearchIcon } from 'lucide-react-native';
+import { ChevronDown, ChevronUp, Search as SearchIcon, Plus, ListMusic, ChevronRight } from 'lucide-react-native';
+import { usePlaylists } from '../context/PlaylistContext';
+import { useUI } from '../context/UIContext';
+import { BouncyPressable } from '../components/BouncyPressable';
 
 import { SongList } from '../components/SongList';
 import { AlphabetSidebar } from '../components/AlphabetSidebar';
@@ -65,6 +68,9 @@ export function LibraryScreen({
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [alphabetFilter, setAlphabetFilter] = useState<'all' | string>('all');
   const [dateAddedAscending, setDateAddedAscending] = useState(false);
+  const [activeTab, setActiveTab] = useState<'songs' | 'playlists'>('songs');
+  const { playlists, createPlaylist, refreshPlaylists } = usePlaylists();
+  const { showAddToPlaylist } = useUI();
   const navigation = useNavigation<any>();
 
   useEffect(() => {
@@ -134,8 +140,13 @@ export function LibraryScreen({
 
   const songsByAlphabet = useMemo(() => {
     const map: Record<string, LocalSong[]> = { all: sortedSongs };
-    ALPHABET.forEach(letter => {
-      map[letter] = sortedSongs.filter(s => matchesAlphabetFilter(s, letter));
+    ALPHABET.forEach(letter => { map[letter] = []; });
+    
+    sortedSongs.forEach(song => {
+      const firstChar = song.title.charAt(0).toUpperCase();
+      if (map[firstChar]) {
+        map[firstChar].push(song);
+      }
     });
     return map;
   }, [sortedSongs]);
@@ -154,6 +165,10 @@ export function LibraryScreen({
     });
   }, [alphabetFilter, songsByAlphabet, debouncedQuery]);
 
+  const handleLongPress = useCallback((song: LocalSong) => {
+    showAddToPlaylist(song);
+  }, [showAddToPlaylist]);
+
   const activeFilterCount =
     (alphabetFilter === 'all' ? 0 : 1) +
     (debouncedQuery.trim() ? 1 : 0);
@@ -164,7 +179,24 @@ export function LibraryScreen({
         <View>
           <Text style={styles.title}>Your Library</Text>
         </View>
+        <View style={styles.tabContainer}>
+          <BouncyPressable 
+            onPress={() => setActiveTab('songs')} 
+            style={[styles.tab, activeTab === 'songs' && styles.activeTab]}
+          >
+            <Text style={[styles.tabText, activeTab === 'songs' && styles.activeTabText]}>Songs</Text>
+          </BouncyPressable>
+          <BouncyPressable 
+            onPress={() => setActiveTab('playlists')} 
+            style={[styles.tab, activeTab === 'playlists' && styles.activeTab]}
+          >
+            <Text style={[styles.tabText, activeTab === 'playlists' && styles.activeTabText]}>Playlists</Text>
+          </BouncyPressable>
+        </View>
       </View>
+
+      {activeTab === 'songs' ? (
+        <>
 
       <View style={styles.metaRow}>
         {activeFilterCount > 0 ? (
@@ -213,8 +245,9 @@ export function LibraryScreen({
             currentTrackId={currentTrackId}
             onPressSong={onPressSong}
             onScanPress={onScan}
-            onScroll={() => showSidebar()}
-            onScrollBeginDrag={() => showSidebar()}
+            onLongPressSong={handleLongPress}
+            onScroll={showSidebar}
+            onScrollBeginDrag={showSidebar}
           />
         </View>
 
@@ -225,6 +258,56 @@ export function LibraryScreen({
           onInteractStart={showSidebar}
         />
       </View>
+        </>
+      ) : (
+        <View style={styles.playlistSection}>
+          <View style={styles.playlistHeader}>
+            <Text style={styles.playlistCount}>{playlists.length} Playlists</Text>
+            <BouncyPressable 
+              style={styles.createBtn}
+              onPress={() => {
+                const name = `My Playlist #${playlists.length + 1}`;
+                createPlaylist(name).catch(err => console.error(err));
+              }}
+            >
+              <Plus size={20} color={colors.brand} />
+              <Text style={styles.createBtnText}>New Playlist</Text>
+            </BouncyPressable>
+          </View>
+          
+          <ScrollView 
+            style={styles.playlistList}
+            contentContainerStyle={styles.playlistContent}
+          >
+            {playlists.length === 0 ? (
+              <View style={styles.emptyPlaylists}>
+                <ListMusic size={48} color={colors.surfaceElevated} />
+                <Text style={styles.emptyTitle}>No playlists yet</Text>
+                <Text style={styles.emptySub}>Create your first playlist to organize your music</Text>
+              </View>
+            ) : (
+              playlists.map(p => (
+                <Pressable 
+                  key={p.id} 
+                  style={styles.playlistItem}
+                  onPress={() => navigation.navigate('PlaylistDetail', { playlistId: p.id, title: p.name })}
+                >
+                  <View style={styles.playlistArt}>
+                    <ListMusic size={24} color={colors.textMuted} />
+                  </View>
+                  <View style={styles.playlistInfo}>
+                    <Text style={styles.playlistName}>{p.name}</Text>
+                    <Text style={styles.playlistMeta}>
+                      {p.description || 'Custom playlist'}
+                    </Text>
+                  </View>
+                  <ChevronRight size={18} color={colors.textMuted} />
+                </Pressable>
+              ))
+            )}
+          </ScrollView>
+        </View>
+      )}
     </View>
   );
 }
@@ -252,6 +335,109 @@ const styles = StyleSheet.create({
     marginTop: 2,
     ...typography.caption,
     color: colors.textSecondary,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  tab: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  activeTab: {
+    borderBottomColor: colors.brand,
+  },
+  tabText: {
+    color: colors.textMuted,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  activeTabText: {
+    color: colors.brand,
+  },
+  playlistSection: {
+    flex: 1,
+    marginTop: spacing.md,
+  },
+  playlistHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  playlistCount: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    fontWeight: '700',
+  },
+  createBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(29, 185, 84, 0.1)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radii.full,
+  },
+  createBtnText: {
+    color: colors.brand,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  playlistList: {
+    flex: 1,
+    marginHorizontal: -spacing.base,
+  },
+  playlistContent: {
+    paddingHorizontal: spacing.base,
+    paddingBottom: 100,
+  },
+  playlistItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    gap: spacing.md,
+  },
+  playlistArt: {
+    width: 52,
+    height: 52,
+    borderRadius: radii.md,
+    backgroundColor: colors.surfaceElevated,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  playlistInfo: {
+    flex: 1,
+  },
+  playlistName: {
+    color: colors.textPrimary,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  playlistMeta: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  emptyPlaylists: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 60,
+    gap: spacing.sm,
+  },
+  emptyTitle: {
+    color: colors.textPrimary,
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: spacing.sm,
+  },
+  emptySub: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    textAlign: 'center',
+    paddingHorizontal: 40,
   },
   metaRow: {
     marginTop: spacing.xs,
