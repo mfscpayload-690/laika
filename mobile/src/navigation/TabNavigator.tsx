@@ -1,23 +1,78 @@
-import React from 'react';
-import {InteractionManager, Pressable, View, StyleSheet} from 'react-native';
+import React, { createContext, useCallback, useContext, useMemo } from 'react';
+import { InteractionManager, View, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Home as HomeIcon, Search as SearchIcon, Library as LibraryIcon, Settings as SettingsIcon } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from '@react-native-community/blur';
 
-import { HomeScreen } from '../screens/HomeScreen';
-import { SearchScreen } from '../screens/SearchScreen';
-import { LibraryScreen } from '../screens/LibraryScreen';
-import { SettingsScreen } from '../screens/SettingsScreen';
+import HomeScreen from '../screens/HomeScreen';
+import SearchScreen from '../screens/SearchScreen';
+import LibraryScreen from '../screens/LibraryScreen';
+import SettingsScreen from '../screens/SettingsScreen';
+
+const forceName = (comp: any, name: string) => {
+  try {
+    Object.defineProperty(comp, 'name', { value: name, configurable: true });
+    comp.displayName = name;
+  } catch (e) { }
+};
+
+forceName(HomeScreen, 'HomeScreen');
+forceName(SearchScreen, 'SearchScreen');
+forceName(LibraryScreen, 'LibraryScreen');
+forceName(SettingsScreen, 'SettingsScreen');
 import { colors } from '../theme';
 import { MainTabsParamList } from './types';
 import { usePlayback } from '../context/PlaybackContext';
-import {scanDeviceForAudio} from '../services/audioScanner';
+import { BouncyPressable } from '../components/BouncyPressable';
+import { scanDeviceForAudio } from '../services/audioScanner';
 import { saveCachedSongs, saveCachedSongsChunk } from '../services/libraryCache';
+import { RemoteTrack } from '../types/music';
 
 const Tab = createBottomTabNavigator<MainTabsParamList>();
 
-export function TabNavigator() {
+
+function TabBarBlurBackground() {
+  return (
+    <View style={styles.tabBarBackgroundContainer}>
+      <BlurView
+        style={StyleSheet.absoluteFill}
+        blurType="dark"
+        blurAmount={32}
+        reducedTransparencyFallbackColor="rgba(10, 10, 10, 0.95)"
+        overlayColor="rgba(0, 0, 0, 0.65)"
+      />
+    </View>
+  );
+}
+
+function TabBarButton(props: any) {
+  return (
+    <BouncyPressable
+      {...props}
+      style={props.style as any}
+      scaleTo={0.94}
+    />
+  );
+}
+
+function HomeTabBarIcon({ color }: { color: string }) {
+  return <HomeIcon size={22} color={color} strokeWidth={color === colors.brand ? 2.5 : 2} />;
+}
+
+function SearchTabBarIcon({ color }: { color: string }) {
+  return <SearchIcon size={22} color={color} strokeWidth={color === colors.brand ? 2.5 : 2} />;
+}
+
+function LibraryTabBarIcon({ color }: { color: string }) {
+  return <LibraryIcon size={22} color={color} strokeWidth={color === colors.brand ? 2.5 : 2} />;
+}
+
+function SettingsTabBarIcon({ color }: { color: string }) {
+  return <SettingsIcon size={22} color={color} strokeWidth={color === colors.brand ? 2.5 : 2} />;
+}
+
+export default function TabNavigator(_props: any) {
   const insets = useSafeAreaInsets();
   const {
     songs,
@@ -26,177 +81,100 @@ export function TabNavigator() {
     playRemote,
     currentTrackId,
     activeRemoteTrack,
-    isLoading,
     isResolving,
+    isOffline,
   } = usePlayback();
 
-  const [scanning, setScanning] = React.useState(false);
-  const lastChunkSaveRef = React.useRef(0);
-  const activeLocalSong = React.useMemo(
-    () => songs.find(song => song.id === currentTrackId),
-    [songs, currentTrackId],
+  const tabBarStyle = useMemo(
+    () => ({
+      ...styles.tabBar,
+      bottom: Math.max(12, insets.bottom),
+    }),
+    [insets.bottom],
   );
-  const hasCurrentSong = Boolean(currentTrackId) || Boolean(activeRemoteTrack);
-
-  const handleScan = async () => {
-    setScanning(true);
-    const scanPerfStart = Date.now();
-    if (__DEV__) {
-      console.log('[perf] scan:start');
-    }
-
-    try {
-      const foundSongs = await scanDeviceForAudio({
-        incrementalRefresh: true,
-        chunkSize: 120,
-        onChunk: chunkSongs => {
-          InteractionManager.runAfterInteractions(() => {
-            setSongs(chunkSongs);
-          });
-
-          const now = Date.now();
-          if (now - lastChunkSaveRef.current > 1200) {
-            lastChunkSaveRef.current = now;
-            saveCachedSongsChunk(chunkSongs).catch(() => undefined);
-          }
-        },
-      });
-      InteractionManager.runAfterInteractions(() => {
-        setSongs(foundSongs);
-      });
-      await saveCachedSongs(foundSongs);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      if (__DEV__) {
-        const elapsed = Date.now() - scanPerfStart;
-        console.log(`[perf] scan:start->finish ${elapsed}ms`);
-      }
-      setScanning(false);
-    }
-  };
 
   return (
     <Tab.Navigator
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: {
-          position: 'absolute',
-          backgroundColor: 'transparent',
-          borderTopWidth: 0,
-          elevation: 0,
-          left: '10%',
-          right: '10%',
-          bottom: 10 + Math.max(0, insets.bottom),
-          height: 64,
-          borderRadius: 32,
-          overflow: 'hidden',
-        },
-        tabBarBackground: () => (
-          <View style={[StyleSheet.absoluteFill, { borderRadius: 32, overflow: 'hidden' }]}>
-            <BlurView
-              style={StyleSheet.absoluteFill}
-              blurType="dark"
-              blurAmount={25}
-              reducedTransparencyFallbackColor="rgba(18, 18, 18, 0.9)"
-              overlayColor="rgba(0, 0, 0, 0.5)"
-            />
-          </View>
-        ),
-        tabBarActiveTintColor: colors.textPrimary,
-        tabBarInactiveTintColor: colors.inactiveIcon,
-        tabBarLabelStyle: {
-          fontSize: 10,
-          fontWeight: '500',
-          marginTop: 0,
-          marginBottom: 0,
-        },
-        tabBarItemStyle: {
-          justifyContent: 'center',
-          alignItems: 'center',
-        },
-        tabBarButton: (props) => (
-          <Pressable
-            {...props}
-            android_ripple={{ color: 'rgba(255,255,255,0.12)', borderless: true, radius: 32 }}
-            style={({ pressed }) => [
-              props.style as any,
-              pressed && { opacity: 0.7 }
-            ]}
-          />
-        ),
-      }}
-    >
-      <Tab.Screen
-        name="Home"
-        options={{
-          tabBarIcon: ({ color }) => <HomeIcon size={22} color={color} />,
+        screenOptions={{
+          headerShown: false,
+          tabBarStyle,
+          tabBarBackground: TabBarBlurBackground,
+          tabBarActiveTintColor: colors.brand,
+          tabBarInactiveTintColor: colors.inactiveIcon,
+          tabBarLabelStyle: styles.tabBarLabel,
+          tabBarItemStyle: styles.tabBarItem,
+          tabBarButton: TabBarButton,
         }}
       >
-        {(props) => (
-          <HomeScreen
-            {...props}
-            songsCount={songs.length}
-            onScan={handleScan}
-            scanning={scanning}
-            onOpenLibrary={() => props.navigation.navigate('Library')}
-            onOpenPlayer={() => { /* Player is a global sheet */ }}
-            hasCurrentSong={hasCurrentSong}
-            nowPlayingTitle={activeRemoteTrack?.title || activeLocalSong?.title}
-            nowPlayingArtist={activeRemoteTrack?.artist || activeLocalSong?.artist}
-            nowPlayingThumbnail={activeRemoteTrack?.thumbnail}
-            onOpenSearch={() => props.navigation.navigate('Search')}
-            onOpenProfile={() => props.navigation.navigate('Settings')}
-            onPlayTrack={playRemote}
-            currentTrackId={currentTrackId}
-            activeRemoteTrackId={activeRemoteTrack?.id}
-            resolvingId={isResolving ? activeRemoteTrack?.id : null}
-          />
-        )}
-      </Tab.Screen>
+        <Tab.Screen
+          name="Home"
+          options={{
+            tabBarIcon: HomeTabBarIcon,
+          }}
+          component={HomeScreen}
+        />
 
-      <Tab.Screen
-        name="Search"
-        options={{
-          tabBarIcon: ({ color }) => <SearchIcon size={22} color={color} />,
-        }}
-      >
-        {(props) => (
-          <SearchScreen
-            {...props}
-            onSelectTrack={playRemote}
-            resolvingId={isResolving ? activeRemoteTrack?.id || null : null}
-            activeTrackId={activeRemoteTrack?.id || null}
-          />
-        )}
-      </Tab.Screen>
+        <Tab.Screen
+          name="Search"
+          options={{
+            tabBarIcon: SearchTabBarIcon,
+          }}
+          component={SearchScreen}
+        />
 
-      <Tab.Screen
-        name="Library"
-        options={{
-          tabBarIcon: ({ color }) => <LibraryIcon size={22} color={color} />,
-        }}
-      >
-        {(props) => (
-          <LibraryScreen
-            {...props}
-            songs={songs}
-            currentTrackId={currentTrackId}
-            onPressSong={(id) => playSong(id)}
-            onOpenPlayer={() => { /* Player is a global sheet */ }}
-            onScan={handleScan}
-          />
-        )}
-      </Tab.Screen>
+        <Tab.Screen
+          name="Library"
+          options={{
+            tabBarIcon: LibraryTabBarIcon,
+          }}
+          component={LibraryScreen}
+        />
 
-      <Tab.Screen
-        name="Settings"
-        options={{
-          tabBarIcon: ({ color }) => <SettingsIcon size={22} color={color} />,
-        }}
-      >
-        {() => <SettingsScreen />}
-      </Tab.Screen>
-    </Tab.Navigator>
+        <Tab.Screen
+          name="Settings"
+          options={{
+            tabBarIcon: SettingsTabBarIcon,
+          }}
+          component={SettingsScreen}
+        />
+      </Tab.Navigator>
   );
 }
+
+const styles = StyleSheet.create({
+  tabBarBackgroundContainer: {
+    flex: 1,
+    borderRadius: 32,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  tabBar: {
+    position: 'absolute',
+    backgroundColor: 'transparent',
+    borderTopWidth: 0,
+    elevation: 8,
+    left: '8%',
+    right: '8%',
+    bottom: 12,
+    height: 68,
+    borderRadius: 34,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+  },
+  tabBarLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    marginTop: 5,
+    marginBottom: 6,
+  },
+  tabBarItem: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 20,
+    paddingBottom: 4,
+  },
+});
+
