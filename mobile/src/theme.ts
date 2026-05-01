@@ -100,6 +100,21 @@ export const typography = {
     fontSize: 12,
     fontWeight: '400' as const,
   },
+  logoGlow: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.brand,
+    opacity: 0.4, // Increased opacity for more presence
+    transform: [{ scale: 1.6 }],
+    zIndex: 1,
+    // Add a slight blur-like shadow
+    shadowColor: colors.brand,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 20,
+  },
   label: {
     fontSize: 10,
     fontWeight: '700' as const,
