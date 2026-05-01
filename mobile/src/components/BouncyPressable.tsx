@@ -14,12 +14,12 @@ interface BouncyPressableProps extends PressableProps {
   children?: React.ReactNode;
 }
 
-export function BouncyPressable({
+export const BouncyPressable = React.memo(({
   style,
   scaleTo = 0.96,
   children,
   ...props
-}: BouncyPressableProps) {
+}: BouncyPressableProps) => {
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => {
@@ -44,4 +44,4 @@ export function BouncyPressable({
       {children}
     </AnimatedPressable>
   );
-}
+});
