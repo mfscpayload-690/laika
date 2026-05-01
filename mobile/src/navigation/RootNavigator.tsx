@@ -1,12 +1,27 @@
 import React from 'react';
-import { createStackNavigator, TransitionPresets } from '@react-navigation/stack';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, StyleSheet } from 'react-native';
-import { TabNavigator } from './TabNavigator';
+import TabNavigator from './TabNavigator';
+import PlaylistDetailScreen from '../screens/PlaylistDetailScreen';
+import LocalSongsScreen from '../screens/LocalSongsScreen';
+import LikedSongsScreen from '../screens/LikedSongsScreen';
 import { PlayerSheet } from '../components/PlayerSheet';
 import { RootStackParamList } from './types';
 import { colors } from '../theme';
 
-const Stack = createStackNavigator<RootStackParamList>();
+const forceName = (comp: any, name: string) => {
+  try {
+    Object.defineProperty(comp, 'name', { value: name, configurable: true });
+    comp.displayName = name;
+  } catch (e) {}
+};
+
+forceName(TabNavigator, 'TabNavigator');
+forceName(PlaylistDetailScreen, 'PlaylistDetailScreen');
+forceName(LocalSongsScreen, 'LocalSongsScreen');
+forceName(LikedSongsScreen, 'LikedSongsScreen');
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function RootNavigator() {
   return (
@@ -14,10 +29,29 @@ export function RootNavigator() {
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
-          ...TransitionPresets.ModalSlideFromBottomIOS,
+          animation: 'slide_from_bottom',
         }}
       >
         <Stack.Screen name="MainTabs" component={TabNavigator} />
+        <Stack.Screen
+          name="PlaylistDetail"
+          component={PlaylistDetailScreen}
+          options={{
+            animation: 'slide_from_right',
+          }}
+        />
+        <Stack.Screen
+          name="LocalSongs"
+          component={LocalSongsScreen}
+          options={{
+            animation: 'slide_from_right',
+          }}
+        />
+        <Stack.Screen 
+          name="LikedSongs" 
+          component={LikedSongsScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
       </Stack.Navigator>
 
       <PlayerSheet />
