@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -7,12 +7,12 @@ import {
   Dimensions,
   Pressable,
   ActivityIndicator,
-  Platform,
-  ScrollView,
+  InteractionManager,
 } from 'react-native';
 import { useNavigationState, getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { TextInput } from 'react-native';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -22,22 +22,26 @@ import Animated, {
   withSpring,
   withTiming,
   withDelay,
-  useAnimatedReaction,
   useAnimatedProps,
-  useAnimatedScrollHandler,
+  useDerivedValue,
 } from 'react-native-reanimated';
-import { ChevronDown, Music, Pause, Play, Repeat, Shuffle, SkipBack, SkipForward, Mic2, Heart } from 'lucide-react-native';
+import { ChevronDown, Music, Pause, Play, Repeat, Shuffle, SkipBack, SkipForward, Mic2, Heart, Plus, Check } from 'lucide-react-native';
 import TrackPlayer, { useProgress } from 'react-native-track-player';
 import { Svg, Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { BlurView } from '@react-native-community/blur';
 import { SyncedLyrics } from './SyncedLyrics';
+import { BouncyPressable } from './BouncyPressable';
+
+const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 
 import { usePlayback } from '../context/PlaybackContext';
 import { useLikes } from '../context/LikesContext';
 import { colors, radii, spacing, typography } from '../theme';
+import { API_BASE_URL } from '../services/api';
+import { usePlaylists } from '../context/PlaylistContext';
+import { useUI } from '../context/UIContext';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
-const TAB_BAR_BASE_HEIGHT = 62;
 const MINI_PLAYER_HEIGHT = 64 + 10; // 64 height + 10 paddingTop approx
 
 const BUTTER_SPRING_CONFIG = {
@@ -49,17 +53,11 @@ const BUTTER_SPRING_CONFIG = {
 
 
 
-function ProgressBar() {
+const ProgressBar = React.memo(() => {
   const { position, duration } = useProgress(250);
   const isDragging = useSharedValue(false);
   const seekPosition = useSharedValue(0);
   const trackWidth = useSharedValue(0);
-
-  useEffect(() => {
-    if (!isDragging.value && duration > 0) {
-      seekPosition.value = position;
-    }
-  }, [position, duration]);
 
   const handleSeek = useCallback((pos: number) => {
     TrackPlayer.seekTo(pos).catch(err => console.warn('ProgressBar: seek failed', err));
@@ -82,41 +80,47 @@ function ProgressBar() {
     });
 
   const progressStyle = useAnimatedStyle(() => {
-    const percent = duration > 0 ? (seekPosition.value / duration) * 100 : 0;
+    const positionForUi = isDragging.value ? seekPosition.value : position;
+    const percent = duration > 0 ? (positionForUi / duration) * 100 : 0;
     return { width: `${Math.min(100, Math.max(0, percent))}%` };
   });
 
   const thumbStyle = useAnimatedStyle(() => {
     const trackW = trackWidth.value || 0;
+    const positionForUi = isDragging.value ? seekPosition.value : position;
     // Keep thumb center within bounds or use a fixed offset
-    const x = duration > 0 ? (seekPosition.value / duration) * (trackW - 12) : 0;
+    const x = duration > 0 ? (positionForUi / duration) * (trackW - 12) : 0;
     return {
       transform: [{ translateX: Math.min(trackW - 12, Math.max(0, x)) }],
     };
   });
 
   const formatTime = (seconds: number) => {
+    'worklet';
     const s = Math.floor(seconds);
     const mins = Math.floor(s / 60);
     const secs = Math.floor(s % 60);
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
-  const [displayPosition, setDisplayPosition] = useState(0);
+  const progressTimeProps = useAnimatedProps(() => {
+    const val = isDragging.value ? seekPosition.value : position;
+    return {
+      text: formatTime(val),
+    } as any;
+  });
 
-  useAnimatedReaction(
-    () => isDragging.value ? seekPosition.value : position,
-    (val) => {
-      runOnJS(setDisplayPosition)(val);
-    },
-    [position]
-  );
+  const durationTimeProps = useAnimatedProps(() => {
+    return {
+      text: formatTime(duration),
+    } as any;
+  });
 
   return (
     <View style={styles.progressContainer}>
       <GestureDetector gesture={panGesture}>
-        <View 
-          style={styles.progressBarHitbox} 
+        <View
+          style={styles.progressBarHitbox}
           onLayout={(e) => { trackWidth.value = e.nativeEvent.layout.width; }}
         >
           <View style={styles.progressBarBg}>
@@ -126,20 +130,83 @@ function ProgressBar() {
         </View>
       </GestureDetector>
       <View style={styles.progressTimeRow}>
-        <Text style={styles.progressTimeText}>
-          {formatTime(displayPosition)}
-        </Text>
-        <Text style={styles.progressTimeText}>
-          {formatTime(duration)}
-        </Text>
+        <AnimatedTextInput
+          underlineColorAndroid="transparent"
+          editable={false}
+          value={formatTime(position)}
+          style={styles.progressTimeText}
+          animatedProps={progressTimeProps}
+        />
+        <AnimatedTextInput
+          underlineColorAndroid="transparent"
+          editable={false}
+          value={formatTime(duration)}
+          style={styles.progressTimeText}
+          animatedProps={durationTimeProps}
+        />
       </View>
     </View>
   );
-}
+});
+const LyricsSection = React.memo(({ 
+  lyricsData, 
+  isLoading, 
+  isLyricsMode, 
+  setIsLyricsMode, 
+  showLyrics,
+  animatedStyle 
+}: any) => {
+  const { position } = useProgress(1000);
+  
+  return (
+    <Animated.View style={animatedStyle}>
+      <View style={styles.secondaryGlassCard}>
+        <BlurView
+          style={StyleSheet.absoluteFill}
+          blurType="dark"
+          blurAmount={20}
+          reducedTransparencyFallbackColor="rgba(0,0,0,0.2)"
+        />
+        <View 
+          style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]} 
+        />
+        <View style={styles.secondaryGlassCardContent}>
+          <View style={styles.lyricsHeader}>
+            <Text style={styles.secondaryCardTitle}>Lyrics</Text>
+            <View style={styles.lyricsHeaderRight}>
+              {lyricsData?.syncedLyrics && (
+                <View style={styles.syncedBadge}>
+                  <Text style={styles.syncedBadgeText}>SYNCED</Text>
+                </View>
+              )}
+              <Pressable
+                onPress={() => {
+                  const nextMode = !isLyricsMode;
+                  setIsLyricsMode(nextMode);
+                  showLyrics.value = withSpring(nextMode ? 1 : 0);
+                }}
+                style={styles.expandLyricsBtn}
+              >
+                <Mic2 size={18} color={isLyricsMode ? colors.brand : colors.textPrimary} />
+              </Pressable>
+            </View>
+          </View>
+          <SyncedLyrics
+            syncedLrc={lyricsData?.syncedLyrics}
+            plainLyrics={lyricsData?.plainLyrics}
+            currentTimeMs={position * 1000}
+            onSeek={(timeMs: number) => TrackPlayer.seekTo(timeMs / 1000)}
+            isLoading={isLoading}
+            isStatic={!isLyricsMode}
+          />
+        </View>
+      </View>
+    </Animated.View>
+  );
+});
 
 export function PlayerSheet() {
   const insets = useSafeAreaInsets();
-  const playerScrollViewRef = useRef<Animated.ScrollView>(null);
   const {
     currentTrackId,
     activeRemoteTrack,
@@ -157,13 +224,21 @@ export function PlayerSheet() {
 
   const focusedRouteName = useNavigationState(state => {
     const route = state?.routes[state.index];
-    if (!route) return null;
+    if (!route) {return null;}
     return getFocusedRouteNameFromRoute(route) ?? 'Home';
   });
 
   const shouldHidePlayer = focusedRouteName === 'Settings';
 
   const { isLiked, toggleLike } = useLikes();
+  const { playlists } = usePlaylists();
+  const { showAddToPlaylist } = useUI();
+
+  const isInAnyPlaylist = useMemo(() => {
+    const id = currentTrackId || activeRemoteTrack?.id;
+    if (!id || !playlists) return false;
+    return playlists.some(p => p.track_ids?.includes(String(id)));
+  }, [playlists, currentTrackId, activeRemoteTrack?.id]);
 
   const hasTrack = Boolean(currentTrackId || activeRemoteTrack);
   const activeSong = songs.find(s => s.id === currentTrackId);
@@ -173,30 +248,40 @@ export function PlayerSheet() {
   const currentAlbum = activeRemoteTrack?.album || activeSong?.album;
   const currentDurationMs = activeRemoteTrack?.duration_ms || (activeSong ? 0 : 0); // Local tracks duration handled by useProgress
 
-  const { position, duration } = useProgress();
+  // const { position, duration } = useProgress(); // REMOVED: Moved to isolated components
   const [lyricsData, setLyricsData] = useState<{ plainLyrics?: string; syncedLyrics?: string } | null>(null);
   const [lyricsLoading, setLyricsLoading] = useState(false);
 
-  useEffect(() => {
-    if (currentTitle && currentArtist && currentTitle !== 'No track selected') {
-      setLyricsLoading(true);
-      const dms = currentDurationMs || Math.floor(duration * 1000);
-      const url = `http://localhost:8000/lyrics/?title=${encodeURIComponent(currentTitle)}&artist=${encodeURIComponent(currentArtist)}&album=${encodeURIComponent(currentAlbum || '')}&duration_ms=${dms}`;
-      
-      fetch(url)
-        .then(res => res.json())
-        .then(data => {
-          setLyricsData(data);
-          setLyricsLoading(false);
-        })
-        .catch(() => {
-          setLyricsData(null);
-          setLyricsLoading(false);
-        });
-    }
-  }, [currentTitle, currentArtist]);
+  // Use a ref to track the last fetched track to avoid redundant fetches
+  const lastFetchedTrackRef = useRef<string | null>(null);
 
-  const miniPlayerBottomOffset = 82 + Math.max(insets.bottom, 0);
+  useEffect(() => {
+    const trackKey = `${currentTitle}-${currentArtist}`;
+    if (currentTitle && currentArtist && currentTitle !== 'No track selected' && trackKey !== lastFetchedTrackRef.current) {
+      lastFetchedTrackRef.current = trackKey;
+      
+      const task = InteractionManager.runAfterInteractions(() => {
+        setLyricsLoading(true);
+        // Fallback duration if metadata doesn't have it
+        const dms = currentDurationMs;
+        const url = `${API_BASE_URL}/lyrics/?title=${encodeURIComponent(currentTitle)}&artist=${encodeURIComponent(currentArtist)}&album=${encodeURIComponent(currentAlbum || '')}&duration_ms=${dms}`;
+
+        fetch(url)
+          .then(res => res.json())
+          .then(data => {
+            setLyricsData(data);
+            setLyricsLoading(false);
+          })
+          .catch(() => {
+            setLyricsData(null);
+            setLyricsLoading(false);
+          });
+      });
+      return () => task.cancel();
+    }
+  }, [currentTitle, currentArtist, currentAlbum, currentDurationMs]);
+
+  const miniPlayerBottomOffset = 76 + Math.max(insets.bottom, 0); // Reduced from 82 to bring it closer to the lowered tab bar
   const MAX_TRANSLATE = SCREEN_HEIGHT - MINI_PLAYER_HEIGHT - miniPlayerBottomOffset - insets.top; // adjusted for safe area
   const MIN_TRANSLATE = 0;
 
@@ -204,25 +289,20 @@ export function PlayerSheet() {
   const translateX = useSharedValue(0);
   const startTranslateX = useSharedValue(0);
   const isExpanded = useSharedValue(false);
-  const scrollY = useSharedValue(0);
   const showLyrics = useSharedValue(0); // 0: Player, 1: Lyrics
   const [isLyricsMode, setIsLyricsMode] = useState(false);
 
-  const scrollHandler = useAnimatedScrollHandler({
-    onScroll: (event) => {
-      scrollY.value = event.contentOffset.y;
-    },
-  });
-
-  // Auto-expand or stay collapsed when a track loads? 
+  // Auto-expand or stay collapsed when a track loads?
   // Let's keep it collapsed by default unless user taps it.
 
-  // To snap properly we need the exact height. We'll use onLayout on the wrapper
-  const [containerHeight, setContainerHeight] = useState(SCREEN_HEIGHT);
+  // To snap properly we need the exact height.
+  const containerHeight = useSharedValue(SCREEN_HEIGHT);
+  const maxTranslateYShared = useDerivedValue(() => {
+    return containerHeight.value - MINI_PLAYER_HEIGHT - miniPlayerBottomOffset;
+  });
 
-  const maxTranslateY = useMemo(() => {
-    return containerHeight - MINI_PLAYER_HEIGHT - miniPlayerBottomOffset;
-  }, [containerHeight, miniPlayerBottomOffset]);
+  // For JS side calculations if needed
+  const [maxTranslateY, setMaxTranslateY] = useState(SCREEN_HEIGHT - MINI_PLAYER_HEIGHT - miniPlayerBottomOffset);
 
   const snapTo = useCallback((destination: number) => {
     'worklet';
@@ -238,16 +318,20 @@ export function PlayerSheet() {
       }
       return false; // Let default behavior happen
     };
-    
+
     const { BackHandler } = require('react-native');
     BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => BackHandler.removeEventListener('hardwareBackPress', onBackPress);
+    // Shared values are mutable refs; JS deps are intentionally limited.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [maxTranslateY, snapTo]);
 
   useEffect(() => {
     if (!isExpanded.value) {
       translateY.value = withSpring(maxTranslateY, BUTTER_SPRING_CONFIG);
     }
+    // Shared values are mutable refs; this only reacts to container size changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [maxTranslateY]);
 
   const switchTrack = useCallback((direction: 'next' | 'prev') => {
@@ -256,8 +340,8 @@ export function PlayerSheet() {
     } else {
       previous(true);
     }
-    
-    // Safety fallback: If the track doesn't change (e.g. end of queue), 
+
+    // Safety fallback: If the track doesn't change (e.g. end of queue),
     // the card might get stuck at the edge. We force it back after a delay on the UI thread.
     translateX.value = withDelay(800, withSpring(0, BUTTER_SPRING_CONFIG));
   }, [next, previous, translateX]);
@@ -311,11 +395,11 @@ export function PlayerSheet() {
     });
 
   const horizontalPanGesture = Gesture.Pan()
-    .enabled(hasTrack && !activeRemoteTrack) // Only enable if track is loaded and not in remote mode
+    .enabled(hasTrack)
     .activeOffsetX([-20, 20])
     .failOffsetY([-15, 15]) // Don't trigger horizontal if swiping vertical
     .onStart(() => {
-      if (!isExpanded.value) return;
+      if (!isExpanded.value) {return;}
       startTranslateX.value = translateX.value;
     })
     .onUpdate((event) => {
@@ -324,8 +408,8 @@ export function PlayerSheet() {
       }
     })
     .onEnd((event) => {
-      if (!isExpanded.value) return;
-      
+      if (!isExpanded.value) {return;}
+
       const velocity = event.velocityX;
       const THRESHOLD = SCREEN_WIDTH * 0.3;
 
@@ -352,28 +436,34 @@ export function PlayerSheet() {
   });
 
   const animatedMiniPlayerStyle = useAnimatedStyle(() => {
+    const mTY = maxTranslateYShared.value;
+    // We want the miniplayer to be fully opaque for the last 15px of the transition
+    // to avoid layout jitter or safe area changes causing transparency.
     const opacity = interpolate(
       translateY.value,
-      [maxTranslateY - 50, maxTranslateY],
+      [mTY - 60, mTY - 15],
       [0, 1],
       Extrapolation.CLAMP
     );
     return {
       opacity,
-      pointerEvents: opacity > 0.5 ? 'auto' : 'none',
+      pointerEvents: translateY.value > mTY - 30 ? 'auto' : 'none',
+      zIndex: 10,
     };
   });
 
   const animatedFullPlayerStyle = useAnimatedStyle(() => {
+    const mTY = maxTranslateYShared.value;
     const opacity = interpolate(
       translateY.value,
-      [MIN_TRANSLATE, maxTranslateY - 100],
+      [0, mTY * 0.4], // Completely hidden before we reach the bottom half
       [1, 0],
       Extrapolation.CLAMP
     );
     return {
       opacity,
-      pointerEvents: opacity > 0.5 ? 'auto' : 'none',
+      pointerEvents: translateY.value < mTY * 0.6 ? 'auto' : 'none',
+      zIndex: 5,
     };
   });
 
@@ -395,7 +485,7 @@ export function PlayerSheet() {
       opacity,
       transform: [
         { translateX: translateX.value },
-        { scale }
+        { scale },
       ],
     };
   });
@@ -405,7 +495,7 @@ export function PlayerSheet() {
       opacity: 1,
       transform: [
         { translateY: 0 },
-        { scale: 1 }
+        { scale: 1 },
       ],
     };
   });
@@ -414,7 +504,7 @@ export function PlayerSheet() {
     const height = interpolate(
       showLyrics.value,
       [0, 1],
-      [400, SCREEN_HEIGHT - insets.top - insets.bottom - 100] 
+      [400, SCREEN_HEIGHT - insets.top - insets.bottom - 100]
     );
     // Remove the negative translateY so it stays naturally below the controls in the ScrollView
     const opacity = interpolate(showLyrics.value, [0, 0.2, 1], [0.9, 1, 1]);
@@ -422,7 +512,7 @@ export function PlayerSheet() {
     return {
       height,
       opacity,
-      marginTop: spacing.md,
+      marginTop: 0,
       zIndex: 10,
     };
   });
@@ -453,21 +543,25 @@ export function PlayerSheet() {
   // }
 
   return (
-    <Animated.View 
+    <Animated.View
       style={[styles.sheetContainer, animatedSheetStyle]}
-      onLayout={(e) => setContainerHeight(e.nativeEvent.layout.height)}
+      onLayout={(e) => {
+        const h = e.nativeEvent.layout.height;
+        containerHeight.value = h;
+        setMaxTranslateY(h - MINI_PLAYER_HEIGHT - miniPlayerBottomOffset);
+      }}
       pointerEvents="box-none"
     >
       {/* Full Player Background */}
         <Animated.View style={[StyleSheet.absoluteFill, animatedBgStyle]} animatedProps={animatedBgProps}>
           {currentArtwork ? (
-            <Image 
-              source={{ uri: currentArtwork }} 
-              style={StyleSheet.absoluteFill as any} 
-              blurRadius={90} 
+            <Image
+              source={{ uri: currentArtwork }}
+              style={StyleSheet.absoluteFill as any}
+              blurRadius={90}
             />
           ) : (
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: '#1A1A1A' }]} />
+            <View style={[StyleSheet.absoluteFill, styles.fullPlayerBgFallback]} />
           )}
           <Svg height="100%" width="100%" style={StyleSheet.absoluteFill as any}>
             <Defs>
@@ -483,19 +577,22 @@ export function PlayerSheet() {
         {/* ===================== MINI PLAYER ===================== */}
         <GestureDetector gesture={miniPlayerExpandGesture}>
           <Animated.View style={[styles.miniPlayerWrapper, animatedMiniPlayerStyle]}>
-            <Pressable
-              style={({pressed}) => [styles.miniPlayer, {paddingBottom: 10 + Math.max(insets.bottom - 4, 0)}, pressed && hasTrack && {backgroundColor: 'rgba(255,255,255,0.05)'}, !hasTrack && { opacity: 0.7 }]}
-              android_ripple={hasTrack ? { color: 'rgba(255,255,255,0.1)' } : null}
+            <BouncyPressable
+              style={[styles.miniPlayer, {paddingBottom: 8 + Math.max(insets.bottom - 4, 0)}]}
               onPress={() => {
-                if (hasTrack) snapTo(MIN_TRANSLATE);
+                if (hasTrack) {snapTo(MIN_TRANSLATE);}
               }}
+              disabled={!hasTrack}
+              scaleTo={0.98}
             >
               <BlurView
                 style={StyleSheet.absoluteFill}
-                blurType="dark"
-                blurAmount={hasTrack ? 20 : 50}
-                reducedTransparencyFallbackColor="rgba(42, 42, 42, 0.9)"
-                overlayColor={hasTrack ? "rgba(0, 0, 0, 0.3)" : "rgba(0, 0, 0, 0.5)"}
+                blurType="extraDark"
+                blurAmount={15}
+                reducedTransparencyFallbackColor="rgba(20, 20, 20, 0.95)"
+              />
+              <View 
+                style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0, 0, 0, 0.4)' }]} 
               />
               {currentArtwork ? (
                 <Image source={{uri: currentArtwork}} style={styles.miniArtwork} />
@@ -509,22 +606,22 @@ export function PlayerSheet() {
                 <Text style={styles.miniPlayerArtist} numberOfLines={1}>{currentArtist}</Text>
               </View>
 
-              <View style={[styles.miniControls, !hasTrack && { opacity: 0.5 }]}>
-                <Pressable 
-                  style={({pressed}) => [styles.miniControlBtn, pressed && hasTrack && {transform: [{scale: 0.85}]}]} 
-                  android_ripple={hasTrack ? { color: 'rgba(255,255,255,0.1)', borderless: true, radius: 20 } : null}
-                  onPress={(e) => { e.stopPropagation(); if (hasTrack) previous(); }} 
+              <View style={[styles.miniControls, !hasTrack && styles.miniControlsDisabled]}>
+                <BouncyPressable
+                  style={styles.miniControlBtn}
+                  onPress={(e: any) => { e.stopPropagation(); if (hasTrack) {previous();} }}
                   disabled={!hasTrack}
                   accessibilityRole="button"
+                  scaleTo={0.85}
                 >
                   <SkipBack size={18} color={colors.textPrimary} strokeWidth={2.2} />
-                </Pressable>
-                <Pressable 
-                  style={({pressed}) => [styles.miniControlBtn, pressed && hasTrack && {transform: [{scale: 0.85}]}]} 
-                  android_ripple={hasTrack ? { color: 'rgba(255,255,255,0.1)', borderless: true, radius: 24 } : null}
-                  onPress={(e) => { e.stopPropagation(); if (hasTrack) togglePlayPause(); }} 
+                </BouncyPressable>
+                <BouncyPressable
+                  style={styles.miniControlBtn}
+                  onPress={(e: any) => { e.stopPropagation(); if (hasTrack) {togglePlayPause();} }}
                   disabled={!hasTrack}
                   accessibilityRole="button"
+                  scaleTo={0.85}
                 >
                   {isLoading ? (
                     <ActivityIndicator size="small" color={colors.textPrimary} />
@@ -533,18 +630,18 @@ export function PlayerSheet() {
                   ) : (
                     <Play size={18} color={colors.textPrimary} strokeWidth={2.5} fill={colors.textPrimary} />
                   )}
-                </Pressable>
-                <Pressable 
-                  style={({pressed}) => [styles.miniControlBtn, pressed && hasTrack && {transform: [{scale: 0.85}]}]} 
-                  android_ripple={hasTrack ? { color: 'rgba(255,255,255,0.1)', borderless: true, radius: 20 } : null}
-                  onPress={(e) => { e.stopPropagation(); if (hasTrack) next(); }} 
+                </BouncyPressable>
+                <BouncyPressable
+                  style={styles.miniControlBtn}
+                  onPress={(e: any) => { e.stopPropagation(); if (hasTrack) {next();} }}
                   disabled={!hasTrack}
                   accessibilityRole="button"
+                  scaleTo={0.85}
                 >
                   <SkipForward size={18} color={colors.textPrimary} strokeWidth={2.2} />
-                </Pressable>
+                </BouncyPressable>
               </View>
-            </Pressable>
+            </BouncyPressable>
           </Animated.View>
         </GestureDetector>
 
@@ -552,13 +649,13 @@ export function PlayerSheet() {
         <Animated.View style={[styles.fullPlayerWrapper, { paddingTop: insets.top }, animatedFullPlayerStyle]}>
           <GestureDetector gesture={fullPlayerDismissGesture}>
             <View style={styles.header}>
-              <Pressable 
-                onPress={() => snapTo(maxTranslateY)} 
-                style={({pressed}) => [styles.dismissBtn, pressed && {opacity: 0.5}]}
-              android_ripple={{ color: 'rgba(255,255,255,0.1)', borderless: true, radius: 24 }}
-            >
-              <ChevronDown size={32} color={colors.textPrimary} />
-            </Pressable>
+              <BouncyPressable
+                onPress={() => snapTo(maxTranslateY)}
+                style={styles.dismissBtn}
+                scaleTo={0.8}
+              >
+                <ChevronDown size={32} color={colors.textPrimary} />
+              </BouncyPressable>
             <View style={styles.headerTitleGroup}>
               <Text style={styles.headerSubtitle}>PLAYING FROM LIBRARY</Text>
               <Text style={styles.headerTitle} numberOfLines={1}>{currentAlbum || 'Laika Music'}</Text>
@@ -567,7 +664,7 @@ export function PlayerSheet() {
             </View>
           </GestureDetector>
 
-          <Animated.ScrollView 
+          <Animated.ScrollView
             style={styles.fullPlayerContent}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
@@ -589,26 +686,44 @@ export function PlayerSheet() {
                     <Text style={styles.title} numberOfLines={1}>{currentTitle}</Text>
                     <Text style={styles.artist} numberOfLines={1}>{currentArtist}</Text>
                   </View>
-                  {hasTrack && (
-                    <Pressable
+
+                  <View style={styles.rightActions}>
+                    <BouncyPressable
                       onPress={() => {
                         const track = activeRemoteTrack || songs.find(s => s.id === currentTrackId);
-                        console.log('[PlayerSheet] Heart pressed:', { trackId: track?.id, hasTrack: !!track });
-                        if (track) toggleLike(track as any);
+                        if (track) showAddToPlaylist(track as any);
                       }}
-                      style={({ pressed }) => [styles.heartBtn, pressed && { transform: [{ scale: 0.85 }] }]}
-                      android_ripple={{ color: 'rgba(255,100,100,0.2)', borderless: true, radius: 24 }}
-                      accessibilityRole="button"
-                      accessibilityLabel={isLiked(activeRemoteTrack?.id ?? currentTrackId ?? '') ? 'Unlike track' : 'Like track'}
+                      style={styles.addPlaylistBtn}
+                      scaleTo={0.8}
                     >
-                      <Heart
-                        size={26}
-                        color={isLiked(activeRemoteTrack?.id ?? currentTrackId ?? '') ? '#FF4D6D' : colors.textSecondary}
-                        fill={isLiked(activeRemoteTrack?.id ?? currentTrackId ?? '') ? '#FF4D6D' : 'none'}
-                        strokeWidth={2}
-                      />
-                    </Pressable>
-                  )}
+                      {isInAnyPlaylist ? (
+                        <Check size={28} color={colors.brand} strokeWidth={3} />
+                      ) : (
+                        <Plus size={28} color={colors.textSecondary} strokeWidth={2} />
+                      )}
+                    </BouncyPressable>
+
+                    {hasTrack && (
+                      <Pressable
+                        onPress={() => {
+                          const track = activeRemoteTrack || songs.find(s => s.id === currentTrackId);
+                          console.log('[PlayerSheet] Heart pressed:', { trackId: track?.id, hasTrack: !!track });
+                          if (track) {toggleLike(track as any);}
+                        }}
+                        style={({ pressed }) => [styles.heartBtn, pressed && { transform: [{ scale: 0.85 }] }]}
+                        android_ripple={{ color: 'rgba(255,100,100,0.2)', borderless: true, radius: 24 }}
+                        accessibilityRole="button"
+                        accessibilityLabel={isLiked(activeRemoteTrack?.id ?? currentTrackId ?? '') ? 'Unlike track' : 'Like track'}
+                      >
+                        <Heart
+                          size={26}
+                          color={isLiked(activeRemoteTrack?.id ?? currentTrackId ?? '') ? '#FF4D6D' : colors.textSecondary}
+                          fill={isLiked(activeRemoteTrack?.id ?? currentTrackId ?? '') ? '#FF4D6D' : 'none'}
+                          strokeWidth={2}
+                        />
+                      </Pressable>
+                    )}
+                  </View>
                 </View>
               </Animated.View>
             </GestureDetector>
@@ -616,27 +731,27 @@ export function PlayerSheet() {
             <View style={styles.playerControlsSection}>
               <ProgressBar />
               <View style={styles.controlsRow}>
-                <Pressable
-                  style={({pressed}) => [styles.secondaryControl, isShuffleEnabled && styles.secondaryControlActive, pressed && {opacity: 0.7}]}
-                  android_ripple={{ color: 'rgba(255,255,255,0.1)', borderless: true, radius: 24 }}
+                <BouncyPressable
+                  style={[styles.secondaryControl, isShuffleEnabled && styles.secondaryControlActive]}
                   onPress={toggleShuffle}
+                  scaleTo={0.9}
                 >
                   <Shuffle size={20} color={isShuffleEnabled ? colors.progressFill : colors.textSecondary} strokeWidth={2} />
-                </Pressable>
+                </BouncyPressable>
 
-                <Pressable
-                  style={({pressed}) => [styles.skipButton, pressed && {transform: [{scale: 0.9}]}]}
-                  android_ripple={{ color: 'rgba(255,255,255,0.1)', borderless: true, radius: 32 }}
+                <BouncyPressable
+                  style={styles.skipButton}
                   onPress={() => previous()}
+                  scaleTo={0.9}
                 >
                   <SkipBack size={28} color={colors.textPrimary} strokeWidth={2} />
-                </Pressable>
+                </BouncyPressable>
 
-                <Pressable
+                <BouncyPressable
                   onPress={togglePlayPause}
                   disabled={isLoading}
-                  style={({pressed}) => [styles.playButton, isLoading && styles.controlDisabled, pressed && {transform: [{scale: 0.94}]}]}
-                  android_ripple={{ color: 'rgba(0,0,0,0.1)', borderless: true, radius: 36 }}
+                  style={[styles.playButton, isLoading && styles.controlDisabled]}
+                  scaleTo={0.94}
                 >
                   {isLoading ? (
                     <ActivityIndicator size="large" color={colors.textPrimary} />
@@ -645,68 +760,35 @@ export function PlayerSheet() {
                   ) : (
                     <Play size={32} color={colors.textPrimary} strokeWidth={3} />
                   )}
-                </Pressable>
+                </BouncyPressable>
 
-                <Pressable
-                  style={({pressed}) => [styles.skipButton, pressed && {transform: [{scale: 0.9}]}]}
-                  android_ripple={{ color: 'rgba(255,255,255,0.1)', borderless: true, radius: 32 }}
+                <BouncyPressable
+                  style={styles.skipButton}
                   onPress={next}
+                  scaleTo={0.9}
                 >
                   <SkipForward size={28} color={colors.textPrimary} strokeWidth={2} />
-                </Pressable>
+                </BouncyPressable>
 
-                <Pressable
-                  style={({pressed}) => [styles.secondaryControl, repeatMode !== 'off' && styles.secondaryControlActive, pressed && {opacity: 0.7}]}
-                  android_ripple={{ color: 'rgba(255,255,255,0.1)', borderless: true, radius: 24 }}
+                <BouncyPressable
+                  style={[styles.secondaryControl, repeatMode !== 'off' && styles.secondaryControlActive]}
                   onPress={cycleRepeatMode}
+                  scaleTo={0.9}
                 >
                   <Repeat size={20} color={repeatMode !== 'off' ? colors.progressFill : colors.textSecondary} strokeWidth={2} />
                   {repeatMode === 'one' ? <Text style={styles.repeatOneLabel}>1</Text> : null}
-                </Pressable>
+                </BouncyPressable>
               </View>
             </View>
 
-            <Animated.View style={animatedLyricsCardStyle}>
-              <View style={styles.secondaryGlassCard}>
-                <BlurView 
-                  style={StyleSheet.absoluteFill}
-                  blurType="dark"
-                  blurAmount={20}
-                  reducedTransparencyFallbackColor="rgba(0,0,0,0.2)"
-                  overlayColor="rgba(0,0,0,0.5)"
-                />
-                <View style={styles.secondaryGlassCardContent}>
-                  <View style={styles.lyricsHeader}>
-                    <Text style={styles.secondaryCardTitle}>Lyrics</Text>
-                    <View style={styles.lyricsHeaderRight}>
-                      {lyricsData?.syncedLyrics && (
-                        <View style={styles.syncedBadge}>
-                          <Text style={styles.syncedBadgeText}>SYNCED</Text>
-                        </View>
-                      )}
-                      <Pressable 
-                        onPress={() => {
-                          const nextMode = !isLyricsMode;
-                          setIsLyricsMode(nextMode);
-                          showLyrics.value = withSpring(nextMode ? 1 : 0);
-                        }}
-                        style={styles.expandLyricsBtn}
-                      >
-                        <Mic2 size={18} color={isLyricsMode ? colors.brand : colors.textPrimary} />
-                      </Pressable>
-                    </View>
-                  </View>
-                  <SyncedLyrics
-                    syncedLrc={lyricsData?.syncedLyrics}
-                    plainLyrics={lyricsData?.plainLyrics}
-                    currentTimeMs={position * 1000}
-                    onSeek={(timeMs) => TrackPlayer.seekTo(timeMs / 1000)}
-                    isLoading={lyricsLoading}
-                    isStatic={!isLyricsMode} 
-                  />
-                </View>
-              </View>
-            </Animated.View>
+            <LyricsSection 
+              lyricsData={lyricsData}
+              isLoading={lyricsLoading}
+              isLyricsMode={isLyricsMode}
+              setIsLyricsMode={setIsLyricsMode}
+              showLyrics={showLyrics}
+              animatedStyle={animatedLyricsCardStyle}
+            />
           </Animated.ScrollView>
         </Animated.View>
       </Animated.View>
@@ -731,18 +813,20 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   miniPlayer: {
-    paddingHorizontal: 12,
-    paddingTop: 10,
+    paddingHorizontal: 16,
+    paddingTop: 12,
     borderRadius: 24,
-    backgroundColor: 'transparent',
+    backgroundColor: 'transparent', 
     overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.22,
-    shadowRadius: 3,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.4,
+    shadowRadius: 15,
+    elevation: 12,
   },
   miniArtwork: { width: 44, height: 44, borderRadius: 6, marginRight: 10 },
   miniArtworkFallback: { width: 44, height: 44, borderRadius: 6, marginRight: 10, backgroundColor: '#3B3B3B', alignItems: 'center', justifyContent: 'center' },
@@ -750,8 +834,10 @@ const styles = StyleSheet.create({
   miniPlayerTitle: { color: colors.textPrimary, fontSize: 14, fontWeight: '500' },
   miniPlayerArtist: { color: colors.textSecondary, fontSize: 11, marginTop: 2 },
   miniControls: { flexDirection: 'row', alignItems: 'center' },
+  miniControlsDisabled: { opacity: 0.5 },
   miniControlBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 20 },
-  
+  fullPlayerBgFallback: { backgroundColor: '#1A1A1A' },
+
   fullPlayerWrapper: {
     flex: 1,
     paddingHorizontal: spacing.base,
@@ -762,17 +848,26 @@ const styles = StyleSheet.create({
   headerSubtitle: { color: colors.textSecondary, fontSize: 10, fontWeight: '800', letterSpacing: 1.5, marginBottom: 0, opacity: 1.0 },
   headerTitle: { color: colors.textPrimary, fontSize: 14, fontWeight: '700' },
   headerSpacer: { width: 40 },
-  
-  artworkContainer: { width: '88%', aspectRatio: 1, alignSelf: 'center', marginBottom: spacing.lg, shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.4, shadowRadius: 16, elevation: 12 },
+
+  artworkContainer: { width: '82%', aspectRatio: 1, alignSelf: 'center', marginBottom: spacing.sm, shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.4, shadowRadius: 16, elevation: 12 },
   artworkImage: { width: '100%', height: '100%', borderRadius: radii.xl },
   artworkFallback: { width: '100%', height: '100%', borderRadius: radii.xl, backgroundColor: colors.surfaceElevated, alignItems: 'center', justifyContent: 'center' },
   artworkInitial: { ...typography.display, fontSize: 72, color: colors.textMuted },
-  
-  trackInfo: { marginTop: spacing.md, marginBottom: spacing.lg, paddingHorizontal: spacing.xs, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+
+  trackInfo: { marginTop: spacing.xs, marginBottom: spacing.xs, paddingHorizontal: spacing.xs, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   trackTextGroup: { flex: 1, marginRight: spacing.md },
-  title: { ...typography.display, color: colors.textPrimary, fontSize: 24, fontWeight: '800', marginBottom: 4 },
-  artist: { ...typography.body, color: colors.textSecondary, fontSize: 17, fontWeight: '500' },
+  title: { ...typography.display, color: colors.textPrimary, fontSize: 22, fontWeight: '800', marginBottom: 0 },
+  artist: { ...typography.body, color: colors.textSecondary, fontSize: 16, fontWeight: '500' },
   heartBtn: { padding: spacing.sm, alignItems: 'center', justifyContent: 'center' },
+  addPlaylistBtn: {
+    padding: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
 
   mainGlassCard: {
     borderRadius: 24,
@@ -799,41 +894,41 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   secondaryGlassCardContent: { flex: 1 },
-  lyricsHeader: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    paddingHorizontal: spacing.lg, 
+  lyricsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
     height: 70, // Fixed height to match standard mode height
   },
   secondaryCardTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: '800', letterSpacing: 0.5 },
-  syncedBadge: { 
-    backgroundColor: 'rgba(29, 185, 84, 0.2)', 
-    paddingHorizontal: 6, 
-    paddingVertical: 2, 
-    borderRadius: 4, 
-    marginLeft: 8 
+  syncedBadge: {
+    backgroundColor: 'rgba(29, 185, 84, 0.2)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginLeft: 8,
   },
   syncedBadgeText: { color: colors.brand, fontSize: 10, fontWeight: '900' },
   secondaryCardPlaceholder: { color: colors.textMuted, fontSize: 14, textAlign: 'center', marginTop: spacing.xl },
 
-  progressContainer: { marginBottom: spacing.lg },
-  progressBarHitbox: { paddingVertical: 12, justifyContent: 'center' },
+  progressContainer: { marginBottom: spacing.xs },
+  progressBarHitbox: { paddingVertical: 6, justifyContent: 'center' },
   progressBarBg: { height: 4, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 2, overflow: 'hidden' },
   progressBarFill: { height: '100%', backgroundColor: colors.textPrimary, borderRadius: 2 },
-  progressThumb: { position: 'absolute', width: 12, height: 12, borderRadius: 6, backgroundColor: '#FFF', top: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.5, shadowRadius: 3, elevation: 3 },
-  progressTimeRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm },
-  progressTimeText: { color: colors.textSecondary, fontSize: 12, fontWeight: '600', opacity: 0.8, fontVariant: ['tabular-nums'] },
-  
-  controlsRow: { marginTop: spacing.sm, marginBottom: spacing.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.lg, width: '100%' },
+  progressThumb: { position: 'absolute', width: 12, height: 12, borderRadius: 6, backgroundColor: '#FFF', top: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.5, shadowRadius: 3, elevation: 3 },
+  progressTimeRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 },
+  progressTimeText: { color: colors.textSecondary, fontSize: 11, fontWeight: '600', opacity: 0.7, fontVariant: ['tabular-nums'] },
+
+  controlsRow: { marginTop: -14, marginBottom: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.lg, width: '100%' },
   secondaryControl: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   secondaryControlActive: { backgroundColor: 'rgba(29, 185, 84, 0.14)' },
   repeatOneLabel: { position: 'absolute', right: 4, bottom: 2, color: colors.progressFill, fontSize: 10, fontWeight: '800' },
   skipButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   playButton: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center' },
   controlDisabled: { opacity: 0.4 },
-  
+
   fullPlayerContent: { flex: 1, marginTop: spacing.md, position: 'relative' },
-  playerControlsSection: { width: '100%', paddingHorizontal: spacing.xs, marginBottom: spacing.lg },
+  playerControlsSection: { width: '100%', paddingHorizontal: spacing.xs, marginBottom: spacing.xs },
   lyricsHeaderRight: { flex: 1, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' },
   expandLyricsBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.08)', marginLeft: spacing.sm },
 });
