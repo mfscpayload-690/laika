@@ -1,7 +1,8 @@
-import React from 'react';
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Music } from 'lucide-react-native';
+import React, { memo } from 'react';
+import { ActivityIndicator, Image, StyleSheet, Text, View } from 'react-native';
+import { Music, MoreVertical } from 'lucide-react-native';
 import { colors, radii, spacing, typography } from '../theme';
+import { BouncyPressable } from './BouncyPressable';
 
 type TrackRowProps = {
   title: string;
@@ -12,11 +13,13 @@ type TrackRowProps = {
   isLoading?: boolean;
   onPress: () => void;
   disabled?: boolean;
+  onLongPress?: () => void;
+  showMenuIcon?: boolean;
   /** Optional right-side slot override */
   rightSlot?: React.ReactNode;
 };
 
-export function TrackRow({
+export const TrackRow = memo(({
   title,
   artist,
   album,
@@ -25,13 +28,15 @@ export function TrackRow({
   isLoading,
   onPress,
   disabled,
+  onLongPress,
+  showMenuIcon,
   rightSlot,
-}: TrackRowProps) {
+}: TrackRowProps) => {
   return (
-    <Pressable
-      style={({pressed}) => [styles.row, isActive && styles.rowActive, pressed && { backgroundColor: 'rgba(255,255,255,0.05)', opacity: 0.8 }]}
-      android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
+    <BouncyPressable
+      style={[styles.row, isActive && styles.rowActive]}
       onPress={onPress}
+      onLongPress={onLongPress}
       disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={`${title} by ${artist}${album ? ` on ${album}` : ''}`}>
@@ -60,10 +65,12 @@ export function TrackRow({
         <View style={styles.playingBadge}>
           <Text style={styles.playingText}>PLAYING</Text>
         </View>
+      ) : showMenuIcon ? (
+        <MoreVertical size={20} color={colors.textMuted} />
       ) : null}
-    </Pressable>
+    </BouncyPressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   row: {
