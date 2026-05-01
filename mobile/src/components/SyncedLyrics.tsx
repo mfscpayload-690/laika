@@ -132,7 +132,7 @@ export function SyncedLyrics({
   );
 }
 
-function LyricItem({ item, isActive, onPress }: { item: LyricLine; isActive: boolean; onPress: () => void }) {
+const LyricItem = React.memo(({ item, isActive, onPress }: { item: LyricLine; isActive: boolean; onPress: () => void }) => {
   const scale = useSharedValue(1);
   const opacity = useSharedValue(0.4);
 
@@ -155,7 +155,7 @@ function LyricItem({ item, isActive, onPress }: { item: LyricLine; isActive: boo
       </Animated.View>
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   center: {
