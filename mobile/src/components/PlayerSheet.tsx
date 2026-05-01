@@ -196,7 +196,7 @@ export function PlayerSheet() {
     }
   }, [currentTitle, currentArtist]);
 
-  const miniPlayerBottomOffset = 92 + Math.max(insets.bottom, 0);
+  const miniPlayerBottomOffset = 82 + Math.max(insets.bottom, 0);
   const MAX_TRANSLATE = SCREEN_HEIGHT - MINI_PLAYER_HEIGHT - miniPlayerBottomOffset - insets.top; // adjusted for safe area
   const MIN_TRANSLATE = 0;
 

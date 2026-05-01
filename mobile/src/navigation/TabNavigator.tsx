@@ -87,7 +87,7 @@ export function TabNavigator() {
           elevation: 0,
           left: '10%',
           right: '10%',
-          bottom: 20 + Math.max(0, insets.bottom),
+          bottom: 10 + Math.max(0, insets.bottom),
           height: 64,
           borderRadius: 32,
           overflow: 'hidden',
