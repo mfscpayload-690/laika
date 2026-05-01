@@ -85,7 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: 'laika-music://auth-callback',
+        redirectTo: 'https://mfscpayload-690.github.io/laika-music/auth.html',
         skipBrowserRedirect: true,
       },
     });
