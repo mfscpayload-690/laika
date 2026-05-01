@@ -26,6 +26,10 @@ export type Playlist = {
   is_public: boolean;
   thumbnail_url?: string;
   created_at: string;
+  // Enriched fields for library view
+  track_count?: number;
+  top_artworks?: string[];
+  track_ids?: string[];
 };
 
 export type PlaylistTrack = {
@@ -131,6 +135,17 @@ export async function createPlaylist(name: string, description?: string): Promis
 
 export async function deletePlaylist(playlistId: string): Promise<void> {
   const { error } = await supabase.from('playlists').delete().eq('id', playlistId);
+  if (error) throw error;
+}
+
+export async function updatePlaylist(
+  playlistId: string,
+  updates: { name?: string; description?: string },
+): Promise<void> {
+  const { error } = await supabase
+    .from('playlists')
+    .update(updates)
+    .eq('id', playlistId);
   if (error) throw error;
 }
 
