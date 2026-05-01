@@ -13,6 +13,8 @@ import { Music, Search, SearchX, X } from 'lucide-react-native';
 import { IconButton } from '../components/IconButton';
 import { TrackRow } from '../components/TrackRow';
 import { searchTracks } from '../services/api';
+import { useUI } from '../context/UIContext';
+import { BouncyPressable } from '../components/BouncyPressable';
 import { colors, radii, spacing, typography } from '../theme';
 import type { RemoteTrack } from '../types/music';
 
@@ -37,6 +39,7 @@ export function SearchScreen({
   resolvingId,
   activeTrackId,
 }: SearchScreenProps) {
+  const { showAddToPlaylist } = useUI();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<RemoteTrack[]>([]);
   const [loading, setLoading] = useState(false);
@@ -110,6 +113,40 @@ export function SearchScreen({
   );
   const visibleResults = useMemo(() => indexedResults.map(entry => entry.track), [indexedResults]);
 
+  const renderTrack = useCallback(({ item }: { item: RemoteTrack }) => (
+    <TrackRow
+      title={item.title}
+      artist={item.artist}
+      album={item.album}
+      thumbnail={item.thumbnail}
+      isActive={item.id === activeTrackId}
+      isLoading={item.id === resolvingId}
+      onPress={() => onSelectTrack(item)}
+      onLongPress={() => showAddToPlaylist(item)}
+      showMenuIcon={true}
+      disabled={item.id === resolvingId}
+      rightSlot={
+        item.id === resolvingId ? (
+          <ActivityIndicator size="small" color={colors.brand} />
+        ) : item.id === activeTrackId ? (
+          <View style={styles.playingBadge}>
+            <Text style={styles.playingText}>PLAYING</Text>
+          </View>
+        ) : item.duration_ms ? (
+          <Text style={styles.durationText}>
+            {formatDuration(item.duration_ms)}
+          </Text>
+        ) : undefined
+      }
+    />
+  ), [onSelectTrack, activeTrackId, resolvingId, showAddToPlaylist]);
+
+  const getItemLayout = useCallback((_: any, index: number) => ({
+    length: 64,
+    offset: 64 * index,
+    index,
+  }), []);
+
   return (
     <View style={styles.container}>
       {/* Sticky header + search bar */}
@@ -174,36 +211,12 @@ export function SearchScreen({
           contentContainerStyle={styles.listContent}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
-          initialNumToRender={8}
-          maxToRenderPerBatch={8}
-          updateCellsBatchingPeriod={50}
-          windowSize={5}
+          initialNumToRender={12}
+          maxToRenderPerBatch={10}
+          windowSize={7}
           removeClippedSubviews
-          renderItem={({ item }) => (
-            <TrackRow
-              title={item.title}
-              artist={item.artist}
-              album={item.album}
-              thumbnail={item.thumbnail}
-              isActive={item.id === activeTrackId}
-              isLoading={item.id === resolvingId}
-              onPress={() => onSelectTrack(item)}
-              disabled={item.id === resolvingId}
-              rightSlot={
-                item.id === resolvingId ? (
-                  <ActivityIndicator size="small" color={colors.brand} />
-                ) : item.id === activeTrackId ? (
-                  <View style={styles.playingBadge}>
-                    <Text style={styles.playingText}>PLAYING</Text>
-                  </View>
-                ) : item.duration_ms ? (
-                  <Text style={styles.durationText}>
-                    {formatDuration(item.duration_ms)}
-                  </Text>
-                ) : undefined
-              }
-            />
-          )}
+          getItemLayout={getItemLayout}
+          renderItem={renderTrack}
         />
       )}
     </View>
