@@ -1,17 +1,64 @@
-// Theme Toggle Logic
-const themeToggle = document.querySelector('.theme-toggle');
-const body = document.body;
+// ============================================================
+// Laika Music — Landing Page Script
+// ============================================================
 
-themeToggle.addEventListener('click', () => {
-    const isDark = body.getAttribute('data-theme') !== 'light';
-    body.setAttribute('data-theme', isDark ? 'light' : 'dark');
-    themeToggle.innerHTML = isDark 
-        ? '<i data-lucide="moon"></i>' 
-        : '<i data-lucide="sun"></i>';
-    lucide.createIcons();
-});
+// ---------- Deep link / hash routing on load ----------
+// Scroll to the correct section if a hash is present in the URL
+function handleInitialHash() {
+    const hash = window.location.hash;
+    if (hash) {
+        const target = document.querySelector(hash);
+        if (target) {
+            // Small delay so the page renders first
+            setTimeout(() => {
+                target.scrollIntoView({ behavior: 'smooth' });
+            }, 120);
+        }
+    }
+}
 
-// Reveal Animations on Scroll
+window.addEventListener('DOMContentLoaded', handleInitialHash);
+
+// Update URL hash on scroll (pushState-based deep links)
+const sections = document.querySelectorAll('section[id], header[id]');
+let ticking = false;
+
+function updateHashOnScroll() {
+    if (!ticking) {
+        requestAnimationFrame(() => {
+            const scrollY = window.scrollY + 120;
+            let current = '';
+            sections.forEach(section => {
+                if (section.offsetTop <= scrollY) {
+                    current = section.id;
+                }
+            });
+            if (current && window.location.hash !== `#${current}`) {
+                history.replaceState(null, '', `#${current}`);
+            }
+            ticking = false;
+        });
+        ticking = true;
+    }
+}
+
+window.addEventListener('scroll', updateHashOnScroll, { passive: true });
+
+// ---------- Nav: add "scrolled" class on scroll ----------
+const nav = document.getElementById('main-nav');
+
+function handleNavScroll() {
+    if (window.scrollY > 20) {
+        nav.classList.add('scrolled');
+    } else {
+        nav.classList.remove('scrolled');
+    }
+}
+
+window.addEventListener('scroll', handleNavScroll, { passive: true });
+handleNavScroll(); // run once on load
+
+// ---------- Scroll Reveal Animations ----------
 const reveals = document.querySelectorAll('.reveal');
 
 const revealObserver = new IntersectionObserver((entries) => {
@@ -22,19 +69,21 @@ const revealObserver = new IntersectionObserver((entries) => {
     });
 }, { threshold: 0.1 });
 
-reveals.forEach(reveal => {
-    revealObserver.observe(reveal);
-});
+reveals.forEach(el => revealObserver.observe(el));
 
-// Initialize Lucide Icons
-lucide.createIcons();
-
-// Smooth scroll for nav links
+// ---------- Smooth scroll for anchor links ----------
 document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     anchor.addEventListener('click', function (e) {
-        e.preventDefault();
-        document.querySelector(this.getAttribute('href')).scrollIntoView({
-            behavior: 'smooth'
-        });
+        const href = this.getAttribute('href');
+        const target = document.querySelector(href);
+        if (target) {
+            e.preventDefault();
+            target.scrollIntoView({ behavior: 'smooth' });
+            // Update URL without triggering a page reload
+            history.pushState(null, '', href);
+        }
     });
 });
+
+// ---------- Initialize Lucide Icons ----------
+lucide.createIcons();
