@@ -45,6 +45,9 @@ async def resolve_track(request: ResolveRequest):
             detail="Could not find a suitable audio match"
         )
 
+    # 3.5 Populate resolution cache for near-instant search skip next time
+    youtube_service.set_resolution(request.title, request.artist, best_candidate["url"])
+
     # 4. Extract actual audio URL using yt-dlp
     extracted = await youtube_service.extract_audio_url(best_candidate["url"])
 
