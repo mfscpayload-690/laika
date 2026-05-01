@@ -52,14 +52,21 @@ async def get_home(
     # 3. Fetch Top Punjabi (Saavn)
     # 4. Fetch Quick Picks (Recent/Mock for now, but real tracks)
     
+    async def fetch_with_timeout(task, timeout=5.0):
+        try:
+            return await asyncio.wait_for(task, timeout=timeout)
+        except Exception as e:
+            print(f"DEBUG: Home fetch timeout/error: {e}")
+            return []
+
     tasks = [
-        deezer_service.get_charts(limit=10),
-        saavn_service.search_tracks("Trending Hindi", limit=10),
-        saavn_service.search_tracks("Top Punjabi", limit=10),
-        saavn_service.search_tracks("Malayalam Top 10", limit=10),
+        fetch_with_timeout(deezer_service.get_charts(limit=10)),
+        fetch_with_timeout(saavn_service.search_tracks("Trending Hindi", limit=10)),
+        fetch_with_timeout(saavn_service.search_tracks("Top Punjabi", limit=10)),
+        fetch_with_timeout(saavn_service.search_tracks("Malayalam Top 10", limit=10)),
     ]
     
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+    results = await asyncio.gather(*tasks)
     
     global_charts = results[0] if isinstance(results[0], list) else []
     trending_hindi = results[1] if isinstance(results[1], list) else []

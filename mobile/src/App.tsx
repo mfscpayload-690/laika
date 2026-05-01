@@ -9,6 +9,9 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { LikesProvider } from './context/LikesContext';
 import { RootNavigator } from './navigation/RootNavigator';
 import { LoginScreen } from './screens/LoginScreen';
+import { PlaylistProvider } from './context/PlaylistContext';
+import { UIProvider } from './context/UIContext';
+import { MusicStateProvider } from './context/MusicStateContext';
 import { colors } from './theme';
 
 function NavigationWrapper() {
@@ -38,12 +41,18 @@ function NavigationWrapper() {
 
 export default function App() {
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
         <AuthProvider>
           <PlaybackProvider>
             <LikesProvider>
-              <NavigationWrapper />
+            <PlaylistProvider>
+              <MusicStateProvider>
+                <UIProvider>
+                  <NavigationWrapper />
+                </UIProvider>
+              </MusicStateProvider>
+            </PlaylistProvider>
             </LikesProvider>
           </PlaybackProvider>
         </AuthProvider>
@@ -53,6 +62,9 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,

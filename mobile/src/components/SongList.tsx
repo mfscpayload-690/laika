@@ -1,7 +1,6 @@
 import React, {memo, useCallback} from 'react';
 import {
   FlatList,
-  Pressable,
   StyleSheet,
   Text,
   View,
@@ -10,8 +9,11 @@ import {
 import {Music} from 'lucide-react-native';
 
 import {TrackRow} from './TrackRow';
+import {BouncyPressable} from './BouncyPressable';
 import {colors, radii, spacing, typography} from '../theme';
 import type {LocalSong} from '../types/music';
+
+import Animated from 'react-native-reanimated';
 
 export const SONG_ROW_HEIGHT = 64;
 
@@ -27,11 +29,14 @@ type SongListProps = {
   songs: LocalSong[];
   currentTrackId?: string;
   onPressSong: (songId: string) => void;
+  onLongPressSong?: (song: LocalSong) => void;
   emptyMessage?: string;
   onScanPress?: () => void;
   onScroll?: (event: any) => void;
   onScrollBeginDrag?: () => void;
   onScrollEndDrag?: () => void;
+  ListHeaderComponent?: React.ReactElement | null;
+  contentContainerStyle?: any;
 };
 
 function formatDuration(ms: number): string {
@@ -48,11 +53,20 @@ type SongRowProps = {
   item: LocalSong;
   isActive: boolean;
   onPressSong: (songId: string) => void;
+  onLongPress?: (song: LocalSong) => void;
 };
 
-const SongRow = memo(function SongRow({item, isActive, onPressSong}: SongRowProps) {
+const SongRow = memo(function SongRow({item, isActive, onPressSong, onLongPress}: SongRowProps) {
   const duration = formatDuration(item.duration);
   const artistLabel = item.album ? `${item.artist} · ${item.album}` : item.artist;
+
+  const handlePress = useCallback(() => {
+    onPressSong(item.id);
+  }, [item.id, onPressSong]);
+
+  const handleLongPress = useCallback(() => {
+    onLongPress?.(item);
+  }, [item, onLongPress]);
 
   return (
     <TrackRow
@@ -60,7 +74,9 @@ const SongRow = memo(function SongRow({item, isActive, onPressSong}: SongRowProp
       artist={artistLabel}
       thumbnail={item.artwork}
       isActive={isActive}
-      onPress={() => onPressSong(item.id)}
+      onPress={handlePress}
+      onLongPress={handleLongPress}
+      showMenuIcon={true}
       rightSlot={
         isActive ? (
           <View style={styles.playingBadge}>
@@ -87,14 +103,13 @@ const SongListEmpty = memo(function SongListEmpty({
       <Text style={styles.emptyTitle}>No local songs yet</Text>
       <Text style={styles.emptySubtitle}>Scan your device to find audio files</Text>
       {onScanPress ? (
-        <Pressable
-          style={({pressed}) => [styles.scanButton, pressed && {opacity: 0.8, transform: [{scale: 0.98}]}]}
-          android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
+        <BouncyPressable
+          style={styles.scanButton}
           onPress={onScanPress}
           accessibilityRole="button"
           accessibilityLabel="Scan device for audio files">
           <Text style={styles.scanButtonLabel}>Scan Device</Text>
-        </Pressable>
+        </BouncyPressable>
       ) : (
         <Text style={styles.emptyMessage}>{emptyMessage}</Text>
       )}
@@ -108,9 +123,12 @@ export function SongList({
   onPressSong,
   emptyMessage = 'No local songs found yet.',
   onScanPress,
+  onLongPressSong,
   onScroll,
   onScrollBeginDrag,
   onScrollEndDrag,
+  ListHeaderComponent,
+  contentContainerStyle,
 }: SongListProps) {
   const getItemLayout = useCallback(
     (_: ArrayLike<LocalSong> | null | undefined, index: number) => ({
@@ -125,18 +143,26 @@ export function SongList({
 
   const renderItem = useCallback<ListRenderItem<LocalSong>>(
     ({item}) => (
-      <SongRow item={item} isActive={item.id === currentTrackId} onPressSong={onPressSong} />
+      <SongRow
+        item={item}
+        isActive={item.id === currentTrackId}
+        onPressSong={onPressSong}
+        onLongPress={onLongPressSong}
+      />
     ),
-    [currentTrackId, onPressSong],
+    [currentTrackId, onPressSong, onLongPressSong],
   );
 
   return (
-    <FlatList
+    <Animated.FlatList
       data={songs}
       keyExtractor={keyExtractor}
       renderItem={renderItem}
       getItemLayout={getItemLayout}
-      contentContainerStyle={songs.length === 0 ? styles.emptyListContent : styles.content}
+      contentContainerStyle={[
+        songs.length === 0 ? styles.emptyListContent : styles.content,
+        contentContainerStyle
+      ]}
       keyboardShouldPersistTaps="handled"
       {...SONG_LIST_VIRTUALIZATION_CONFIG}
       onScroll={onScroll}
@@ -145,13 +171,14 @@ export function SongList({
       scrollEventThrottle={16}
       showsVerticalScrollIndicator={false}
       ListEmptyComponent={<SongListEmpty emptyMessage={emptyMessage} onScanPress={onScanPress} />}
+      ListHeaderComponent={ListHeaderComponent}
     />
   );
 }
 
 const styles = StyleSheet.create({
   content: {
-    paddingBottom: 100,
+    paddingBottom: 180,
   },
   emptyListContent: {
     flexGrow: 1,
