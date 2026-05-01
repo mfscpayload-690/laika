@@ -98,7 +98,7 @@ function SettingsGroup({ children }: { children: React.ReactNode }) {
 
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 
-export function SettingsScreen() {
+export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { user, isGuest, signOut } = useAuth();
   const { likedTracks } = useLikes();
@@ -325,6 +325,8 @@ export function SettingsScreen() {
     </ScrollView>
   );
 }
+
+SettingsScreen.displayName = 'SettingsScreen';
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
