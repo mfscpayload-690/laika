@@ -22,14 +22,17 @@ export function LikesProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (silent = false) => {
     if (!session || isGuest) {
       setLikedTracks([]);
       setLikedTrackIds(new Set());
       return;
     }
     try {
-      setIsLoading(true);
+      // Only show loading if we don't have any tracks yet
+      if (!silent && likedTracks.length === 0) {
+        setIsLoading(true);
+      }
       const tracks = await getLikes();
       setLikedTracks(tracks);
       setLikedTrackIds(new Set(tracks.map(t => t.track_id)));
@@ -38,7 +41,7 @@ export function LikesProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [session, isGuest]);
+  }, [session, isGuest, likedTracks.length]);
 
   useEffect(() => {
     refresh();
