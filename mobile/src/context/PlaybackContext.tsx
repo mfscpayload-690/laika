@@ -5,6 +5,7 @@ import { resolveTrack } from '../services/api';
 import { ensureAudioPermission } from '../services/audioScanner';
 import { loadCachedSongs } from '../services/libraryCache';
 import { logEvent } from '../services/eventLogger';
+import { isTrackCached, getCachedTrackPath, cacheTrack } from '../services/cacheService';
 import type { LocalSong, RemoteTrack } from '../types/music';
 
 type PlaybackMode = 'local' | 'remote' | 'none';
@@ -21,6 +22,7 @@ interface PlaybackContextType {
   isShuffleEnabled: boolean;
   repeatMode: RepeatSetting;
   isResolving: boolean;
+  isOffline: boolean;
 
   // Actions
   playSong: (songId: string) => Promise<void>;
@@ -51,6 +53,7 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
   const [isResolving, setIsResolving] = useState(false);
   const [isShuffleEnabled, setIsShuffleEnabled] = useState(false);
   const [repeatMode, setRepeatMode] = useState<RepeatSetting>('all');
+  const [isOffline, setIsOffline] = useState(false);
   const lastLoggedTrackRef = useRef<{track_id: string, title: string, artist: string, thumbnail?: string, source?: string} | null>(null);
 
   const hasLoadedLocalQueue = useRef(false);
@@ -160,14 +163,29 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
     try {
       // UX Fix: Stop old playback immediately while resolving new metadata
       await TrackPlayer.reset();
-      const resolved = await resolveTrack(track.title, track.artist, track.duration_ms);
+
+      // Check cache first
+      const cached = await isTrackCached(track.id);
+      let streamUrl: string;
+
+      if (cached) {
+        streamUrl = 'file://' + getCachedTrackPath(track.id);
+        console.log('[PlaybackContext] Playing from cache:', track.id);
+      } else {
+        const resolved = await resolveTrack(track.title, track.artist, track.duration_ms);
+        streamUrl = resolved.url;
+        
+        // Start caching in background
+        cacheTrack(track.id, resolved.url).catch(() => undefined);
+      }
+
       await TrackPlayer.add({
         id: track.id,
-        url: resolved.url,
-        title: resolved.title ?? track.title,
+        url: streamUrl,
+        title: track.title,
         artist: track.artist,
         artwork: track.thumbnail,
-        duration: resolved.duration / 1000,
+        duration: track.duration_ms / 1000,
       });
       await TrackPlayer.play();
 
@@ -180,8 +198,13 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
       setMode('remote');
       setActiveRemoteTrack(track);
       hasLoadedLocalQueue.current = false;
+      setIsOffline(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Playback failed');
+      // If resolving failed, we might be offline
+      if (! (await isTrackCached(track.id))) {
+        setIsOffline(true);
+      }
     } finally {
       setIsResolving(false);
     }
@@ -368,6 +391,7 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
     cycleRepeatMode,
     songs,
     setSongs,
+    isOffline,
   };
 
   return (

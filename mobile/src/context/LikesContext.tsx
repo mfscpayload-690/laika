@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { getLikes, likeTrack, unlikeTrack, type LikedTrack } from '../services/libraryService';
 import { useAuth } from './AuthContext';
+import { AuthPromptModal } from '../components/AuthPromptModal';
 import type { LocalSong, RemoteTrack } from '../types/music';
 
 interface LikesContextType {
@@ -19,6 +20,7 @@ export function LikesProvider({ children }: { children: React.ReactNode }) {
   const [likedTracks, setLikedTracks] = useState<LikedTrack[]>([]);
   const [likedTrackIds, setLikedTrackIds] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!session || isGuest) {
@@ -51,12 +53,7 @@ export function LikesProvider({ children }: { children: React.ReactNode }) {
     console.log('[LikesContext] toggleLike attempt:', { trackId: track.id, isGuest, hasSession: !!session });
     
     if (isGuest || !session) {
-      const { Alert } = require('react-native');
-      Alert.alert(
-        'Sign in Required',
-        'Please sign in with Google or GitHub to save your favorite songs to your library.',
-        [{ text: 'OK' }]
-      );
+      setShowAuthModal(true);
       return;
     }
 
@@ -89,6 +86,12 @@ export function LikesProvider({ children }: { children: React.ReactNode }) {
   return (
     <LikesContext.Provider value={{ likedTrackIds, likedTracks, isLiked: isLikedFn, toggleLike, isLoading, refresh }}>
       {children}
+      <AuthPromptModal 
+        isVisible={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        title="Sign in Required"
+        message="Please sign in with Google or GitHub to save your favorite songs to your library."
+      />
     </LikesContext.Provider>
   );
 }

@@ -4,97 +4,342 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Laika Music | Stateless Audio Intelligence</title>
-    <meta name="description"
-        content="The future of music streaming. Stateless, high-performance, and decentralized resolution engine.">
-    <link rel="stylesheet" href="style.css">
+
+    <!-- ── Primary SEO ── -->
+    <title>Laika Music — Stream Any Song, Anywhere. Free &amp; Open Source.</title>
+    <meta name="description" content="Laika Music is a free, open-source music streaming app for Android. Stream any song instantly from YouTube with no ads, no limits, and full offline library support.">
+    <meta name="keywords" content="Laika Music, free music app, open source music player, Android music app, stream music, offline music, YouTube music player">
+    <meta name="author" content="Laika Music Project">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://laika-music.app/">
+
+    <!-- ── Open Graph (Facebook / LinkedIn) ── -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://laika-music.app/">
+    <meta property="og:title" content="Laika Music — Stream Any Song, Anywhere.">
+    <meta property="og:description" content="Free, open-source music streaming for Android. No ads. No limits. Just music.">
+    <meta property="og:image" content="https://laika-music.app/assets/og-image.png">
+    <meta property="og:site_name" content="Laika Music">
+
+    <!-- ── Twitter Card ── -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Laika Music — Stream Any Song, Anywhere.">
+    <meta name="twitter:description" content="Free, open-source music streaming for Android. No ads. No limits. Just music.">
+    <meta name="twitter:image" content="https://laika-music.app/assets/og-image.png">
+
+    <!-- ── Favicon & App Icons ── -->
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/logo.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="assets/logo-192.png">
+    <link rel="apple-touch-icon" href="assets/logo-192.png">
+
+    <!-- ── PWA Manifest ── -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1DB954">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Laika Music">
+
+    <!-- ── Structured Data (JSON-LD) ── -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Laika Music",
+      "operatingSystem": "Android",
+      "applicationCategory": "MusicApplication",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "description": "Free, open-source music streaming app for Android. Stream any song instantly with no ads.",
+      "url": "https://laika-music.app/",
+      "downloadUrl": "https://github.com/mfscpayload-690/laika-music/releases/",
+      "softwareVersion": "1.0",
+      "license": "https://www.gnu.org/licenses/gpl-3.0.html"
+    }
+    </script>
+
+    <!-- ── Fonts ── -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
-        rel="stylesheet">
-    <!-- Lucide Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,700;0,9..40,900;1,9..40,400&display=swap" rel="stylesheet">
+
+    <!-- ── Lucide Icons ── -->
     <script src="https://unpkg.com/lucide@latest"></script>
+
+    <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-    <nav>
-        <div class="logo">LAIKA MUSIC</div>
+
+    <!-- ══════════════════════════════════════════
+         NAV
+    ══════════════════════════════════════════ -->
+    <nav id="main-nav" role="navigation" aria-label="Main navigation">
+        <a href="#home" class="nav-logo" aria-label="Laika Music — Home">
+            <img src="assets/logo.png" alt="Laika Music logo" class="nav-logo-img">
+            <span class="nav-logo-text">LAIKA</span>
+        </a>
         <div class="nav-links">
             <a href="#features">Features</a>
-            <a href="https://github.com/mfscpayload-690/laika-music" target="_blank">GitHub</a>
-            <a href="https://buymeacoffee.com/mfscpayload690" target="_blank" class="nav-support">
-                <i data-lucide="coffee"></i>
+            <a href="#showcase">Screenshots</a>
+            <a href="#download">Download</a>
+            <a href="https://github.com/mfscpayload-690/laika-music"
+               target="_blank" rel="noopener noreferrer"
+               class="nav-icon" aria-label="View source on GitHub">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.042-1.416-4.042-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                </svg>
             </a>
-            <button class="theme-toggle" aria-label="Toggle Theme">
-                <i data-lucide="sun"></i>
-            </button>
+            <a href="https://buymeacoffee.com/mfscpayload690"
+               target="_blank" rel="noopener noreferrer"
+               class="nav-icon bmc-btn" aria-label="Support on Buy Me a Coffee">
+                <!-- Full button — desktop -->
+                <img
+                    src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png"
+                    alt="Buy Me A Coffee"
+                    class="bmc-full"
+                    width="130"
+                    height="36"
+                    loading="lazy">
+                <!-- Small icon — mobile (Official Logo Mark) -->
+                <img
+                    src="https://cdn.buymeacoffee.com/buttons/bmc-new-btn-logo.svg"
+                    alt="Buy Me A Coffee"
+                    class="bmc-icon-only"
+                    width="32"
+                    height="32"
+                    loading="eager">
+            </a>
         </div>
     </nav>
 
-    <header class="hero">
-        <div class="hero-content reveal">
-            <span class="section-tag">Audio Intelligence Layer</span>
-            <h1>Music, evolved beyond state.</h1>
-            <p>Laika Music is a high-fidelity streaming engine that bridges global metadata with direct audio streams
-                using a deterministic resolution layer.</p>
-            <div class="cta-group">
-                <a href="https://github.com/mfscpayload-690/laika-music/releases/" class="btn btn-primary">
-                    <i data-lucide="download"></i> Get App
-                </a>
-                <a href="#features" class="btn btn-secondary">
-                    Learn More
-                </a>
+    <!-- ══════════════════════════════════════════
+         HERO
+    ══════════════════════════════════════════ -->
+    <header id="home" class="hero" role="banner">
+        <div class="hero-bg" aria-hidden="true"></div>
+        <div class="hero-container">
+            <div class="hero-content reveal">
+                <span class="hero-badge">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                    Now streaming worldwide
+                </span>
+                <h1>Your music,<br>everywhere.</h1>
+                <p>Stream any song instantly. No limits, no ads. Just music.</p>
+                <div class="cta-group">
+                    <a href="https://github.com/mfscpayload-690/laika-music/releases/"
+                       class="btn btn-primary"
+                       aria-label="Download Laika Music APK">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Download App
+                    </a>
+                    <a href="https://github.com/mfscpayload-690/laika-music"
+                       target="_blank" rel="noopener noreferrer"
+                       class="btn btn-secondary"
+                       aria-label="View Laika Music on GitHub">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.042-1.416-4.042-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                        View on GitHub
+                    </a>
+                </div>
             </div>
-        </div>
-        <div class="hero-image reveal">
-            <img src="assets/hero.png" alt="Laika Music Interface">
+            <div class="hero-mockup-container reveal">
+                <div class="phone-mockup">
+                    <img src="assets/Home-Dashboard-Laika-Music.png"
+                         alt="Laika Music app — Home Dashboard showing music discovery feed"
+                         loading="eager">
+                </div>
+            </div>
         </div>
     </header>
 
-    <section id="features" class="features">
-        <span class="section-tag">Capabilities</span>
-        <h2 class="reveal">Built for performance.</h2>
+    <!-- ══════════════════════════════════════════
+         STATS BAR
+    ══════════════════════════════════════════ -->
+    <div class="stats-bar" role="region" aria-label="Key statistics">
+        <div class="stat-item">
+            <span class="stat-number">10M+</span>
+            <span class="stat-label">Songs Available</span>
+        </div>
+        <div class="stat-divider" aria-hidden="true"></div>
+        <div class="stat-item">
+            <span class="stat-number">Zero Ads</span>
+            <span class="stat-label">Always Free</span>
+        </div>
+        <div class="stat-divider" aria-hidden="true"></div>
+        <div class="stat-item">
+            <span class="stat-number">Open Source</span>
+            <span class="stat-label">GPL v3 Licensed</span>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         SHOWCASE — phone mockup cards
+    ══════════════════════════════════════════ -->
+    <section id="showcase" class="showcase" aria-labelledby="showcase-heading">
+        <div class="showcase-header reveal">
+            <span class="section-tag">Immersive Experience</span>
+            <h2 id="showcase-heading">Beautifully simple.</h2>
+        </div>
+        <div class="showcase-grid">
+
+            <!-- Now Playing -->
+            <div class="showcase-item reveal">
+                <div class="showcase-phone-wrap">
+                    <div class="showcase-phone">
+                        <img src="assets/Now-Playing-Laika-Music.png"
+                             alt="Laika Music now-playing screen with album art and playback controls"
+                             loading="lazy">
+                    </div>
+                </div>
+                <div class="showcase-info">
+                    <div class="showcase-icon-wrap" aria-hidden="true">
+                        <i data-lucide="music-2"></i>
+                    </div>
+                    <h3>Stunning Player</h3>
+                    <p>Minimalist design meets powerful controls. Album art front and center.</p>
+                </div>
+            </div>
+
+            <!-- Local Library -->
+            <div class="showcase-item reveal">
+                <div class="showcase-phone-wrap">
+                    <div class="showcase-phone">
+                        <img src="assets/Local-Library-Laika-Music.png"
+                             alt="Laika Music local library screen showing offline song collection"
+                             loading="lazy">
+                    </div>
+                </div>
+                <div class="showcase-info">
+                    <div class="showcase-icon-wrap" aria-hidden="true">
+                        <i data-lucide="library"></i>
+                    </div>
+                    <h3>Your Collection</h3>
+                    <p>All your local files, beautifully organized. Works fully offline.</p>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════
+         FEATURES
+    ══════════════════════════════════════════ -->
+    <section id="features" class="features" aria-labelledby="features-heading">
+        <div class="features-header reveal">
+            <span class="section-tag">Why Laika?</span>
+            <h2 id="features-heading">Built for your ears.</h2>
+        </div>
         <div class="feature-grid">
             <div class="feature-card reveal">
-                <div class="feature-icon">
+                <div class="feature-icon-wrap" aria-hidden="true">
                     <i data-lucide="zap"></i>
                 </div>
-                <h3>Stateless Architecture</h3>
-                <p>No local databases. Every request is resolved in real-time using our high-performance intelligence
-                    layer.</p>
+                <h3>Instant Playback</h3>
+                <p>Zero wait time. Start streaming your favorite tracks in milliseconds.</p>
             </div>
             <div class="feature-card reveal">
-                <div class="feature-icon">
+                <div class="feature-icon-wrap" aria-hidden="true">
+                    <i data-lucide="globe"></i>
+                </div>
+                <h3>Global Access</h3>
+                <p>Explore millions of songs from every corner of the world.</p>
+            </div>
+            <div class="feature-card reveal">
+                <div class="feature-icon-wrap" aria-hidden="true">
                     <i data-lucide="search"></i>
                 </div>
-                <h3>Global Discovery</h3>
-                <p>Instantaneous metadata retrieval via the Piped API. Explore millions of tracks with zero latency.</p>
+                <h3>Smart Search</h3>
+                <p>Find exactly what you're looking for with our intelligent resolution layer.</p>
             </div>
             <div class="feature-card reveal">
-                <div class="feature-icon">
-                    <i data-lucide="music"></i>
+                <div class="feature-icon-wrap" aria-hidden="true">
+                    <i data-lucide="headphones"></i>
                 </div>
-                <h3>Deterministic Matching</h3>
-                <p>A sophisticated scoring algorithm that aligns metadata with the highest quality audio streams
-                    available.</p>
-            </div>
-            <div class="feature-card reveal">
-                <div class="feature-icon">
-                    <i data-lucide="smartphone"></i>
-                </div>
-                <h3>Native Performance</h3>
-                <p>Built with React Native and custom Kotlin modules for deep integration with mobile audio hardware.
-                </p>
+                <h3>High Fidelity</h3>
+                <p>Crystal clear audio quality that puts you in the center of the studio.</p>
             </div>
         </div>
     </section>
 
-    <footer>
-        <div class="footer-logo">LAIKA MUSIC</div>
-        <div class="footer-links">
-            <a href="https://buymeacoffee.com/mfscpayload690" target="_blank">Buy Me a Coffee</a>
+    <!-- ══════════════════════════════════════════
+         DOWNLOAD / CTA BANNER
+    ══════════════════════════════════════════ -->
+    <section id="download" class="cta-banner" aria-labelledby="cta-heading">
+        <div class="cta-banner-inner reveal">
+            <div class="cta-logo-wrap" aria-hidden="true">
+                <img src="assets/logo.png" alt="" class="cta-logo">
+            </div>
+            <h2 id="cta-heading">Ready to listen?</h2>
+            <p>Download Laika Music and start streaming instantly. Free forever.</p>
+            <a href="https://github.com/mfscpayload-690/laika-music/releases/"
+               class="btn btn-primary btn-large"
+               aria-label="Download Laika Music for Android">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Download Free
+            </a>
+            <p class="cta-sub">Android · Open Source · GPL v3</p>
         </div>
-        <div class="footer-copy">&copy; 2026 Laika Music Project. GPL v3.</div>
+    </section>
+
+    <!-- ══════════════════════════════════════════
+         FOOTER
+    ══════════════════════════════════════════ -->
+    <footer role="contentinfo">
+        <div class="footer-content">
+            <div class="footer-brand">
+                <a href="#home" class="footer-logo-link" aria-label="Laika Music — back to top">
+                    <img src="assets/logo.png" alt="Laika Music" class="footer-logo-img">
+                    <span class="logo">LAIKA</span>
+                </a>
+                <p>Free, open-source music streaming for Android. No ads. No limits. Just music.</p>
+                <div class="social-links">
+                    <a href="https://github.com/mfscpayload-690/laika-music"
+                       target="_blank" rel="noopener noreferrer"
+                       aria-label="Laika Music on GitHub">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.042-1.416-4.042-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                        </svg>
+                    </a>
+                    <a href="#" aria-label="Laika Music on Twitter / X">
+                        <i data-lucide="twitter" aria-hidden="true"></i>
+                    </a>
+                    <a href="#" aria-label="Laika Music on Instagram">
+                        <i data-lucide="instagram" aria-hidden="true"></i>
+                    </a>
+                </div>
+            </div>
+            <nav class="footer-nav" aria-label="Footer navigation">
+                <div class="footer-col">
+                    <h4>Product</h4>
+                    <a href="#features">Features</a>
+                    <a href="#showcase">Screenshots</a>
+                    <a href="#download">Download</a>
+                </div>
+                <div class="footer-col">
+                    <h4>Community</h4>
+                    <a href="https://github.com/mfscpayload-690/laika-music" target="_blank" rel="noopener noreferrer">GitHub</a>
+                    <a href="#">Discord</a>
+                    <a href="#">Contribute</a>
+                </div>
+                <div class="footer-col">
+                    <h4>Support</h4>
+                    <a href="#">Help Center</a>
+                    <a href="#">Contact Us</a>
+                    <a href="https://buymeacoffee.com/mfscpayload690" target="_blank" rel="noopener noreferrer">Buy Me a Coffee</a>
+                </div>
+            </nav>
+        </div>
+        <div class="footer-bottom">
+            <div class="footer-copy">&copy; 2026 Laika Music Project. GPL v3.</div>
+            <div class="footer-legal">
+                <a href="#">Privacy Policy</a>
+                <a href="#">Terms of Service</a>
+            </div>
+        </div>
     </footer>
 
     <script src="script.js"></script>

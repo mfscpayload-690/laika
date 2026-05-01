@@ -10,13 +10,15 @@ import {
   FlatList,
   Dimensions,
 } from 'react-native';
-import { ChevronRight, Library, Music, RefreshCw, Search, Play, User } from 'lucide-react-native';
+import { Search, History, Music, WifiOff, RefreshCw, User, Play } from 'lucide-react-native';
+import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated';
 
 import { SectionHeader } from '../components/SectionHeader';
 import { colors, radii, spacing, typography } from '../theme';
 import { RemoteTrack } from '../types/music';
 import { API_BASE_URL } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { usePlayback } from '../context/PlaybackContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -108,6 +110,7 @@ export function HomeScreen({
   resolvingId,
 }: HomeScreenProps) {
   const { user } = useAuth();
+  const { isOffline } = usePlayback();
   const [sections, setSections] = useState<HomeSection[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -144,97 +147,110 @@ export function HomeScreen({
   };
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}>
-      
-      {/* Greeting Header */}
-      <View style={styles.header}>
-        <Text style={styles.greeting}>
-          {getGreeting()}{user?.user_metadata?.full_name ? `, ${user.user_metadata.full_name.split(' ')[0]}` : ''}
-        </Text>
-        <View style={styles.headerButtons}>
-          <Pressable onPress={onOpenSearch} style={styles.iconButton}>
-            <Search size={24} color={colors.textPrimary} />
-          </Pressable>
-          <Pressable onPress={onOpenProfile} style={[styles.iconButton, { marginLeft: spacing.sm }]}>
-            {user?.user_metadata?.avatar_url ? (
-              <Image 
-                source={{ uri: user.user_metadata.avatar_url }} 
-                style={styles.avatarImage} 
-              />
-            ) : (
-              <User size={24} color={colors.textPrimary} />
-            )}
-          </Pressable>
-        </View>
-      </View>
-
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.brand} />
-        </View>
-      ) : (
-        sections.map((section, idx) => (
-          <View key={idx} style={styles.section}>
-            <SectionHeader label={section.title} />
-            
-            {section.type === 'grid' ? (
-              <View style={styles.quickGrid}>
-                {section.items.slice(0, 8).map(track => (
-                  <QuickPickItem 
-                    key={track.id} 
-                    track={track} 
-                    onPress={() => handlePlay(track)} 
-                    isActive={track.id === currentTrackId || track.id === activeRemoteTrackId}
-                    isResolving={track.id === resolvingId}
-                  />
-                ))}
-              </View>
-            ) : (
-              <FlatList
-                horizontal
-                data={section.items}
-                keyExtractor={item => item.id}
-                showsHorizontalScrollIndicator={false}
-                renderItem={({ item }) => (
-                  <MusicCarouselItem 
-                    item={item} 
-                    onPress={() => handlePlay(item)} 
-                    isResolving={item.id === resolvingId}
-                  />
-                )}
-                contentContainerStyle={styles.carouselList}
-              />
-            )}
+    <View style={{ flex: 1 }}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}>
+        
+        {/* Greeting Header */}
+        <View style={styles.header}>
+          <Text style={styles.greeting}>
+            {getGreeting()}{user?.user_metadata?.full_name ? `, ${user.user_metadata.full_name.split(' ')[0]}` : ''}
+          </Text>
+          <View style={styles.headerButtons}>
+            <Pressable onPress={onOpenSearch} style={styles.iconButton}>
+              <Search size={24} color={colors.textPrimary} />
+            </Pressable>
+            <Pressable onPress={onOpenProfile} style={[styles.iconButton, { marginLeft: spacing.sm }]}>
+              {user?.user_metadata?.avatar_url ? (
+                <Image 
+                  source={{ uri: user.user_metadata.avatar_url }} 
+                  style={styles.avatarImage} 
+                />
+              ) : (
+                <User size={24} color={colors.textPrimary} />
+              )}
+            </Pressable>
           </View>
-        ))
-      )}
-
-      {/* Library Stats / Call to Action */}
-      <View style={styles.libraryCard}>
-        <View style={styles.libraryText}>
-          <Text style={styles.libraryTitle}>Local Library</Text>
-          <Text style={styles.libraryCount}>{songsCount} songs scanned</Text>
         </View>
-        <Pressable 
-          style={[styles.scanButton, scanning && styles.buttonDisabled]} 
-          onPress={onScan}
-          disabled={scanning}>
-          {scanning ? (
-            <ActivityIndicator size="small" color="#FFF" />
-          ) : (
-            <>
-              <RefreshCw size={16} color="#FFF" />
-              <Text style={styles.scanButtonText}>Scan</Text>
-            </>
-          )}
-        </Pressable>
-      </View>
-      
-      <View style={{ height: 90 }} />
-    </ScrollView>
+
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.brand} />
+          </View>
+        ) : (
+          sections.map((section, idx) => (
+            <View key={idx} style={styles.section}>
+              <SectionHeader label={section.title} />
+              
+              {section.type === 'grid' ? (
+                <View style={styles.quickGrid}>
+                  {section.items.slice(0, 6).map(track => (
+                    <QuickPickItem 
+                      key={track.id} 
+                      track={track} 
+                      onPress={() => handlePlay(track)} 
+                      isActive={track.id === currentTrackId || track.id === activeRemoteTrackId}
+                      isResolving={track.id === resolvingId}
+                    />
+                  ))}
+                </View>
+              ) : (
+                <FlatList
+                  horizontal
+                  data={section.items}
+                  keyExtractor={item => item.id}
+                  showsHorizontalScrollIndicator={false}
+                  renderItem={({ item }) => (
+                    <MusicCarouselItem 
+                      item={item} 
+                      onPress={() => handlePlay(item)} 
+                      isResolving={item.id === resolvingId}
+                    />
+                  )}
+                  contentContainerStyle={styles.carouselList}
+                />
+              )}
+            </View>
+          ))
+        )}
+
+        {/* Library Stats / Call to Action */}
+        <View style={styles.libraryCard}>
+          <View style={styles.libraryText}>
+            <Text style={styles.libraryTitle}>Local Library</Text>
+            <Text style={styles.libraryCount}>{songsCount} songs scanned</Text>
+          </View>
+          <Pressable 
+            style={[styles.scanButton, scanning && styles.buttonDisabled]} 
+            onPress={onScan}
+            disabled={scanning}>
+            {scanning ? (
+              <ActivityIndicator size="small" color="#FFF" />
+            ) : (
+              <>
+                <RefreshCw size={16} color="#FFF" />
+                <Text style={styles.scanButtonText}>Scan</Text>
+              </>
+            )}
+          </Pressable>
+        </View>
+        
+        <View style={{ height: 90 }} />
+      </ScrollView>
+
+      {isOffline && (
+        <Animated.View 
+          entering={FadeInDown}
+          exiting={FadeOutUp}
+          style={styles.offlineBanner}
+        >
+          <WifiOff size={14} color="#000" />
+          <Text style={styles.offlineText}>Offline Mode — Playing from Cache</Text>
+        </Animated.View>
+      )}
+    </View>
   );
 }
 
@@ -318,4 +334,23 @@ const styles = StyleSheet.create({
   },
   scanButtonText: { color: '#FFF', fontWeight: '700', fontSize: 13, marginLeft: spacing.xs },
   buttonDisabled: { opacity: 0.5 },
+  offlineBanner: {
+    position: 'absolute',
+    top: 60,
+    alignSelf: 'center',
+    backgroundColor: colors.brand,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radii.full,
+    gap: spacing.xs,
+    zIndex: 100,
+    elevation: 5,
+  },
+  offlineText: {
+    color: '#000',
+    fontSize: 12,
+    fontWeight: '700',
+  },
 });

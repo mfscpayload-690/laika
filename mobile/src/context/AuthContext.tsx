@@ -29,8 +29,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     });
 
+    // Handle deep links for OAuth
+    const handleDeepLink = async (url: string | null) => {
+      if (!url) return;
+      
+      console.log('[AuthContext] Handling deep link:', url);
+      
+      if (url.includes('auth-callback')) {
+        // Parse access_token and refresh_token from the hash
+        const parts = url.split('#');
+        if (parts.length > 1) {
+          const hash = parts[1];
+          const params = new URLSearchParams(hash);
+          const access_token = params.get('access_token');
+          const refresh_token = params.get('refresh_token');
+          
+          if (access_token && refresh_token) {
+            console.log('[AuthContext] Setting session from deep link');
+            const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+            if (error) console.error('[AuthContext] setSession error:', error);
+          }
+        }
+      }
+    };
+
+    // Listen for incoming links while app is open
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      handleDeepLink(url);
+    });
+
+    // Check for initial URL if app was opened by link
+    Linking.getInitialURL().then(url => {
+      handleDeepLink(url);
+    });
+
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
@@ -38,7 +72,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => {
-      subscription.unsubscribe();
+      subscription.remove();
+      authSub.unsubscribe();
     };
   }, []);
 
