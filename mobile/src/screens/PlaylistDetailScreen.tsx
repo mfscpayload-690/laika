@@ -1,40 +1,67 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   Pressable,
   ActivityIndicator,
   Image,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
-import { ChevronLeft, MoreVertical, Play, Trash2, Music } from 'lucide-react-native';
+import { ChevronLeft, Edit2, Music, Play, Trash2, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedStyle, 
+  useAnimatedScrollHandler,
+  interpolate,
+  Extrapolation,
+} from 'react-native-reanimated';
 
 import { usePlaylists } from '../context/PlaylistContext';
 import { usePlayback } from '../context/PlaybackContext';
+import { useMusicState } from '../context/MusicStateContext';
 import { TrackRow } from '../components/TrackRow';
-import { colors, radii, spacing, typography } from '../theme';
+import { colors, radii, spacing } from '../theme';
 import type { PlaylistTrack } from '../services/libraryService';
 
-export function PlaylistDetailScreen() {
+const HEADER_MAX_HEIGHT = 340;
+const HEADER_MIN_HEIGHT = 100;
+const SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
+
+export default function PlaylistDetailScreen() {
   const route = useRoute<any>();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const { playlistId, title } = route.params;
+  const { playlistId, title: initialTitle } = route.params;
   
-  const { getTracks, removeTrack, deletePlaylist } = usePlaylists();
+  const { getTracks, removeTrack, deletePlaylist, updatePlaylist } = usePlaylists();
   const { playRemote } = usePlayback();
+  const { activeRemoteTrackId } = useMusicState();
   
   const [tracks, setTracks] = useState<PlaylistTrack[]>([]);
   const [loading, setLoading] = useState(true);
+  const [title, setTitle] = useState(initialTitle);
+  
+  const scrollY = useSharedValue(0);
+
+  const [isRenameVisible, setIsRenameVisible] = useState(false);
+  const [newName, setNewName] = useState(initialTitle);
+  const [isRenaming, setIsRenaming] = useState(false);
+
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+  });
 
   const fetchTracks = async () => {
-    setLoading(true);
+    if (tracks.length === 0) setLoading(true);
     try {
       const data = await getTracks(playlistId);
-      setTracks(data);
+      setTracks(data || []);
     } catch (error) {
       console.error('[PlaylistDetail] fetch error:', error);
     } finally {
@@ -46,21 +73,20 @@ export function PlaylistDetailScreen() {
     fetchTracks();
   }, [playlistId]);
 
-  const handlePlayAll = () => {
+  const handlePlayAll = useCallback(() => {
     if (tracks.length > 0) {
-      // Map PlaylistTrack to RemoteTrack format for playback
-      const firstTrack = tracks[0];
-      playRemote({
-        id: firstTrack.track_id,
-        title: firstTrack.track_metadata.title,
-        artist: firstTrack.track_metadata.artist,
-        thumbnail: firstTrack.track_metadata.artwork || '',
-        album: firstTrack.track_metadata.album,
-        duration_ms: firstTrack.track_metadata.duration || 0,
-        source: firstTrack.track_metadata.source,
-      });
+      const queue = tracks.map(t => ({
+        id: t.track_id,
+        title: t.track_metadata.title,
+        artist: t.track_metadata.artist,
+        thumbnail: t.track_metadata.artwork || '',
+        album: t.track_metadata.album,
+        duration_ms: t.track_metadata.duration || 0,
+        source: t.track_metadata.source,
+      }));
+      playRemote(queue[0], queue, 0);
     }
-  };
+  }, [tracks, playRemote]);
 
   const handleRemoveTrack = async (trackId: string) => {
     try {
@@ -68,6 +94,23 @@ export function PlaylistDetailScreen() {
       setTracks(prev => prev.filter(t => t.track_id !== trackId));
     } catch (error) {
       console.error('[PlaylistDetail] remove track error:', error);
+    }
+  };
+
+  const handleRenamePlaylist = async () => {
+    if (!newName.trim() || newName === title) {
+      setIsRenameVisible(false);
+      return;
+    }
+    setIsRenaming(true);
+    try {
+      await updatePlaylist(playlistId, newName);
+      setTitle(newName);
+      setIsRenameVisible(false);
+    } catch (error) {
+      console.error('[PlaylistDetail] rename error:', error);
+    } finally {
+      setIsRenaming(false);
     }
   };
 
@@ -80,16 +123,90 @@ export function PlaylistDetailScreen() {
     }
   };
 
+  // Reanimated Styles
+  const headerBgStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      scrollY.value,
+      [SCROLL_DISTANCE * 0.5, SCROLL_DISTANCE],
+      [0, 1],
+      Extrapolation.CLAMP
+    );
+    return { opacity };
+  });
+
+  const headerTitleStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      scrollY.value,
+      [SCROLL_DISTANCE * 0.7, SCROLL_DISTANCE],
+      [0, 1],
+      Extrapolation.CLAMP
+    );
+    return { opacity };
+  });
+
+  const listHeaderStyle = useAnimatedStyle(() => {
+    const translateY = interpolate(
+      scrollY.value,
+      [0, SCROLL_DISTANCE],
+      [0, -20],
+      Extrapolation.CLAMP
+    );
+    return { transform: [{ translateY }] };
+  });
+
+  const artworkStyle = useAnimatedStyle(() => {
+    const scale = interpolate(
+      scrollY.value,
+      [-100, 0, SCROLL_DISTANCE],
+      [1.1, 1, 0.7],
+      Extrapolation.CLAMP
+    );
+    const opacity = interpolate(
+      scrollY.value,
+      [0, SCROLL_DISTANCE],
+      [1, 0],
+      Extrapolation.CLAMP
+    );
+    return { transform: [{ scale }], opacity };
+  });
+
+  const metadataStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      scrollY.value,
+      [0, SCROLL_DISTANCE * 0.6],
+      [1, 0],
+      Extrapolation.CLAMP
+    );
+    return { opacity };
+  });
+
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
+      {/* Dynamic Header Background */}
+      <Animated.View 
+        style={[
+          styles.headerBackground, 
+          { paddingTop: insets.top + 10 },
+          headerBgStyle
+        ]} 
+      />
+      
+      {/* Sticky Top Bar Content */}
+      <View style={[styles.topBar, { paddingTop: insets.top + 10 }]}>
+        <Pressable onPress={() => navigation.goBack()} style={styles.iconBtn}>
           <ChevronLeft size={28} color={colors.textPrimary} />
         </Pressable>
-        <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
-        <Pressable onPress={handleDeletePlaylist} style={styles.menuBtn}>
-          <Trash2 size={20} color={colors.error} />
-        </Pressable>
+        <Animated.Text style={[styles.topBarTitle, headerTitleStyle]} numberOfLines={1}>
+          {title}
+        </Animated.Text>
+        <View style={styles.topBarActions}>
+          <Pressable onPress={() => setIsRenameVisible(true)} style={styles.iconBtn}>
+            <Edit2 size={20} color={colors.textSecondary} />
+          </Pressable>
+          <Pressable onPress={handleDeletePlaylist} style={styles.iconBtn}>
+            <Trash2 size={20} color={colors.error} />
+          </Pressable>
+        </View>
       </View>
 
       {loading ? (
@@ -97,152 +214,196 @@ export function PlaylistDetailScreen() {
           <ActivityIndicator size="large" color={colors.brand} />
         </View>
       ) : (
-        <FlatList
+        <Animated.FlatList
+          onScroll={scrollHandler}
+          scrollEventThrottle={16}
           data={tracks}
           keyExtractor={(item) => item.id}
           ListHeaderComponent={
-            <View style={styles.listHeader}>
-              <View style={styles.playlistArtLarge}>
-                <Music size={64} color={colors.surfaceElevated} />
-              </View>
-              <Text style={styles.playlistNameLarge}>{title}</Text>
-              <Text style={styles.playlistStats}>{tracks.length} tracks • Custom Playlist</Text>
+            <Animated.View style={[styles.listHeader, listHeaderStyle]}>
+              <Animated.View style={[styles.artContainer, artworkStyle]}>
+                {tracks.length > 0 && tracks[0].track_metadata.artwork ? (
+                  <Image source={{ uri: tracks[0].track_metadata.artwork }} style={styles.artImage} />
+                ) : (
+                  <Music size={64} color={colors.textSecondary} />
+                )}
+              </Animated.View>
+              <Animated.View style={metadataStyle}>
+                <Text style={styles.playlistName}>{title}</Text>
+                <Text style={styles.playlistMeta}>
+                  {tracks.length} tracks • Custom Playlist
+                </Text>
+              </Animated.View>
               
-              <Pressable style={styles.playAllBtn} onPress={handlePlayAll}>
+              <Pressable style={styles.playBtn} onPress={handlePlayAll}>
                 <Play size={20} color="#000" fill="#000" />
-                <Text style={styles.playAllText}>Play All</Text>
+                <Text style={styles.playText}>Play All</Text>
               </Pressable>
-            </View>
+            </Animated.View>
           }
-          renderItem={({ item }) => (
+          renderItem={({ item, index }) => (
             <TrackRow
               title={item.track_metadata.title}
               artist={item.track_metadata.artist}
-              thumbnail={item.track_metadata.artwork}
+              thumbnail={item.track_metadata.artwork || ''}
+              album={item.track_metadata.album}
+              isActive={item.track_id === activeRemoteTrackId}
               onPress={() => {
-                playRemote({
-                  id: item.track_id,
-                  title: item.track_metadata.title,
-                  artist: item.track_metadata.artist,
-                  thumbnail: item.track_metadata.artwork || '',
-                  album: item.track_metadata.album,
-                  duration_ms: item.track_metadata.duration || 0,
-                  source: item.track_metadata.source,
-                });
+                const queue = tracks.map(t => ({
+                  id: t.track_id,
+                  title: t.track_metadata.title,
+                  artist: t.track_metadata.artist,
+                  thumbnail: t.track_metadata.artwork || '',
+                  album: t.track_metadata.album,
+                  duration_ms: t.track_metadata.duration || 0,
+                  source: t.track_metadata.source,
+                }));
+                playRemote(queue[index], queue, index);
               }}
-              rightSlot={
-                <Pressable onPress={() => handleRemoveTrack(item.track_id)} style={styles.rowAction}>
-                  <Trash2 size={16} color={colors.textMuted} />
-                </Pressable>
-              }
+              onLongPress={() => handleRemoveTrack(item.track_id)}
+              showMenuIcon={true}
             />
           )}
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <Text style={styles.emptyText}>This playlist is empty.</Text>
-              <Text style={styles.emptySub}>Add some tracks from Search or Home!</Text>
+              <Text style={styles.emptySub}>Add tracks from Search or Home!</Text>
             </View>
           }
         />
       )}
+
+      {/* Rename Modal */}
+      <Modal visible={isRenameVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Rename Playlist</Text>
+              <Pressable onPress={() => setIsRenameVisible(false)}>
+                <X size={20} color={colors.textSecondary} />
+              </Pressable>
+            </View>
+            <TextInput
+              style={styles.modalInput}
+              value={newName}
+              onChangeText={setNewName}
+              placeholder="Enter name"
+              placeholderTextColor={colors.textSecondary}
+              autoFocus
+            />
+            <View style={styles.modalActions}>
+              <Pressable style={[styles.modalBtn, styles.modalCancel]} onPress={() => setIsRenameVisible(false)}>
+                <Text style={styles.cancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable style={[styles.modalBtn, styles.modalSave]} onPress={handleRenamePlaylist} disabled={isRenaming}>
+                {isRenaming ? <ActivityIndicator size="small" color="#000" /> : <Text style={styles.saveText}>Save</Text>}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
+  container: { flex: 1, backgroundColor: colors.background },
+  headerBackground: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0,
+    height: 100,
+    backgroundColor: colors.surface,
+    zIndex: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
   },
-  header: {
+  topBar: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0,
+    zIndex: 20,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.md,
-    paddingBottom: spacing.md,
-    gap: spacing.sm,
+    height: 100,
   },
-  backBtn: {
-    padding: spacing.xs,
-  },
-  headerTitle: {
+  topBarTitle: {
     flex: 1,
     color: colors.textPrimary,
     fontSize: 18,
     fontWeight: '700',
+    marginHorizontal: spacing.sm,
   },
-  menuBtn: {
-    padding: spacing.xs,
-  },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  topBarActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  iconBtn: { padding: spacing.xs },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   listHeader: {
     alignItems: 'center',
-    paddingVertical: spacing.xl,
+    paddingTop: 100,
+    paddingBottom: spacing.xl,
     paddingHorizontal: spacing.lg,
   },
-  playlistArtLarge: {
-    width: 180,
-    height: 180,
+  artContainer: {
+    width: 200,
+    height: 200,
     borderRadius: radii.xl,
     backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
     marginBottom: spacing.lg,
-    elevation: 10,
+    overflow: 'hidden',
+    elevation: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.4,
     shadowRadius: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  playlistNameLarge: {
+  artImage: { width: '100%', height: '100%', resizeMode: 'cover' },
+  playlistName: {
     color: colors.textPrimary,
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '800',
     textAlign: 'center',
   },
-  playlistStats: {
+  playlistMeta: {
     color: colors.textSecondary,
-    fontSize: 14,
+    fontSize: 15,
     marginTop: 4,
-    marginBottom: spacing.xl,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
   },
-  playAllBtn: {
+  playBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.brand,
-    paddingHorizontal: 32,
-    paddingVertical: 12,
+    paddingHorizontal: 40,
+    paddingVertical: 14,
     borderRadius: radii.full,
-    gap: 8,
+    gap: 10,
   },
-  playAllText: {
-    color: '#000',
-    fontSize: 16,
-    fontWeight: '800',
+  playText: { color: '#000', fontSize: 16, fontWeight: '800' },
+  listContent: { paddingBottom: 180 },
+  emptyState: { alignItems: 'center', paddingTop: 60 },
+  emptyText: { color: colors.textPrimary, fontSize: 16, fontWeight: '600' },
+  emptySub: { color: colors.textSecondary, fontSize: 14, marginTop: 4 },
+  modalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center', alignItems: 'center', padding: spacing.xl,
   },
-  listContent: {
-    paddingBottom: 120,
+  modalCard: {
+    backgroundColor: colors.surface, width: '100%',
+    borderRadius: radii.xl, padding: spacing.lg,
   },
-  rowAction: {
-    padding: spacing.sm,
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.lg },
+  modalTitle: { color: colors.textPrimary, fontSize: 18, fontWeight: '700' },
+  modalInput: {
+    backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: radii.md,
+    padding: spacing.md, color: colors.textPrimary, marginBottom: spacing.xl,
   },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 40,
-  },
-  emptyText: {
-    color: colors.textPrimary,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  emptySub: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    marginTop: 4,
-  },
+  modalActions: { flexDirection: 'row', gap: spacing.md },
+  modalBtn: { flex: 1, paddingVertical: spacing.md, borderRadius: radii.md, alignItems: 'center' },
+  modalCancel: { backgroundColor: 'rgba(255,255,255,0.05)' },
+  modalSave: { backgroundColor: colors.brand },
+  cancelText: { color: colors.textSecondary, fontWeight: '600' },
+  saveText: { color: '#000', fontWeight: '800' },
 });
