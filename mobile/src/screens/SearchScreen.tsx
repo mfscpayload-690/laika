@@ -1,4 +1,5 @@
 import React, {useCallback, useMemo, useRef, useState} from 'react';
+import { useMusicState } from '../context/MusicStateContext';
 import {
   ActivityIndicator,
   FlatList,
@@ -12,7 +13,7 @@ import { Music, Search, SearchX, X } from 'lucide-react-native';
 
 import { IconButton } from '../components/IconButton';
 import { TrackRow } from '../components/TrackRow';
-import { searchTracks } from '../services/api';
+import { searchTracks, prefetchTrack } from '../services/api';
 import { useUI } from '../context/UIContext';
 import { BouncyPressable } from '../components/BouncyPressable';
 import { colors, radii, spacing, typography } from '../theme';
@@ -34,11 +35,10 @@ function formatDuration(ms: number): string {
   return `${min}:${sec.toString().padStart(2, '0')}`;
 }
 
-export function SearchScreen({
-  onSelectTrack,
-  resolvingId,
-  activeTrackId,
-}: SearchScreenProps) {
+
+export default function SearchScreen() {
+  const musicState = useMusicState();
+  const { onPlayTrack: onSelectTrack, resolvingId, activeRemoteTrackId: activeTrackId } = musicState;
   const { showAddToPlaylist } = useUI();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<RemoteTrack[]>([]);
@@ -59,6 +59,13 @@ export function SearchScreen({
       const tracks = await searchTracks(q.trim());
       InteractionManager.runAfterInteractions(() => {
         setResults(tracks);
+        
+        // Phase 1: Pre-resolve TOP 3 results for <300ms playback
+        if (tracks.length > 0) {
+          const top3 = tracks.slice(0, 3);
+          top3.forEach(t => prefetchTrack(t));
+        }
+
         if (__DEV__ && queryStartRef.current) {
           const elapsed = Date.now() - queryStartRef.current;
           console.log(`[perf] search:input->result ${elapsed}ms`);
@@ -121,7 +128,10 @@ export function SearchScreen({
       thumbnail={item.thumbnail}
       isActive={item.id === activeTrackId}
       isLoading={item.id === resolvingId}
-      onPress={() => onSelectTrack(item)}
+      onPress={() => {
+        const index = visibleResults.findIndex(t => t.id === item.id);
+        onSelectTrack(item, visibleResults, index);
+      }}
       onLongPress={() => showAddToPlaylist(item)}
       showMenuIcon={true}
       disabled={item.id === resolvingId}
@@ -223,6 +233,8 @@ export function SearchScreen({
   );
 }
 
+SearchScreen.displayName = 'SearchScreen';
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -274,7 +286,7 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: spacing.base,
     paddingTop: spacing.xs,
-    paddingBottom: spacing.xxxl * 1.5,
+    paddingBottom: 180,
   },
   // Centered states
   centeredState: {
