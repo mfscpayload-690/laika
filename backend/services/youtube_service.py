@@ -1,6 +1,8 @@
 import re
 import asyncio
 import json
+import os
+import time
 from typing import List, Optional, Tuple
 import httpx
 from fastapi import HTTPException, status
@@ -9,13 +11,49 @@ from core.config import get_settings
 
 YOUTUBE_SEARCH_URL = "https://www.googleapis.com/youtube/v3/search"
 YOUTUBE_VIDEOS_URL = "https://www.googleapis.com/youtube/v3/videos"
-
+CACHE_FILE = "backend/cache/youtube_cache.json"
 
 class YoutubeService:
     def __init__(self):
         self._client: Optional[httpx.AsyncClient] = None
         self._resolution_cache = {}  # {metadata_key: video_url}
         self._stream_cache = {}      # {video_url: (stream_url, expiry)}
+        self._extract_semaphore = asyncio.Semaphore(3) # Limit concurrent yt-dlp calls
+        self._load_cache()
+
+    def _load_cache(self):
+        if os.path.exists(CACHE_FILE):
+            try:
+                with open(CACHE_FILE, "r") as f:
+                    data = json.load(f)
+                    self._resolution_cache = data.get("resolution", {})
+                    # Clean expired stream cache
+                    now = time.time()
+                    self._stream_cache = {
+                        k: v for k, v in data.get("stream", {}).items()
+                        if v[1] > now
+                    }
+                print(f"DEBUG: Loaded cache - {len(self._resolution_cache)} resolutions, {len(self._stream_cache)} streams")
+            except Exception as e:
+                print(f"DEBUG: Failed to load cache: {e}")
+
+    def _save_cache(self):
+        try:
+            with open(CACHE_FILE, "w") as f:
+                json.dump({
+                    "resolution": self._resolution_cache,
+                    "stream": self._stream_cache
+                }, f)
+        except Exception as e:
+            print(f"DEBUG: Failed to save cache: {e}")
+
+    def _get_metadata_key(self, title: str, artist: str) -> str:
+        return f"{title.lower()}|{artist.lower()}"
+
+    def set_resolution(self, title: str, artist: str, video_url: str):
+        key = self._get_metadata_key(title, artist)
+        self._resolution_cache[key] = video_url
+        self._save_cache()
 
     def _get_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
@@ -149,6 +187,21 @@ class YoutubeService:
         """
         Candidate search for resolver: returns raw dicts for the matching engine.
         """
+        # 1. Check resolution cache
+        meta_key = self._get_metadata_key(track.title, track.artist)
+        if meta_key in self._resolution_cache:
+            cached_url = self._resolution_cache[meta_key]
+            print(f"DEBUG: Resolution cache hit for {track.title} -> {cached_url}")
+            # If cached, we return a single strong candidate to skip search
+            return [{
+                "id": cached_url.split("v=")[-1],
+                "title": track.title,
+                "duration_ms": track.duration_ms,
+                "url": cached_url,
+                "uploader": track.artist,
+                "thumbnail": "",
+            }]
+
         query = f"{track.artist} {track.title}"
         client = self._get_client()
         api_key = self._api_key()
@@ -223,78 +276,80 @@ class YoutubeService:
             if now < expiry:
                 return {
                     "url": stream_url,
-                    "title": "Cached Track", # Optional: store title in cache too
-                    "duration": 0, # Optional: store duration in cache too
+                    "title": "Cached Track",
+                    "duration": 0,
                 }
 
-        command = [
-            "yt-dlp",
-            "-j",
-            "--no-playlist",
-            "--flat-playlist",
-            "--no-warnings",
-            "--quiet",
-            "--no-check-certificates",
-            "--geo-bypass",
-            "-f", "ba[ext=m4a]/ba/b",
-            video_url,
-        ]
-
-        try:
-            process = await asyncio.create_subprocess_exec(
-                *command,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
+        # 2. Extract with semaphore to limit concurrency
+        async with self._extract_semaphore:
+            command = [
+                "yt-dlp",
+                "-j",
+                "--no-playlist",
+                "--flat-playlist",
+                "--no-warnings",
+                "--quiet",
+                "--no-check-certificates",
+                "--geo-bypass",
+                "-f", "ba[ext=m4a]/ba/b",
+                video_url,
+            ]
 
             try:
-                stdout, stderr = await asyncio.wait_for(
-                    process.communicate(), timeout=45.0
+                process = await asyncio.create_subprocess_exec(
+                    *command,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE
                 )
-            except asyncio.TimeoutError:
-                process.kill()
+
+                try:
+                    stdout, stderr = await asyncio.wait_for(
+                        process.communicate(), timeout=45.0
+                    )
+                except asyncio.TimeoutError:
+                    process.kill()
+                    raise HTTPException(
+                        status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                        detail="Audio extraction timed out"
+                    )
+
+                last_stderr = stderr.decode()
+
+                if process.returncode == 0:
+                    data = json.loads(stdout.decode())
+                    audio_url = data.get("url")
+                    if audio_url:
+                        # 2. Extract Expiry from URL or default to 2 hours
+                        ttl = 7200 # 2 hours default
+                        expire_match = re.search(r"expire=(\d+)", audio_url)
+                        if expire_match:
+                            # YouTube expiration is absolute epoch time
+                            yt_expire = int(expire_match.group(1))
+                            ttl = yt_expire - int(time.time()) - 300 # Buffer of 5 mins
+                        
+                        self._stream_cache[video_url] = (audio_url, now + ttl)
+                        self._save_cache()
+                        
+                        return {
+                            "url": audio_url,
+                            "title": data.get("title"),
+                            "duration": data.get("duration", 0) * 1000,
+                        }
+
+                print(f"DEBUG: yt-dlp failed: {last_stderr[:300]}")
                 raise HTTPException(
-                    status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-                    detail="Audio extraction timed out"
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail="Could not extract audio."
                 )
 
-            last_stderr = stderr.decode()
-
-            if process.returncode == 0:
-                data = json.loads(stdout.decode())
-                audio_url = data.get("url")
-                if audio_url:
-                    # 2. Extract Expiry from URL or default to 2 hours
-                    ttl = 7200 # 2 hours default
-                    expire_match = re.search(r"expire=(\d+)", audio_url)
-                    if expire_match:
-                        # YouTube expiration is absolute epoch time
-                        import time
-                        yt_expire = int(expire_match.group(1))
-                        ttl = yt_expire - int(time.time()) - 300 # Buffer of 5 mins
-                    
-                    self._stream_cache[video_url] = (audio_url, now + ttl)
-                    
-                    return {
-                        "url": audio_url,
-                        "title": data.get("title"),
-                        "duration": data.get("duration", 0) * 1000,
-                    }
-
-            print(f"DEBUG: yt-dlp failed: {last_stderr[:300]}")
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="Could not extract audio."
-            )
-
-        except HTTPException:
-            raise
-        except Exception as e:
-            print(f"DEBUG: yt-dlp exception: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=str(e)
-            )
+            except HTTPException:
+                raise
+            except Exception as e:
+                print(f"DEBUG: yt-dlp exception: {e}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=str(e)
+                )
 
 
     async def close(self):
