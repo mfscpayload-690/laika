@@ -7,307 +7,160 @@ import {
   Text,
   TextInput,
   View,
-  PanResponder,
   Animated,
-  Dimensions,
+  Image,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { ChevronDown, ChevronUp, Search as SearchIcon, Plus, ListMusic, ChevronRight } from 'lucide-react-native';
+import { 
+  ChevronDown, 
+  ChevronUp, 
+  Search as SearchIcon, 
+  Plus, 
+  ListMusic, 
+  ChevronRight, 
+  Folder, 
+  HardDrive, 
+  Trash2,
+  Heart
+} from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePlaylists } from '../context/PlaylistContext';
+import { useLikes } from '../context/LikesContext';
 import { useUI } from '../context/UIContext';
 import { BouncyPressable } from '../components/BouncyPressable';
-
-import { SongList } from '../components/SongList';
-import { AlphabetSidebar } from '../components/AlphabetSidebar';
 import { colors, radii, spacing, typography } from '../theme';
-import type { LocalSong } from '../types/music';
+import { useMusicState } from '../context/MusicStateContext';
 
-type LibraryScreenProps = {
-  songs: LocalSong[];
-  currentTrackId?: string;
-  onPressSong: (songId: string) => void;
-  onOpenPlayer: () => void;
-  onScan: () => void;
-};
-
-const ALPHABET = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
-
-function getEffectiveTimestamp(song: LocalSong): number {
-  return song.addedAt ?? song.modifiedAt ?? 0;
-}
-
-function matchesAlphabetFilter(song: LocalSong, letter: string): boolean {
-  if (letter === 'all') {
-    return true;
-  }
-  return song.title.charAt(0).toUpperCase() === letter;
-}
-
-function sortSongs(songs: LocalSong[], ascending: boolean): LocalSong[] {
-  const copy = [...songs];
-  
-  return copy.sort((a, b) => {
-    const aTime = getEffectiveTimestamp(a);
-    const bTime = getEffectiveTimestamp(b);
-    
-    if (ascending) {
-      return aTime - bTime || a.title.localeCompare(b.title);
-    }
-    return bTime - aTime || a.title.localeCompare(b.title);
-  });
-}
-
-export function LibraryScreen({
-  songs,
-  currentTrackId,
-  onPressSong,
-  onOpenPlayer,
-  onScan,
-}: LibraryScreenProps) {
-  const [query, setQuery] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');
-  const [alphabetFilter, setAlphabetFilter] = useState<'all' | string>('all');
-  const [dateAddedAscending, setDateAddedAscending] = useState(false);
-  const [activeTab, setActiveTab] = useState<'songs' | 'playlists'>('songs');
-  const { playlists, createPlaylist, refreshPlaylists } = usePlaylists();
-  const { showAddToPlaylist } = useUI();
+export default function LibraryScreen() {
+  const musicState = useMusicState();
+  const { songs } = musicState;
+  const { likedTracks } = useLikes();
+  const { playlists, createPlaylist, deletePlaylist } = usePlaylists();
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
 
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('tabPress', (e: any) => {
-      // Reset filter to 'all' when the user taps the Library tab again
-      setAlphabetFilter('all');
-    });
-    return unsubscribe;
-  }, [navigation]);
-  const sidebarOpacity = React.useRef(new Animated.Value(0.3)).current;
-  const hideTimer = React.useRef<any>(null);
-  const lastUpdate = React.useRef(0);
-
-  const showSidebar = () => {
-    if (hideTimer.current) clearTimeout(hideTimer.current);
-    Animated.timing(sidebarOpacity, {
-      toValue: 1.0,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-
-    hideTimer.current = setTimeout(() => {
-      Animated.timing(sidebarOpacity, {
-        toValue: 0.3,
-        duration: 500,
-        useNativeDriver: true,
-      }).start();
-    }, 2000);
+  const handleCreateFolder = async () => {
+    const name = `New Folder #${playlists.length + 1}`;
+    await createPlaylist(name);
   };
 
-  const handleLetterChange = React.useCallback((letter: string, isFinal: boolean) => {
-    const now = Date.now();
-    // Throttle the heavy list re-render, but guarantee final state
-    if (isFinal || now - lastUpdate.current > 150) {
-      if (alphabetFilter !== letter) {
-        setAlphabetFilter(letter);
-      }
-      lastUpdate.current = now;
-    }
-  }, [alphabetFilter]);
+  const StackedCover = ({ images, type }: { images: string[], type: 'local' | 'liked' | 'playlist' }) => {
+    return (
+      <View style={styles.stackedContainer}>
+        {/* Tier 3 (Back) - Tilted Left */}
+        <View style={[styles.tierCard, styles.tier3]}>
+          {images[2] ? (
+            <Image source={{ uri: images[2] }} style={styles.tierImage} />
+          ) : (
+            <View style={styles.tierPlaceholder} />
+          )}
+        </View>
+        {/* Tier 2 (Middle) - Tilted Right */}
+        <View style={[styles.tierCard, styles.tier2]}>
+          {images[1] ? (
+            <Image source={{ uri: images[1] }} style={styles.tierImage} />
+          ) : (
+            <View style={styles.tierPlaceholder} />
+          )}
+        </View>
+        {/* Tier 1 (Front) - Straight with vibrant border */}
+        <View style={[
+          styles.tierCard, 
+          styles.tier1, 
+          type === 'local' && styles.localFront, 
+          type === 'liked' && styles.likedFront
+        ]}>
+          {images[0] ? (
+            <Image source={{ uri: images[0] }} style={styles.tierImage} />
+          ) : type === 'local' ? (
+            <HardDrive size={32} color={colors.brand} />
+          ) : type === 'liked' ? (
+            <Heart size={32} color="#ff4b2b" fill="#ff4b2b" />
+          ) : (
+            <ListMusic size={32} color={colors.textSecondary} />
+          )}
+        </View>
+      </View>
+    );
+  };
 
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      InteractionManager.runAfterInteractions(() => {
-        setDebouncedQuery(query);
-      });
-    }, 180);
-
-    return () => clearTimeout(timeout);
-  }, [query]);
-
-  useEffect(() => {
-    if (!__DEV__) {
-      return;
-    }
-
-    const perfStart = Date.now();
-    const id = setTimeout(() => {
-      const elapsed = Date.now() - perfStart;
-      console.log(`[perf] library:first-paint ${elapsed}ms`);
-    }, 0);
-
-    return () => clearTimeout(id);
-  }, []);
-
-  const sortedSongs = useMemo(() => sortSongs(songs, dateAddedAscending), [songs, dateAddedAscending]);
-
-  const songsByAlphabet = useMemo(() => {
-    const map: Record<string, LocalSong[]> = { all: sortedSongs };
-    ALPHABET.forEach(letter => { map[letter] = []; });
-    
-    sortedSongs.forEach(song => {
-      const firstChar = song.title.charAt(0).toUpperCase();
-      if (map[firstChar]) {
-        map[firstChar].push(song);
-      }
-    });
-    return map;
-  }, [sortedSongs]);
-
-  const visibleSongs = useMemo(() => {
-    const pool = songsByAlphabet[alphabetFilter] || [];
-    const normalizedQuery = debouncedQuery.trim().toLowerCase();
-    
-    if (!normalizedQuery) {
-      return pool;
-    }
-
-    return pool.filter(song => {
-      const searchText = `${song.title} ${song.artist} ${song.album ?? ''}`.toLowerCase();
-      return searchText.includes(normalizedQuery);
-    });
-  }, [alphabetFilter, songsByAlphabet, debouncedQuery]);
-
-  const handleLongPress = useCallback((song: LocalSong) => {
-    showAddToPlaylist(song);
-  }, [showAddToPlaylist]);
-
-  const activeFilterCount =
-    (alphabetFilter === 'all' ? 0 : 1) +
-    (debouncedQuery.trim() ? 1 : 0);
+  const renderFolder = (item: { id: string; name: string; count: number; type: 'local' | 'liked' | 'playlist'; images: string[] }) => {
+    return (
+      <BouncyPressable
+        key={item.id}
+        style={styles.folderCard}
+        onPress={() => {
+          if (item.type === 'local') {
+            navigation.navigate('LocalSongs');
+          } else if (item.type === 'liked') {
+            navigation.navigate('LikedSongs');
+          } else {
+            navigation.navigate('PlaylistDetail', { playlistId: item.id, title: item.name });
+          }
+        }}
+      >
+        <View style={styles.folderArt}>
+          <StackedCover images={item.images} type={item.type} />
+          {item.type === 'playlist' && (
+            <Pressable 
+              style={styles.folderDeleteBtn}
+              onPress={() => deletePlaylist(item.id)}
+            >
+              <Trash2 size={16} color={colors.error} />
+            </Pressable>
+          )}
+        </View>
+        <View style={styles.folderInfo}>
+          <Text style={styles.folderName} numberOfLines={1}>{item.name}</Text>
+          <Text style={styles.folderMeta}>{item.count} items</Text>
+        </View>
+      </BouncyPressable>
+    );
+  };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.headerRow}>
-        <View>
-          <Text style={styles.title}>Your Library</Text>
-        </View>
-        <View style={styles.tabContainer}>
-          <BouncyPressable 
-            onPress={() => setActiveTab('songs')} 
-            style={[styles.tab, activeTab === 'songs' && styles.activeTab]}
-          >
-            <Text style={[styles.tabText, activeTab === 'songs' && styles.activeTabText]}>Songs</Text>
-          </BouncyPressable>
-          <BouncyPressable 
-            onPress={() => setActiveTab('playlists')} 
-            style={[styles.tab, activeTab === 'playlists' && styles.activeTab]}
-          >
-            <Text style={[styles.tabText, activeTab === 'playlists' && styles.activeTabText]}>Playlists</Text>
-          </BouncyPressable>
-        </View>
+    <View style={[styles.container, { paddingTop: insets.top + 10 }]}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Library</Text>
+        <BouncyPressable style={styles.addBtn} onPress={handleCreateFolder}>
+          <Plus size={24} color={colors.textPrimary} />
+        </BouncyPressable>
       </View>
 
-      {activeTab === 'songs' ? (
-        <>
+      <ScrollView 
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.grid}>
+          {/* Local Files Folder */}
+          {renderFolder({
+            id: 'local',
+            name: 'Local Files',
+            count: songs.length,
+            type: 'local',
+            images: songs.slice(0, 3).map(s => s.artwork).filter(Boolean) as string[]
+          })}
 
-      <View style={styles.metaRow}>
-        {activeFilterCount > 0 ? (
-          <Text style={styles.filterSummary}>{activeFilterCount} filters active • {visibleSongs.length} items found</Text>
-        ) : null}
-      </View>
+          {/* Liked Songs Folder */}
+          {renderFolder({
+            id: 'liked',
+            name: 'Liked Songs',
+            count: likedTracks.length,
+            type: 'liked',
+            images: likedTracks.slice(0, 3).map(t => t.track_metadata.artwork).filter(Boolean) as string[]
+          })}
 
-      <View style={styles.searchBar}>
-        <SearchIcon size={18} color={colors.textMuted} style={styles.searchIcon} />
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Filter local songs"
-          placeholderTextColor={colors.textMuted}
-          style={styles.searchInput}
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-      </View>
-
-      {/* Date Added Filter */}
-      <View style={styles.filterSection}>
-        <View style={styles.filterHeaderRow}>
-          <Text style={styles.filterTitle}>Date Added</Text>
-          <Pressable
-            onPress={() => setDateAddedAscending(!dateAddedAscending)}
-            style={styles.dateToggle}
-            accessibilityRole="button"
-            accessibilityLabel={`Sort by date ${dateAddedAscending ? 'ascending' : 'descending'}`}>
-            {dateAddedAscending ? (
-              <ChevronUp size={20} color={colors.brand} />
-            ) : (
-              <ChevronDown size={20} color={colors.brand} />
-            )}
-          </Pressable>
+          {/* Custom Playlists */}
+          {playlists.map(playlist => renderFolder({
+            id: playlist.id,
+            name: playlist.name,
+            count: playlist.track_count || 0,
+            type: 'playlist',
+            images: playlist.top_artworks || []
+          }))}
         </View>
-        <Text style={styles.dateInfo}>
-          {dateAddedAscending ? 'Oldest first' : 'Newest first'}
-        </Text>
-      </View>
-
-      <View style={styles.listContainer}>
-        <View style={styles.listWrap}>
-          <SongList
-            songs={visibleSongs}
-            currentTrackId={currentTrackId}
-            onPressSong={onPressSong}
-            onScanPress={onScan}
-            onLongPressSong={handleLongPress}
-            onScroll={showSidebar}
-            onScrollBeginDrag={showSidebar}
-          />
-        </View>
-
-        <AlphabetSidebar 
-          currentFilter={alphabetFilter} 
-          onLetterChange={handleLetterChange}
-          opacityAnim={sidebarOpacity}
-          onInteractStart={showSidebar}
-        />
-      </View>
-        </>
-      ) : (
-        <View style={styles.playlistSection}>
-          <View style={styles.playlistHeader}>
-            <Text style={styles.playlistCount}>{playlists.length} Playlists</Text>
-            <BouncyPressable 
-              style={styles.createBtn}
-              onPress={() => {
-                const name = `My Playlist #${playlists.length + 1}`;
-                createPlaylist(name).catch(err => console.error(err));
-              }}
-            >
-              <Plus size={20} color={colors.brand} />
-              <Text style={styles.createBtnText}>New Playlist</Text>
-            </BouncyPressable>
-          </View>
-          
-          <ScrollView 
-            style={styles.playlistList}
-            contentContainerStyle={styles.playlistContent}
-          >
-            {playlists.length === 0 ? (
-              <View style={styles.emptyPlaylists}>
-                <ListMusic size={48} color={colors.surfaceElevated} />
-                <Text style={styles.emptyTitle}>No playlists yet</Text>
-                <Text style={styles.emptySub}>Create your first playlist to organize your music</Text>
-              </View>
-            ) : (
-              playlists.map(p => (
-                <Pressable 
-                  key={p.id} 
-                  style={styles.playlistItem}
-                  onPress={() => navigation.navigate('PlaylistDetail', { playlistId: p.id, title: p.name })}
-                >
-                  <View style={styles.playlistArt}>
-                    <ListMusic size={24} color={colors.textMuted} />
-                  </View>
-                  <View style={styles.playlistInfo}>
-                    <Text style={styles.playlistName}>{p.name}</Text>
-                    <Text style={styles.playlistMeta}>
-                      {p.description || 'Custom playlist'}
-                    </Text>
-                  </View>
-                  <ChevronRight size={18} color={colors.textMuted} />
-                </Pressable>
-              ))
-            )}
-          </ScrollView>
-        </View>
-      )}
+      </ScrollView>
     </View>
   );
 }
@@ -315,219 +168,140 @@ export function LibraryScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: spacing.base,
-    paddingTop: spacing.sm,
-    paddingBottom: 40,
     backgroundColor: colors.background,
+    paddingHorizontal: spacing.lg,
   },
-  headerRow: {
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    gap: spacing.sm,
+    marginBottom: spacing.xl,
   },
   title: {
     color: colors.textPrimary,
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 28,
+    fontWeight: '800',
   },
-  subtitle: {
-    marginTop: 2,
-    ...typography.caption,
-    color: colors.textSecondary,
+  addBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  tabContainer: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  tab: {
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-  },
-  activeTab: {
-    borderBottomColor: colors.brand,
-  },
-  tabText: {
-    color: colors.textMuted,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  activeTabText: {
-    color: colors.brand,
-  },
-  playlistSection: {
+  scroll: {
     flex: 1,
-    marginTop: spacing.md,
   },
-  playlistHeader: {
+  scrollContent: {
+    paddingBottom: 180,
+    paddingTop: spacing.md,
+  },
+  grid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
+  },
+  folderCard: {
+    width: '48%', // More accurate for 2 columns
+    marginBottom: spacing.lg,
+  },
+  folderArt: {
+    width: '100%',
+    aspectRatio: 0.85, // Better fit for vertical stack
+    borderRadius: radii.xl,
+    justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.md,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    overflow: 'hidden',
+    position: 'relative',
+    // Glassmorphism effect
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 5,
   },
-  playlistCount: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    fontWeight: '700',
-  },
-  createBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(29, 185, 84, 0.1)',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radii.full,
-  },
-  createBtnText: {
-    color: colors.brand,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  playlistList: {
-    flex: 1,
-    marginHorizontal: -spacing.base,
-  },
-  playlistContent: {
-    paddingHorizontal: spacing.base,
-    paddingBottom: 100,
-  },
-  playlistItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    gap: spacing.md,
-  },
-  playlistArt: {
-    width: 52,
-    height: 52,
-    borderRadius: radii.md,
-    backgroundColor: colors.surfaceElevated,
-    alignItems: 'center',
+  stackedContainer: {
+    width: '85%',
+    height: '85%',
+    position: 'relative',
     justifyContent: 'center',
+    alignItems: 'center',
   },
-  playlistInfo: {
-    flex: 1,
+  tierCard: {
+    position: 'absolute',
+    width: '75%', // Tighter width for vertical look
+    aspectRatio: 0.75, // Pseudo vertical rectangle
+    borderRadius: radii.lg, // Smoother edges
+    backgroundColor: colors.surfaceElevated,
+    overflow: 'hidden',
+    borderWidth: 1.2,
+    borderColor: 'rgba(255,255,255,0.12)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 10,
   },
-  playlistName: {
+  tier3: {
+    zIndex: 1,
+    transform: [{ rotate: '-12deg' }, { translateX: -20 }, { translateY: -5 }, { scale: 0.85 }],
+    opacity: 0.5,
+  },
+  tier2: {
+    zIndex: 2,
+    transform: [{ rotate: '8deg' }, { translateX: 15 }, { translateY: -2 }, { scale: 0.92 }],
+    opacity: 0.8,
+  },
+  tier1: {
+    zIndex: 3,
+    width: '80%', // Slightly wider front card
+    aspectRatio: 0.75,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tierImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  tierPlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: colors.surfaceBright,
+  },
+  localFront: {
+    borderColor: colors.brand,
+    borderWidth: 1.5,
+  },
+  likedFront: {
+    borderColor: '#ff4b2b',
+    borderWidth: 1.5,
+  },
+  folderInfo: {
+    paddingHorizontal: 4,
+  },
+  folderName: {
     color: colors.textPrimary,
     fontSize: 16,
-    fontWeight: '600',
-  },
-  playlistMeta: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    marginTop: 2,
-  },
-  emptyPlaylists: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 60,
-    gap: spacing.sm,
-  },
-  emptyTitle: {
-    color: colors.textPrimary,
-    fontSize: 18,
     fontWeight: '700',
-    marginTop: spacing.sm,
+    marginBottom: 2,
   },
-  emptySub: {
+  folderMeta: {
     color: colors.textSecondary,
-    fontSize: 14,
-    textAlign: 'center',
-    paddingHorizontal: 40,
+    fontSize: 13,
   },
-  metaRow: {
-    marginTop: spacing.xs,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  filterSummary: {
-    ...typography.caption,
-    color: colors.textMuted,
-    fontWeight: '600',
-  },
-  searchBar: {
-    marginTop: spacing.sm,
-    borderRadius: radii.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.07)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-  },
-  searchIcon: {
-    marginRight: spacing.xs,
-  },
-  searchInput: {
-    flex: 1,
-    color: colors.textPrimary,
-    paddingVertical: spacing.md,
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  filterSection: {
-    marginTop: spacing.md,
-  },
-  filterTitle: {
-    ...typography.label,
-    color: colors.textMuted,
-    marginBottom: spacing.xs,
-  },
-  filterHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
-  },
-  dateToggle: {
-    padding: spacing.xs,
-  },
-  dateInfo: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    fontWeight: '500',
-  },
-  alphabetScroll: {
-    marginHorizontal: -spacing.base,
-  },
-  alphabetContent: {
-    paddingHorizontal: spacing.base,
-    gap: spacing.xs,
-  },
-  alphabetChip: {
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    minWidth: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  alphabetChipActive: {
-    backgroundColor: colors.brand,
-    borderColor: colors.brand,
-  },
-  alphabetLabel: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    fontWeight: '700',
-  },
-  alphabetLabelActive: {
-    color: colors.background,
-  },
-  listContainer: {
-    flex: 1,
-    marginTop: spacing.md,
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  listWrap: {
-    flex: 1,
+  folderDeleteBtn: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    padding: 8,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: radii.full,
+    zIndex: 20,
   },
 });
