@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication Success | Laika Music</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --brand: #1DB954;
+            --bg: #0A0A0A;
+            --text: #FFFFFF;
+            --text-sec: #A0A0A0;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Outfit', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            text-align: center;
+            padding: 2rem;
+            max-width: 400px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .logo {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 1.5rem;
+            filter: drop-shadow(0 0 15px rgba(29, 185, 84, 0.3));
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+            font-weight: 800;
+        }
+
+        p {
+            color: var(--text-sec);
+            margin-bottom: 2rem;
+            line-height: 1.5;
+        }
+
+        .button {
+            display: inline-block;
+            background-color: var(--brand);
+            color: #000;
+            text-decoration: none;
+            padding: 1rem 2rem;
+            border-radius: 3rem;
+            font-weight: 800;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 20px rgba(29, 185, 84, 0.2);
+        }
+
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 30px rgba(29, 185, 84, 0.3);
+        }
+
+        .button:active {
+            transform: scale(0.98);
+        }
+
+        .footer {
+            margin-top: 2rem;
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <svg class="logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="50" cy="50" r="45" fill="#1DB954" fill-opacity="0.1" stroke="#1DB954" stroke-width="2"/>
+            <path d="M35 30V70L75 50L35 30Z" fill="#1DB954"/>
+        </svg>
+        <h1>Login Successful!</h1>
+        <p>You've successfully authenticated. Click the button below to return to the Laika Music app and start listening.</p>
+        
+        <a href="#" id="return-btn" class="button">Back to Laika Music</a>
+        
+        <div class="footer">
+            If the button doesn't work, ensure the app is installed on your device.
+        </div>
+    </div>
+
+    <script>
+        const returnBtn = document.getElementById('return-btn');
+        const hash = window.location.hash;
+        
+        // Deep link URL
+        const appUrl = 'laika-music://auth-callback' + hash;
+        returnBtn.href = appUrl;
+
+        // Auto-redirect after 1 second for better UX
+        setTimeout(() => {
+            window.location.href = appUrl;
+        }, 1500);
+    </script>
+</body>
+</html>
