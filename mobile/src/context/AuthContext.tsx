@@ -33,9 +33,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const handleDeepLink = async (url: string | null) => {
       if (!url) return;
       
-      console.log('[AuthContext] Handling deep link:', url);
-      
       if (url.includes('auth-callback')) {
+        console.log('[AuthContext] Auth callback received, processing tokens...');
         // Parse access_token and refresh_token from the hash
         const parts = url.split('#');
         if (parts.length > 1) {
