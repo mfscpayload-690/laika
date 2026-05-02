@@ -8,7 +8,7 @@
 
 Laika Music is a high-performance, stateless music streaming and discovery application. It leverages a dual-engine architecture to provide instantaneous metadata search via the Piped API and high-fidelity audio resolution through yt-dlp, eliminating the need for a persistent database or third-party premium subscriptions.
 
-## 🚀 Features
+##  Features
 
 - **Instant Discovery**: Real-time track searching and metadata extraction using the Piped API.
 - **High-Fidelity Streaming**: Optimized audio resolution and playback via yt-dlp.
@@ -17,7 +17,7 @@ Laika Music is a high-performance, stateless music streaming and discovery appli
 - **Local Integration**: Native audio scanning for local music libraries.
 - **Privacy-First**: Anonymous searching and no third-party tracking.
 
-## 🏗️ Architecture
+##  Architecture
 
 The system is designed as a stateless intelligence layer that orchestrates between public metadata sources and high-quality audio streams.
 
@@ -26,7 +26,7 @@ The system is designed as a stateless intelligence layer that orchestrates betwe
 - **Playback Pipeline**: Uses yt-dlp for asynchronous, high-accuracy audio stream extraction during the resolution phase.
 - **Frontend**: A React Native application focused on performance, local audio scanning, and a modern, icon-driven user interface.
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 ### Backend
 - **Framework**: [FastAPI](https://fastapi.tiangolo.com/) (Python 3.10+)
@@ -40,7 +40,7 @@ The system is designed as a stateless intelligence layer that orchestrates betwe
 - **Icons**: [Lucide React](https://lucide.dev/)
 - **State Management**: React Hooks & Custom Services
 
-## 📂 Project Structure
+## Project Structure
 
 ```text
 laika-music/
@@ -66,7 +66,7 @@ laika-music/
 └── README.md                   # Project documentation
 ```
 
-## 🚦 Getting Started
+##  Getting Started
 
 ### Prerequisites
 - Python 3.10+
@@ -90,11 +90,11 @@ Contributions are what make the open-source community such an amazing place to l
 
 Please see [CONTRIBUTING.md](CONTRIBUTING.md) for our development workflow and style guidelines.
 
-## 🛡️ Security
+##  Security
 
 We take security seriously. Please report any vulnerabilities privately. See [SECURITY.md](SECURITY.md) for more information.
 
-## 📄 License
+## License
 
 This project is licensed under the GNU General Public License v3.0. See the [LICENSE](LICENSE) file for details.
 
