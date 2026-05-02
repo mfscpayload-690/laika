@@ -139,12 +139,18 @@ class YoutubeService:
         } for t in tracks]
 
     async def _scrape_search(self, query: str, limit: int) -> List[Track]:
-        """Scrape search results using yt-dlp."""
+        """Scrape search results using yt-dlp with mobile impersonation."""
         print(f"Scraping YouTube: {query}")
         try:
+            # Use python3 -m yt_dlp to ensure latest version + Android impersonation
             proc = await asyncio.create_subprocess_exec(
-                "yt-dlp", "--dump-json", "--flat-playlist", f"ytsearch{limit}:{query}",
-                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+                "python3", "-m", "yt_dlp",
+                "--dump-json",
+                "--flat-playlist",
+                "--extractor-args", "youtube:player_client=android",
+                f"ytsearch{limit}:{query}",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
             )
             stdout, _ = await proc.communicate()
             tracks = []
@@ -166,7 +172,7 @@ class YoutubeService:
             return []
 
     async def extract_audio_url(self, video_url: str) -> dict:
-        """Extracts direct audio stream URL with caching and resilient format handling."""
+        """Extracts direct audio stream URL using Android impersonation to bypass bot checks."""
         now = time.time()
         if video_url in self._stream_cache:
             entry = self._stream_cache[video_url]
@@ -174,16 +180,13 @@ class YoutubeService:
                 return entry["data"]
 
         async with self._extract_semaphore:
-            print(f"Extracting audio: {video_url}")
-            # Relaxed format selection for better compatibility
-            # Try bestaudio first, then fallback to anything with audio
+            print(f"Extracting audio (Mobile Impersonation): {video_url}")
+            # The big trick: Impersonate Android player to bypass 'Sign in' blocks
             proc = await asyncio.create_subprocess_exec(
-                "yt-dlp",
+                "python3", "-m", "yt_dlp",
                 "-j",
                 "--no-playlist",
-                "--no-warnings",
-                "--quiet",
-                "--add-header", "User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+                "--extractor-args", "youtube:player_client=android,web",
                 "-f", "bestaudio/best",
                 video_url,
                 stdout=asyncio.subprocess.PIPE,
@@ -193,21 +196,18 @@ class YoutubeService:
             
             if proc.returncode != 0:
                 error_msg = stderr.decode().strip()
-                print(f"yt-dlp extraction error for {video_url}: {error_msg}")
-                raise HTTPException(status_code=502, detail=f"Audio extraction failed: {error_msg[:100]}")
+                print(f"yt-dlp extraction error: {error_msg}")
+                # Log detailed error for diagnostic
+                if "Sign in to confirm" in error_msg:
+                    print("CRITICAL: YouTube is still blocking. Cookies might be required.")
+                raise HTTPException(status_code=502, detail="Audio extraction failed.")
 
             try:
-                raw_out = stdout.decode().strip()
-                if not raw_out:
-                    raise ValueError("Empty output from yt-dlp")
-                    
-                data = json.loads(raw_out)
-                stream_url = data.get("url")
-                if not stream_url:
-                    raise ValueError("No stream URL found in metadata")
-
+                data = json.loads(stdout.decode())
+                stream_url = data["url"]
+                
                 # Expiry logic
-                ttl = 3600  # Default 1 hour
+                ttl = 3600
                 expire_match = re.search(r"expire=(\d+)", stream_url)
                 if expire_match:
                     ttl = int(expire_match.group(1)) - int(now) - 300
@@ -222,9 +222,8 @@ class YoutubeService:
                 self._save_cache()
                 return res
             except Exception as e:
-                print(f"JSON Parsing failed for {video_url}. Output was: {stdout.decode()[:200]}")
-                print(f"Error: {e}")
-                raise HTTPException(status_code=502, detail="Audio extraction failed: Invalid response")
+                print(f"JSON Parsing failed: {e}")
+                raise HTTPException(status_code=502, detail="Extraction response invalid.")
 
     async def _fetch_durations(self, video_ids: List[str]) -> dict:
         if not video_ids: return {}

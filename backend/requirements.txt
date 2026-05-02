@@ -4,6 +4,6 @@ pydantic-settings==2.10.1
 PyJWT==2.10.1
 pytest==8.4.1
 httpx==0.28.1
-yt-dlp==2024.12.06
+yt-dlp
 sqlalchemy>=2.0.36,<2.1
 python-dotenv==1.0.1
