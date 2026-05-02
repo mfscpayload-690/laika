@@ -1,3 +1,4 @@
+from typing import Optional
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
@@ -17,16 +18,30 @@ class ResolveResponse(BaseModel):
     title: str
     duration: int
 
-@router.post("/", response_model=ResolveResponse)
-async def resolve_track(request: ResolveRequest):
+@router.api_route("/", methods=["GET", "POST"], response_model=ResolveResponse)
+@router.api_route("", methods=["GET", "POST"], response_model=ResolveResponse, include_in_schema=False)
+async def resolve_track(
+    request: Optional[ResolveRequest] = None,
+    title: Optional[str] = None,
+    artist: Optional[str] = None,
+    duration: Optional[int] = None
+):
     """
-    Resolves a track (metadata) to a YouTube audio URL.
+    Resolves a track to a YouTube audio URL. Supports POST (JSON) or GET (Query params).
     """
+    # Handle POST data or GET params
+    r_title = title or (request.title if request else None)
+    r_artist = artist or (request.artist if request else None)
+    r_duration = duration or (request.duration if request else None)
+
+    if not r_title or not r_artist:
+        raise HTTPException(status_code=400, detail="Missing title or artist")
+
     track = Track(
         id="resolve-request",
-        title=request.title,
-        artist=request.artist,
-        duration_ms=request.duration,
+        title=r_title,
+        artist=r_artist,
+        duration_ms=r_duration or 0,
         source="youtube"
     )
     candidates = await youtube_service.search_youtube(track)
