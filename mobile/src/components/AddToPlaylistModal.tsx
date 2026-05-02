@@ -13,7 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ListMusic, Plus, Check, ChevronRight } from 'lucide-react-native';
 import { BlurView } from '@react-native-community/blur';
-import { usePlaylists } from '../context/PlaylistContext';
+import { usePlaylistStore } from '../store/playlistStore';
 import { colors, radii, spacing, typography } from '../theme';
 import { BouncyPressable } from './BouncyPressable';
 import type { LocalSong, RemoteTrack } from '../types/music';
@@ -28,16 +28,20 @@ type AddToPlaylistModalProps = {
 
 export function AddToPlaylistModal({ visible, onClose, track }: AddToPlaylistModalProps) {
   const insets = useSafeAreaInsets();
-  const { playlists, addTrack, createPlaylist, loading, refreshPlaylists } = usePlaylists();
+  const playlists = usePlaylistStore(state => state.playlists);
+  const addTrack = usePlaylistStore(state => state.addTrack);
+  const createPlaylist = usePlaylistStore(state => state.createPlaylist);
+  const loading = usePlaylistStore(state => state.loading);
+  const fetchPlaylists = usePlaylistStore(state => state.fetchPlaylists);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   // Refresh playlists when modal opens to ensure we have data
   useEffect(() => {
     if (visible) {
-      refreshPlaylists();
+      fetchPlaylists();
     }
-  }, [visible, refreshPlaylists]);
+  }, [visible, fetchPlaylists]);
 
   if (!track) {return null;}
 
