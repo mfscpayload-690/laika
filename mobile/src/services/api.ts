@@ -2,8 +2,9 @@ import type { RemoteTrack, ResolveResponse } from '../types/music';
 
 // ADB reverse is set up via: adb reverse tcp:8000 tcp:8000
 // This tunnels the phone's localhost:8000 → your dev machine's port 8000 over USB.
-// Works for physical devices without needing to know your LAN IP.
-export const API_BASE_URL = 'http://127.0.0.1:8000';
+export const API_BASE_URL = __DEV__
+  ? 'http://127.0.0.1:8000'
+  : 'https://laika-music-backend.up.railway.app'; // Replace with your actual Railway URL
 
 // In-memory cache for resolved URLs to enable <300ms playback
 const RESOLVE_CACHE: Record<string, { data: ResolveResponse; expiresAt: number }> = {};

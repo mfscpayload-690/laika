@@ -11,7 +11,10 @@ from core.config import get_settings
 
 YOUTUBE_SEARCH_URL = "https://www.googleapis.com/youtube/v3/search"
 YOUTUBE_VIDEOS_URL = "https://www.googleapis.com/youtube/v3/videos"
-CACHE_FILE = "backend/cache/youtube_cache.json"
+
+# Ensure CACHE_FILE path is robust (absolute relative to backend root)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CACHE_FILE = os.path.join(BASE_DIR, "cache", "youtube_cache.json")
 
 class YoutubeService:
     def __init__(self):
