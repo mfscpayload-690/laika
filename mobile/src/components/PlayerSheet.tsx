@@ -34,12 +34,14 @@ import { BouncyPressable } from './BouncyPressable';
 
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 
-import { usePlayback } from '../context/PlaybackContext';
-import { useLikes } from '../context/LikesContext';
+import { useMusicStore } from '../store/musicStore';
+import { useLikesStore } from '../store/likesStore';
+import { usePlaylistStore } from '../store/playlistStore';
+import { useUIStore } from '../store/uiStore';
+
 import { colors, radii, spacing, typography } from '../theme';
 import { API_BASE_URL } from '../services/api';
-import { usePlaylists } from '../context/PlaylistContext';
-import { useUI } from '../context/UIContext';
+import { State } from 'react-native-track-player';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 const MINI_PLAYER_HEIGHT = 64 + 10; // 64 height + 10 paddingTop approx
@@ -54,7 +56,7 @@ const BUTTER_SPRING_CONFIG = {
 
 
 const ProgressBar = React.memo(() => {
-  const { position, duration } = useProgress(250);
+  const { position, duration } = useProgress(500);
   const isDragging = useSharedValue(false);
   const seekPosition = useSharedValue(0);
   const trackWidth = useSharedValue(0);
@@ -207,20 +209,25 @@ const LyricsSection = React.memo(({
 
 export function PlayerSheet() {
   const insets = useSafeAreaInsets();
-  const {
-    currentTrackId,
-    activeRemoteTrack,
-    songs,
-    isPlaying,
-    isLoading,
-    togglePlayPause,
-    next,
-    previous,
-    isShuffleEnabled,
-    repeatMode,
-    toggleShuffle,
-    cycleRepeatMode,
-  } = usePlayback();
+  
+  // Zustand State
+  const currentTrackId = useMusicStore(state => state.currentTrackId);
+  const activeRemoteTrack = useMusicStore(state => state.activeRemoteTrack);
+  const songs = useMusicStore(state => state.songs);
+  const isPlaying = useMusicStore(state => state.playbackState === State.Playing);
+  const isLoading = useMusicStore(state => state.playbackState === State.Loading || state.playbackState === State.Buffering || state.isResolving);
+  const togglePlayPause = useMusicStore(state => state.togglePlayPause);
+  const next = useMusicStore(state => state.next);
+  const previous = useMusicStore(state => state.previous);
+  const isShuffleEnabled = useMusicStore(state => state.isShuffleEnabled);
+  const repeatMode = useMusicStore(state => state.repeatMode);
+  const toggleShuffle = useMusicStore(state => state.toggleShuffle);
+  const cycleRepeatMode = useMusicStore(state => state.cycleRepeatMode);
+
+  const isLiked = useLikesStore(state => state.isLiked);
+  const toggleLike = useLikesStore(state => state.toggleLike);
+  const playlists = usePlaylistStore(state => state.playlists);
+  const showAddToPlaylist = useUIStore(state => state.showAddToPlaylist);
 
   const focusedRouteName = useNavigationState(state => {
     const route = state?.routes[state.index];
@@ -229,10 +236,6 @@ export function PlayerSheet() {
   });
 
   const shouldHidePlayer = focusedRouteName === 'Settings';
-
-  const { isLiked, toggleLike } = useLikes();
-  const { playlists } = usePlaylists();
-  const { showAddToPlaylist } = useUI();
 
   const isInAnyPlaylist = useMemo(() => {
     const id = currentTrackId || activeRemoteTrack?.id;
@@ -490,16 +493,6 @@ export function PlayerSheet() {
     };
   });
 
-  const animatedArtworkStyle = useAnimatedStyle(() => {
-    return {
-      opacity: 1,
-      transform: [
-        { translateY: 0 },
-        { scale: 1 },
-      ],
-    };
-  });
-
   const animatedLyricsCardStyle = useAnimatedStyle(() => {
     const height = interpolate(
       showLyrics.value,
@@ -671,7 +664,7 @@ export function PlayerSheet() {
           >
             <GestureDetector gesture={horizontalPanGesture}>
               <Animated.View style={animatedHorizontalContentStyle}>
-                <Animated.View style={[styles.artworkContainer, animatedArtworkStyle]}>
+                <View style={[styles.artworkContainer, styles.artworkAnimated]}>
                   {currentArtwork ? (
                     <Image source={{ uri: currentArtwork }} style={styles.artworkImage} />
                   ) : (
@@ -679,7 +672,7 @@ export function PlayerSheet() {
                       <Music size={48} color={colors.textMuted} />
                     </View>
                   )}
-                </Animated.View>
+                </View>
 
                 <View style={styles.trackInfo}>
                   <View style={styles.trackTextGroup}>
@@ -850,6 +843,7 @@ const styles = StyleSheet.create({
   headerSpacer: { width: 40 },
 
   artworkContainer: { width: '82%', aspectRatio: 1, alignSelf: 'center', marginBottom: spacing.sm, shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.4, shadowRadius: 16, elevation: 12 },
+  artworkAnimated: { opacity: 1, transform: [{ translateY: 0 }, { scale: 1 }] },
   artworkImage: { width: '100%', height: '100%', borderRadius: radii.xl },
   artworkFallback: { width: '100%', height: '100%', borderRadius: radii.xl, backgroundColor: colors.surfaceElevated, alignItems: 'center', justifyContent: 'center' },
   artworkInitial: { ...typography.display, fontSize: 72, color: colors.textMuted },
