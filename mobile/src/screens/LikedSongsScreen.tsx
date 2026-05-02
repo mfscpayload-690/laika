@@ -16,9 +16,9 @@ import Animated, {
   Extrapolation,
 } from 'react-native-reanimated';
 
-import { useLikes } from '../context/LikesContext';
-import { useMusicState } from '../context/MusicStateContext';
-import { useUI } from '../context/UIContext';
+import { useLikesStore } from '../store/likesStore';
+import { useMusicStore } from '../store/musicStore';
+import { useUIStore } from '../store/uiStore';
 import { SongList } from '../components/SongList';
 import { colors, radii, spacing, typography } from '../theme';
 
@@ -29,9 +29,10 @@ const SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
 export default function LikedSongsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { likedTracks } = useLikes();
-  const { currentTrackId, onPlayTrack } = useMusicState();
-  const { showAddToPlaylist } = useUI();
+  const likedTracks = useLikesStore(state => state.likedTracks);
+  const currentTrackId = useMusicStore(state => state.currentTrackId);
+  const onPlayTrack = useMusicStore(state => state.playRemote);
+  const showAddToPlaylist = useUIStore(state => state.showAddToPlaylist);
 
   // Reanimated scroll value
   const scrollY = useSharedValue(0);
