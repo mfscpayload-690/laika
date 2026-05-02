@@ -27,8 +27,8 @@ import {
   Headphones,
 } from 'lucide-react-native';
 
-import { useAuth } from '../context/AuthContext';
-import { useLikes } from '../context/LikesContext';
+import { useAuthStore } from '../store/authStore';
+import { useLikesStore } from '../store/likesStore';
 import { getProfile, type UserProfile } from '../services/libraryService';
 import { colors, radii, spacing, typography } from '../theme';
 
@@ -100,8 +100,10 @@ function SettingsGroup({ children }: { children: React.ReactNode }) {
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
-  const { user, isGuest, signOut } = useAuth();
-  const { likedTracks } = useLikes();
+  const user = useAuthStore(state => state.user);
+  const isGuest = useAuthStore(state => state.isGuest);
+  const signOut = useAuthStore(state => state.signOut);
+  const likedTracks = useLikesStore(state => state.likedTracks);
   const [profile, setProfile] = useState<UserProfile | null>(null);
 
   // Fetch real profile data from Supabase
