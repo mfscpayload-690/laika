@@ -27,6 +27,8 @@ interface MusicState {
   isResolving: boolean;
   isOffline: boolean;
   scanning: boolean;
+  remoteQueue: RemoteTrack[];
+  remoteQueueIndex: number;
 
   // Actions
   initialize: () => Promise<void>;
@@ -69,6 +71,8 @@ export const useMusicStore = create<MusicState>((set, get) => {
     isResolving: false,
     isOffline: false,
     scanning: false,
+    remoteQueue: [],
+    remoteQueueIndex: -1,
 
     initialize: async () => {
       // 1. Load cached library
@@ -81,7 +85,7 @@ export const useMusicStore = create<MusicState>((set, get) => {
       await ensureAudioPermission();
       await ensureRemotePlayerReady();
       await TrackPlayer.setRepeatMode(RepeatMode.Queue);
-      
+
       const { state } = await TrackPlayer.getPlaybackState();
       set({ playbackState: state, isReady: true });
 
@@ -96,10 +100,18 @@ export const useMusicStore = create<MusicState>((set, get) => {
           set({ currentTrackId: String(activeTrack.id) });
         }
       });
-      
+
       TrackPlayer.addEventListener(Event.PlaybackQueueEnded, async () => {
-        const { mode, repeatMode, activeRemoteTrack } = get();
-        // Custom logic for remote queue ending can go here
+        const { mode, repeatMode, remoteQueue, remoteQueueIndex, playRemote } = get();
+        if (mode === 'remote' && remoteQueue.length > 0 && repeatMode !== 'off') {
+          const nextIndex = (remoteQueueIndex + 1) % remoteQueue.length;
+          // Avoid infinite loop if only 1 track and repeat is off (though we checked repeatMode !== 'off')
+          if (nextIndex === 0 && repeatMode === 'one') {
+             // TrackPlayer handles repeatMode.Track natively if we set it, 
+             // but since we reset on each remote play, we handle it here if needed.
+          }
+          await playRemote(remoteQueue[nextIndex], remoteQueue, nextIndex);
+        }
       });
     },
 
@@ -121,7 +133,7 @@ export const useMusicStore = create<MusicState>((set, get) => {
         }));
 
         let targetIndex = localTracks.findIndex(t => String(t.id) === songId);
-        
+
         if (mode !== 'local') {
           const targetTrack = localTracks[targetIndex];
           if (targetTrack) {
@@ -135,7 +147,7 @@ export const useMusicStore = create<MusicState>((set, get) => {
               const others = localTracks.filter(t => String(t.id) !== songId);
               await TrackPlayer.add(others);
             });
-            
+
             logPlayback('play', targetTrack);
           }
         } else {
@@ -151,10 +163,12 @@ export const useMusicStore = create<MusicState>((set, get) => {
     },
 
     playRemote: async (track, queue = [], index = -1) => {
-      set({ 
-        isResolving: true, 
-        error: null, 
-        activeRemoteTrack: track, 
+      set({
+        isResolving: true,
+        error: null,
+        activeRemoteTrack: track,
+        remoteQueue: queue,
+        remoteQueueIndex: index,
         playbackState: State.Loading,
         currentTrackId: track.id
       });
@@ -181,7 +195,7 @@ export const useMusicStore = create<MusicState>((set, get) => {
           duration: track.duration_ms / 1000,
         });
         await TrackPlayer.play();
-        
+
         logPlayback('play', track);
         set({ mode: 'remote', isOffline: false });
       } catch (e) {
@@ -202,17 +216,32 @@ export const useMusicStore = create<MusicState>((set, get) => {
     },
 
     next: async () => {
-      const { mode, currentTrackId, songs } = get();
-      // Simple next logic
-      await TrackPlayer.skipToNext();
+      const { mode, remoteQueue, remoteQueueIndex, playRemote } = get();
+      if (mode === 'remote' && remoteQueue.length > 0) {
+        const nextIndex = (remoteQueueIndex + 1) % remoteQueue.length;
+        await playRemote(remoteQueue[nextIndex], remoteQueue, nextIndex);
+      } else {
+        await TrackPlayer.skipToNext();
+      }
     },
 
     previous: async (forcePreviousTrack = false) => {
+      const { mode, remoteQueue, remoteQueueIndex, playRemote } = get();
       const position = await TrackPlayer.getPosition();
-      if (!forcePreviousTrack && position > 3) {
-        await TrackPlayer.seekTo(0);
+
+      if (mode === 'remote' && remoteQueue.length > 0) {
+        if (!forcePreviousTrack && position > 3) {
+          await TrackPlayer.seekTo(0);
+        } else {
+          const prevIndex = (remoteQueueIndex - 1 + remoteQueue.length) % remoteQueue.length;
+          await playRemote(remoteQueue[prevIndex], remoteQueue, prevIndex);
+        }
       } else {
-        await TrackPlayer.skipToPrevious();
+        if (!forcePreviousTrack && position > 3) {
+          await TrackPlayer.seekTo(0);
+        } else {
+          await TrackPlayer.skipToPrevious();
+        }
       }
     },
 

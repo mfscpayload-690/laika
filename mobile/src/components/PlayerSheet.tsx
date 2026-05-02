@@ -110,7 +110,7 @@ const ProgressBar = React.memo(() => {
     return {
       text: formatTime(val),
     } as any;
-  });
+  }, [position]); // Add position as dependency to ensure it updates when position changes
 
   const durationTimeProps = useAnimatedProps(() => {
     return {
@@ -135,14 +135,12 @@ const ProgressBar = React.memo(() => {
         <AnimatedTextInput
           underlineColorAndroid="transparent"
           editable={false}
-          value={formatTime(position)}
           style={styles.progressTimeText}
           animatedProps={progressTimeProps}
         />
         <AnimatedTextInput
           underlineColorAndroid="transparent"
           editable={false}
-          value={formatTime(duration)}
           style={styles.progressTimeText}
           animatedProps={durationTimeProps}
         />
@@ -369,15 +367,17 @@ export function PlayerSheet() {
     .enabled(hasTrack)
     .activeOffsetY([-10, 0]) // Only catch upward swipes
     .onUpdate((event) => {
-      const newTranslateY = maxTranslateY + event.translationY;
-      translateY.value = Math.max(MIN_TRANSLATE, Math.min(newTranslateY, maxTranslateY));
+      const currentMax = maxTranslateYShared.value;
+      const newTranslateY = currentMax + event.translationY;
+      translateY.value = Math.max(MIN_TRANSLATE, Math.min(newTranslateY, currentMax));
     })
     .onEnd((event) => {
       const velocity = event.velocityY;
-      if (velocity < -500 || translateY.value < maxTranslateY - 100) {
+      const currentMax = maxTranslateYShared.value;
+      if (velocity < -500 || translateY.value < currentMax - 100) {
         snapTo(MIN_TRANSLATE);
       } else {
-        snapTo(maxTranslateY);
+        snapTo(currentMax);
       }
     });
 
@@ -385,13 +385,15 @@ export function PlayerSheet() {
   const fullPlayerDismissGesture = Gesture.Pan()
     .activeOffsetY([0, 10]) // Only catch downward swipes
     .onUpdate((event) => {
+      const currentMax = maxTranslateYShared.value;
       const newTranslateY = MIN_TRANSLATE + event.translationY;
-      translateY.value = Math.max(MIN_TRANSLATE, Math.min(newTranslateY, maxTranslateY));
+      translateY.value = Math.max(MIN_TRANSLATE, Math.min(newTranslateY, currentMax));
     })
     .onEnd((event) => {
       const velocity = event.velocityY;
+      const currentMax = maxTranslateYShared.value;
       if (velocity > 500 || translateY.value > MIN_TRANSLATE + 100) {
-        snapTo(maxTranslateY);
+        snapTo(currentMax);
       } else {
         snapTo(MIN_TRANSLATE);
       }

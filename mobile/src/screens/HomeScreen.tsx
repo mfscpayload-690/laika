@@ -140,9 +140,87 @@ const MusicCarouselItem = memo(
   },
   (prev, next) =>
     prev.item.id === next.item.id &&
-    prev.isResolving === next.isResolving &&
-    prev.onPressTrack === next.onPressTrack &&
-    prev.onLongPressTrack === next.onLongPressTrack
+    prev.isResolving === next.isResolving
+);
+
+const HomeSection = memo(({ 
+  section, 
+  onPlayTrack, 
+  onLongPressTrack, 
+  currentTrackId, 
+  activeRemoteTrackId, 
+  resolvingId 
+}: { 
+  section: HomeSection;
+  onPlayTrack: (track: RemoteTrack, queue: RemoteTrack[], index: number) => void;
+  onLongPressTrack: (track: RemoteTrack) => void;
+  currentTrackId: string | null;
+  activeRemoteTrackId: string | null;
+  resolvingId: string | null;
+}) => {
+  const handlePlay = useCallback((track: RemoteTrack) => {
+    const index = section.items.findIndex(item => item.id === track.id);
+    onPlayTrack(track, section.items, index);
+  }, [onPlayTrack, section.items]);
+
+  const renderCarouselItem = useCallback(({ item }: { item: RemoteTrack }) => (
+    <MusicCarouselItem
+      item={item}
+      onPressTrack={handlePlay}
+      onLongPressTrack={onLongPressTrack}
+      isResolving={item.id === resolvingId}
+    />
+  ), [handlePlay, onLongPressTrack, resolvingId]);
+
+  const keyExtractor = useCallback((item: RemoteTrack, index: number) => `${section.title}-${item.id}-${index}`, [section.title]);
+
+  const getCarouselItemLayout = useCallback((_: unknown, index: number) => {
+    return {
+      index,
+      length: CAROUSEL_ITEM_SIZE,
+      offset: CAROUSEL_ITEM_SIZE * index,
+    };
+  }, []);
+
+  return (
+    <View style={styles.section}>
+      <SectionHeader label={section.title} />
+
+      {section.type === 'grid' ? (
+        <View style={styles.quickGrid}>
+          {section.items.slice(0, 6).map((track, index) => (
+            <QuickPickItem
+              key={`${section.title}-${track.id}-${index}`}
+              track={track}
+              onPressTrack={(t) => {
+                const idx = section.items.findIndex(i => i.id === t.id);
+                onPlayTrack(t, section.items, idx);
+              }}
+              onLongPressTrack={onLongPressTrack}
+              isActive={track.id === currentTrackId || track.id === activeRemoteTrackId}
+              isResolving={track.id === resolvingId}
+            />
+          ))}
+        </View>
+      ) : (
+        <AnyFlashList
+          horizontal
+          data={section.items}
+          keyExtractor={keyExtractor}
+          showsHorizontalScrollIndicator={false}
+          renderItem={renderCarouselItem}
+          estimatedItemSize={CAROUSEL_ITEM_SIZE}
+          contentContainerStyle={styles.carouselList}
+          getItemLayout={getCarouselItemLayout}
+        />
+      )}
+    </View>
+  );
+}, (prev, next) => 
+  prev.section === next.section && 
+  prev.currentTrackId === next.currentTrackId && 
+  prev.activeRemoteTrackId === next.activeRemoteTrackId && 
+  prev.resolvingId === next.resolvingId
 );
 
 function HomeScreen() {
@@ -203,7 +281,6 @@ function HomeScreen() {
       }
     };
 
-    // Tiny delay to let adb reverse settle
     const timeoutId = setTimeout(performFetch, 150);
 
     return () => {
@@ -212,37 +289,6 @@ function HomeScreen() {
       if (deferredTask) deferredTask.cancel();
     };
   }, [user?.id]);
-
-  const handlePlay = useCallback((track: RemoteTrack) => {
-    if (onPlayTrack) {
-      const section = sections.find(s => s.items.some(item => item.id === track.id));
-      if (section) {
-        const index = section.items.findIndex(item => item.id === track.id);
-        onPlayTrack(track, section.items, index);
-      } else {
-        onPlayTrack(track);
-      }
-    }
-  }, [onPlayTrack, sections]);
-
-  const renderCarouselItem = useCallback(({ item }: { item: RemoteTrack }) => (
-    <MusicCarouselItem
-      item={item}
-      onPressTrack={handlePlay}
-      onLongPressTrack={showAddToPlaylist}
-      isResolving={item.id === resolvingId}
-    />
-  ), [handlePlay, showAddToPlaylist, resolvingId]);
-
-  const keyExtractor = useCallback((item: RemoteTrack, index: number) => `${item.id}-${index}`, []);
-
-  const getCarouselItemLayout = useCallback((_: unknown, index: number) => {
-    return {
-      index,
-      length: CAROUSEL_ITEM_SIZE,
-      offset: CAROUSEL_ITEM_SIZE * index,
-    };
-  }, []);
 
   return (
     <View style={styles.root}>
@@ -279,34 +325,15 @@ function HomeScreen() {
           </View>
         ) : (
           sections.map(section => (
-            <View key={`${section.type}-${section.title}`} style={styles.section}>
-              <SectionHeader label={section.title} />
-
-              {section.type === 'grid' ? (
-                <View style={styles.quickGrid}>
-                  {section.items.slice(0, 6).map((track, index) => (
-                    <QuickPickItem
-                      key={`${track.id}-${index}`}
-                      track={track}
-                      onPressTrack={handlePlay}
-                      onLongPressTrack={showAddToPlaylist}
-                      isActive={track.id === currentTrackId || track.id === activeRemoteTrackId}
-                      isResolving={track.id === resolvingId}
-                    />
-                  ))}
-                </View>
-              ) : (
-                <AnyFlashList
-                  horizontal
-                  data={section.items}
-                  keyExtractor={keyExtractor}
-                  showsHorizontalScrollIndicator={false}
-                  renderItem={renderCarouselItem}
-                  estimatedItemSize={CAROUSEL_ITEM_SIZE}
-                  contentContainerStyle={styles.carouselList}
-                />
-              )}
-            </View>
+            <HomeSection
+              key={`${section.type}-${section.title}`}
+              section={section}
+              onPlayTrack={onPlayTrack}
+              onLongPressTrack={showAddToPlaylist}
+              currentTrackId={currentTrackId}
+              activeRemoteTrackId={activeRemoteTrackId}
+              resolvingId={resolvingId}
+            />
           ))
         )}
 
@@ -395,7 +422,7 @@ const styles = StyleSheet.create({
 
   // Carousel
   section: { marginBottom: spacing.xl },
-  carouselList: { paddingLeft: 0 },
+  carouselList: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
   carouselItem: { width: CAROUSEL_ITEM_WIDTH, marginRight: spacing.lg },
   carouselArtContainer: { width: CAROUSEL_ITEM_WIDTH, height: CAROUSEL_ITEM_WIDTH, borderRadius: radii.lg, overflow: 'hidden', marginBottom: spacing.sm, position: 'relative' },
   carouselLoadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
