@@ -24,6 +24,11 @@ def create_app() -> FastAPI:
     app.include_router(lyrics_router)
     app.include_router(events_router)
     app.include_router(playlists_router)
+
+    @app.get("/")
+    async def root():
+        return {"message": "Laika Music API is running!", "version": "0.1.0"}
+
     return app
 
 
