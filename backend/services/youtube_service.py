@@ -12,15 +12,21 @@ from core.config import get_settings
 YOUTUBE_SEARCH_URL = "https://www.googleapis.com/youtube/v3/search"
 YOUTUBE_VIDEOS_URL = "https://www.googleapis.com/youtube/v3/videos"
 
-# Ensure CACHE_FILE path is robust (absolute relative to backend root)
+# Ensure CACHE_FILE path is robust (inside the persisted local directory)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CACHE_FILE = os.path.join(BASE_DIR, "cache", "youtube_cache.json")
+CACHE_FILE = os.path.join(BASE_DIR, "local", "cache", "youtube_cache.json")
 
 class YoutubeService:
     def __init__(self):
         self._client: Optional[httpx.AsyncClient] = None
         self._resolution_cache = {}  # {metadata_key: video_url}
         self._stream_cache = {}      # {video_url: (stream_url, expiry)}
+        
+        # Ensure the cache directory exists inside the local volume
+        cache_dir = os.path.dirname(CACHE_FILE)
+        if not os.path.exists(cache_dir):
+            os.makedirs(cache_dir)
+            
         self._extract_semaphore = asyncio.Semaphore(3) # Limit concurrent yt-dlp calls
         self._load_cache()
 
