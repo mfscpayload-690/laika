@@ -47,11 +47,19 @@ window.addEventListener('scroll', updateHashOnScroll, { passive: true });
 // ---------- Nav: add "scrolled" class on scroll ----------
 const nav = document.getElementById('main-nav');
 
+let navTicking = false;
+
 function handleNavScroll() {
-    if (window.scrollY > 20) {
-        nav.classList.add('scrolled');
-    } else {
-        nav.classList.remove('scrolled');
+    if (!navTicking) {
+        requestAnimationFrame(() => {
+            if (window.scrollY > 20) {
+                nav.classList.add('scrolled');
+            } else {
+                nav.classList.remove('scrolled');
+            }
+            navTicking = false;
+        });
+        navTicking = true;
     }
 }
 
