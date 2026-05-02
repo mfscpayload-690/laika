@@ -9,11 +9,11 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { ChevronDown, ChevronUp, Search as SearchIcon, ChevronLeft } from 'lucide-react-native';
-import { useUI } from '../context/UIContext';
+import { useUIStore } from '../store/uiStore';
 import { SongList } from '../components/SongList';
 import { colors, radii, spacing, typography } from '../theme';
 import type { LocalSong } from '../types/music';
-import { useMusicState } from '../context/MusicStateContext';
+import { useMusicStore } from '../store/musicStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 function getEffectiveTimestamp(song: LocalSong): number {
@@ -33,16 +33,13 @@ function sortSongs(songs: LocalSong[], ascending: boolean): LocalSong[] {
 }
 
 export default function LocalSongsScreen() {
-  const musicState = useMusicState();
-  const { 
-    songs, 
-    currentTrackId, 
-    onPressSong, 
-    onScan 
-  } = musicState;
+  const songs = useMusicStore(state => state.songs);
+  const currentTrackId = useMusicStore(state => state.currentTrackId);
+  const onPressSong = useMusicStore(state => state.playSong);
+  const onScan = useMusicStore(state => state.startScan);
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { showAddToPlaylist } = useUI();
+  const showAddToPlaylist = useUIStore(state => state.showAddToPlaylist);
 
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
