@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     app_name: str = "laika-music-backend"
     environment: str = "development"
     youtube_api_key: str = ""
+    youtube_po_token: str | None = None
+    youtube_visitor_data: str | None = None
     supabase_jwt_secret: str | None = None
     supabase_jwt_audience: str = "authenticated"
 

@@ -14,7 +14,7 @@ import {
 import { User } from 'lucide-react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { BlurView } from '@react-native-community/blur';
-import { useAuth } from '../context/AuthContext';
+import { useAuthStore } from '../store/authStore';
 import { colors, radii, spacing, typography } from '../theme';
 
 function GithubIcon({ size = 24 }: { size?: number }) {
@@ -52,7 +52,8 @@ function GoogleIcon({ size = 24 }: { size?: number }) {
 const { width, height } = Dimensions.get('window');
 
 export function LoginScreen() {
-  const { setAsGuest, signInWithOAuth } = useAuth();
+  const setAsGuest = useAuthStore(state => state.setAsGuest);
+  const signInWithOAuth = useAuthStore(state => state.signInWithOAuth);
   const [isLoggingIn, setIsLoggingIn] = React.useState<string | null>(null);
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const slideAnim = React.useRef(new Animated.Value(20)).current;

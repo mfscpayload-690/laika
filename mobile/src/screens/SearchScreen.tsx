@@ -1,20 +1,21 @@
 import React, {useCallback, useMemo, useRef, useState} from 'react';
-import { useMusicState } from '../context/MusicStateContext';
 import {
   ActivityIndicator,
-  FlatList,
   InteractionManager,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
+const AnyFlashList = FlashList as any;
 import { Music, Search, SearchX, X } from 'lucide-react-native';
+import { useMusicStore } from '../store/musicStore';
+import { useUIStore } from '../store/uiStore';
 
 import { IconButton } from '../components/IconButton';
 import { TrackRow } from '../components/TrackRow';
 import { searchTracks, prefetchTrack } from '../services/api';
-import { useUI } from '../context/UIContext';
 import { BouncyPressable } from '../components/BouncyPressable';
 import { colors, radii, spacing, typography } from '../theme';
 import type { RemoteTrack } from '../types/music';
@@ -37,9 +38,10 @@ function formatDuration(ms: number): string {
 
 
 export default function SearchScreen() {
-  const musicState = useMusicState();
-  const { onPlayTrack: onSelectTrack, resolvingId, activeRemoteTrackId: activeTrackId } = musicState;
-  const { showAddToPlaylist } = useUI();
+  const onSelectTrack = useMusicStore(state => state.playRemote);
+  const resolvingId = useMusicStore(state => (state.isResolving ? state.activeRemoteTrack?.id : null));
+  const activeTrackId = useMusicStore(state => state.activeRemoteTrack?.id);
+  const showAddToPlaylist = useUIStore(state => state.showAddToPlaylist);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<RemoteTrack[]>([]);
   const [loading, setLoading] = useState(false);
@@ -214,18 +216,14 @@ export default function SearchScreen() {
           <Text style={styles.stateText}>No results for "{query.trim()}"</Text>
         </View>
       ) : (
-        <FlatList
+        <AnyFlashList
           data={visibleResults}
-          keyExtractor={item => item.id}
+          keyExtractor={(item: RemoteTrack) => item.id}
           style={styles.list}
           contentContainerStyle={styles.listContent}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
-          initialNumToRender={12}
-          maxToRenderPerBatch={10}
-          windowSize={7}
-          removeClippedSubviews
-          getItemLayout={getItemLayout}
+          estimatedItemSize={64}
           renderItem={renderTrack}
         />
       )}

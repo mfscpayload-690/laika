@@ -1,11 +1,11 @@
 import React, {memo, useCallback} from 'react';
 import {
-  FlatList,
   StyleSheet,
   Text,
   View,
-  type ListRenderItem,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
+const AnyFlashList = FlashList as any;
 import {Music} from 'lucide-react-native';
 
 import {TrackRow} from './TrackRow';
@@ -18,10 +18,10 @@ import Animated from 'react-native-reanimated';
 export const SONG_ROW_HEIGHT = 64;
 
 export const SONG_LIST_VIRTUALIZATION_CONFIG = {
-  initialNumToRender: 12,
-  maxToRenderPerBatch: 10,
-  updateCellsBatchingPeriod: 50,
-  windowSize: 7,
+  initialNumToRender: 8,
+  maxToRenderPerBatch: 5,
+  updateCellsBatchingPeriod: 100,
+  windowSize: 5,
   removeClippedSubviews: true,
 } as const;
 
@@ -117,6 +117,7 @@ const SongListEmpty = memo(function SongListEmpty({
   );
 });
 
+
 export function SongList({
   songs,
   currentTrackId,
@@ -130,19 +131,10 @@ export function SongList({
   ListHeaderComponent,
   contentContainerStyle,
 }: SongListProps) {
-  const getItemLayout = useCallback(
-    (_: ArrayLike<LocalSong> | null | undefined, index: number) => ({
-      length: SONG_ROW_HEIGHT + spacing.xs,
-      offset: (SONG_ROW_HEIGHT + spacing.xs) * index,
-      index,
-    }),
-    [],
-  );
-
   const keyExtractor = useCallback((item: LocalSong) => item.id, []);
 
-  const renderItem = useCallback<ListRenderItem<LocalSong>>(
-    ({item}) => (
+  const renderItem = useCallback(
+    ({item}: {item: LocalSong}) => (
       <SongRow
         item={item}
         isActive={item.id === currentTrackId}
@@ -154,17 +146,16 @@ export function SongList({
   );
 
   return (
-    <Animated.FlatList
+    <AnyFlashList
       data={songs}
       keyExtractor={keyExtractor}
       renderItem={renderItem}
-      getItemLayout={getItemLayout}
+      estimatedItemSize={SONG_ROW_HEIGHT + spacing.xs}
       contentContainerStyle={[
         songs.length === 0 ? styles.emptyListContent : styles.content,
         contentContainerStyle
       ]}
       keyboardShouldPersistTaps="handled"
-      {...SONG_LIST_VIRTUALIZATION_CONFIG}
       onScroll={onScroll}
       onScrollBeginDrag={onScrollBeginDrag}
       onScrollEndDrag={onScrollEndDrag}
@@ -181,7 +172,7 @@ const styles = StyleSheet.create({
     paddingBottom: 180,
   },
   emptyListContent: {
-    flexGrow: 1,
+    // FlashList doesn't support flexGrow in contentContainerStyle
   },
   playingBadge: {
     paddingHorizontal: spacing.sm,

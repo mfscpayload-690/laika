@@ -14,7 +14,8 @@ YOUTUBE_VIDEOS_URL = "https://www.googleapis.com/youtube/v3/videos"
 
 # Path for persistent cache
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CACHE_FILE = os.path.join(BASE_DIR, "local", "cache", "youtube_cache.json")
+CACHE_DIR = os.path.join(BASE_DIR, "local")
+CACHE_FILE = os.path.join(CACHE_DIR, "cache", "youtube_cache.json")
 
 class YoutubeService:
     def __init__(self):
@@ -139,16 +140,18 @@ class YoutubeService:
         } for t in tracks]
 
     async def _scrape_search(self, query: str, limit: int) -> List[Track]:
-        """Scrape search results using yt-dlp with mobile impersonation."""
+        """Scrape search results using yt-dlp with mobile impersonation and optional cookies."""
         print(f"Scraping YouTube: {query}")
         try:
-            # Use python3 -m yt_dlp to ensure latest version + Android impersonation
-            proc = await asyncio.create_subprocess_exec(
+            cmd = [
                 "python3", "-m", "yt_dlp",
                 "--dump-json",
                 "--flat-playlist",
                 "--extractor-args", "youtube:player_client=android",
-                f"ytsearch{limit}:{query}",
+                f"ytsearch{limit}:{query}"
+            ]
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
@@ -172,23 +175,38 @@ class YoutubeService:
             return []
 
     async def extract_audio_url(self, video_url: str) -> dict:
-        """Extracts direct audio stream URL using Android impersonation to bypass bot checks."""
+        """Extracts direct audio stream URL using privacy-safe PoToken and Mobile Impersonation."""
         now = time.time()
         if video_url in self._stream_cache:
             entry = self._stream_cache[video_url]
             if now < entry["expiry"]:
                 return entry["data"]
 
+        settings = get_settings()
         async with self._extract_semaphore:
-            print(f"Extracting audio (Mobile Impersonation): {video_url}")
-            # The big trick: Impersonate Android player to bypass 'Sign in' blocks
-            proc = await asyncio.create_subprocess_exec(
+            print(f"Extracting audio (Privacy-Safe): {video_url}")
+            
+            # Use PoToken if available in Environment Variables (Set these in Railway!)
+            # These are NOT logins, just proof of being a real browser.
+            po_token = getattr(settings, 'YOUTUBE_PO_TOKEN', None)
+            visitor_data = getattr(settings, 'YOUTUBE_VISITOR_DATA', None)
+            
+            cmd = [
                 "python3", "-m", "yt_dlp",
                 "-j",
                 "--no-playlist",
-                "--extractor-args", "youtube:player_client=android,web",
+                # 'android_embedded' is currently the most resilient client
+                "--extractor-args", "youtube:player_client=android_embedded,web",
                 "-f", "bestaudio/best",
-                video_url,
+                video_url
+            ]
+            
+            if po_token and visitor_data:
+                print("Using PoToken for extraction...")
+                cmd.extend(["--extractor-args", f"youtube:po_token={po_token},visitor_data={visitor_data}"])
+
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
@@ -197,9 +215,6 @@ class YoutubeService:
             if proc.returncode != 0:
                 error_msg = stderr.decode().strip()
                 print(f"yt-dlp extraction error: {error_msg}")
-                # Log detailed error for diagnostic
-                if "Sign in to confirm" in error_msg:
-                    print("CRITICAL: YouTube is still blocking. Cookies might be required.")
                 raise HTTPException(status_code=502, detail="Audio extraction failed.")
 
             try:

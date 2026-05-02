@@ -9,21 +9,10 @@ import { PlayerSheet } from '../components/PlayerSheet';
 import { RootStackParamList } from './types';
 import { colors } from '../theme';
 
-const forceName = (comp: any, name: string) => {
-  try {
-    Object.defineProperty(comp, 'name', { value: name, configurable: true });
-    comp.displayName = name;
-  } catch (e) {}
-};
-
-forceName(TabNavigator, 'TabNavigator');
-forceName(PlaylistDetailScreen, 'PlaylistDetailScreen');
-forceName(LocalSongsScreen, 'LocalSongsScreen');
-forceName(LikedSongsScreen, 'LikedSongsScreen');
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-export function RootNavigator() {
+export default function RootNavigator() {
   return (
     <View style={styles.root}>
       <Stack.Navigator

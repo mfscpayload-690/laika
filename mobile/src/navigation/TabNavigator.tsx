@@ -10,20 +10,8 @@ import SearchScreen from '../screens/SearchScreen';
 import LibraryScreen from '../screens/LibraryScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 
-const forceName = (comp: any, name: string) => {
-  try {
-    Object.defineProperty(comp, 'name', { value: name, configurable: true });
-    comp.displayName = name;
-  } catch (e) { }
-};
-
-forceName(HomeScreen, 'HomeScreen');
-forceName(SearchScreen, 'SearchScreen');
-forceName(LibraryScreen, 'LibraryScreen');
-forceName(SettingsScreen, 'SettingsScreen');
 import { colors } from '../theme';
 import { MainTabsParamList } from './types';
-import { usePlayback } from '../context/PlaybackContext';
 import { BouncyPressable } from '../components/BouncyPressable';
 import { scanDeviceForAudio } from '../services/audioScanner';
 import { saveCachedSongs, saveCachedSongsChunk } from '../services/libraryCache';
@@ -74,16 +62,6 @@ function SettingsTabBarIcon({ color }: { color: string }) {
 
 export default function TabNavigator(_props: any) {
   const insets = useSafeAreaInsets();
-  const {
-    songs,
-    setSongs,
-    playSong,
-    playRemote,
-    currentTrackId,
-    activeRemoteTrack,
-    isResolving,
-    isOffline,
-  } = usePlayback();
 
   const tabBarStyle = useMemo(
     () => ({

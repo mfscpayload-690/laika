@@ -8,6 +8,8 @@ import Animated, {
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
+const SPRING_CONFIG = { damping: 15, stiffness: 200, mass: 0.6 };
+
 interface BouncyPressableProps extends PressableProps {
   style?: StyleProp<ViewStyle>;
   scaleTo?: number;
@@ -33,11 +35,11 @@ export const BouncyPressable = React.memo(({
       {...props}
       style={[style, animatedStyle]}
       onPressIn={(e) => {
-        scale.value = withSpring(scaleTo, { damping: 10, stiffness: 300 });
+        scale.value = withSpring(scaleTo, SPRING_CONFIG);
         props.onPressIn?.(e);
       }}
       onPressOut={(e) => {
-        scale.value = withSpring(1, { damping: 10, stiffness: 300 });
+        scale.value = withSpring(1, SPRING_CONFIG);
         props.onPressOut?.(e);
       }}
     >

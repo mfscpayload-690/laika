@@ -7,19 +7,20 @@ import {
   StyleSheet,
   Text,
   View,
-  FlatList,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
+const AnyFlashList = FlashList as any;
 import { Search, WifiOff, RefreshCw, User, Play } from 'lucide-react-native';
 import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated';
 import { useNavigation } from '@react-navigation/native';
-import { useMusicState } from '../context/MusicStateContext';
+import { useMusicStore } from '../store/musicStore';
+import { useAuthStore } from '../store/authStore';
+import { useUIStore } from '../store/uiStore';
 
 import { SectionHeader } from '../components/SectionHeader';
 import { colors, radii, spacing } from '../theme';
 import { RemoteTrack } from '../types/music';
 import { API_BASE_URL } from '../services/api';
-import { useAuth } from '../context/AuthContext';
-import { useUI } from '../context/UIContext';
 import { BouncyPressable } from '../components/BouncyPressable';
 
 type HomeSection = {
@@ -55,87 +56,114 @@ function getGreeting(): string {
 const CAROUSEL_ITEM_WIDTH = 140;
 const CAROUSEL_ITEM_SIZE = CAROUSEL_ITEM_WIDTH + spacing.lg;
 
-const QuickPickItem = memo(({ track, onPressTrack, onLongPressTrack, isActive, isResolving }: { track: RemoteTrack; onPressTrack: (track: RemoteTrack) => void; onLongPressTrack?: (track: RemoteTrack) => void; isActive?: boolean; isResolving?: boolean }) => {
-  const handlePress = useCallback(() => {
-    onPressTrack(track);
-  }, [onPressTrack, track]);
+const QuickPickItem = memo(
+  ({ track, onPressTrack, onLongPressTrack, isActive, isResolving }: { 
+    track: RemoteTrack; 
+    onPressTrack: (track: RemoteTrack) => void; 
+    onLongPressTrack?: (track: RemoteTrack) => void; 
+    isActive?: boolean; 
+    isResolving?: boolean 
+  }) => {
+    const handlePress = useCallback(() => {
+      onPressTrack(track);
+    }, [onPressTrack, track]);
 
-  const handleLongPress = useCallback(() => {
-    if (onLongPressTrack) {
-      onLongPressTrack(track);
-    }
-  }, [onLongPressTrack, track]);
+    const handleLongPress = useCallback(() => {
+      if (onLongPressTrack) {
+        onLongPressTrack(track);
+      }
+    }, [onLongPressTrack, track]);
 
-  return (
-    <BouncyPressable
-      style={[styles.quickPickItem, isActive && styles.quickPickActive]}
-      onPress={handlePress}
-      onLongPress={onLongPressTrack ? handleLongPress : undefined}
-    >
-      <Image source={{ uri: track.thumbnail }} style={styles.quickPickArt} />
-      <View style={styles.quickPickText}>
-        <Text style={[styles.quickPickTitle, isActive && styles.quickPickTitleActive]} numberOfLines={1}>
-          {track.title}
-        </Text>
-      </View>
-      {isResolving ? (
-        <ActivityIndicator size="small" color={colors.brand} style={styles.resolvingIndicator} />
-      ) : isActive ? (
-        <View style={styles.activeDot} />
-      ) : null}
-    </BouncyPressable>
-  );
-});
-
-const MusicCarouselItem = memo(({ item, onPressTrack, onLongPressTrack, isResolving }: { item: RemoteTrack; onPressTrack: (track: RemoteTrack) => void; onLongPressTrack?: (track: RemoteTrack) => void; isResolving?: boolean }) => {
-  const handlePress = useCallback(() => {
-    onPressTrack(item);
-  }, [onPressTrack, item]);
-
-  const handleLongPress = useCallback(() => {
-    if (onLongPressTrack) {
-      onLongPressTrack(item);
-    }
-  }, [onLongPressTrack, item]);
-
-  return (
-    <BouncyPressable style={styles.carouselItem} onPress={handlePress} onLongPress={onLongPressTrack ? handleLongPress : undefined} scaleTo={0.97}>
-      <View style={styles.carouselArtContainer}>
-        <Image source={{ uri: item.thumbnail }} style={styles.carouselArt} />
+    return (
+      <BouncyPressable
+        style={[styles.quickPickItem, isActive && styles.quickPickActive]}
+        onPress={handlePress}
+        onLongPress={onLongPressTrack ? handleLongPress : undefined}
+      >
+        <Image source={{ uri: track.thumbnail }} style={styles.quickPickArt} />
+        <View style={styles.quickPickText}>
+          <Text style={[styles.quickPickTitle, isActive && styles.quickPickTitleActive]} numberOfLines={1}>
+            {track.title}
+          </Text>
+        </View>
         {isResolving ? (
-          <View style={[StyleSheet.absoluteFill, styles.carouselLoadingOverlay]}>
-            <ActivityIndicator size="small" color={colors.brand} />
-          </View>
-        ) : (
-          <View style={styles.carouselPlayOverlay}>
-            <Play size={20} color="#FFF" fill="#FFF" />
-          </View>
-        )}
-      </View>
-      <Text style={styles.carouselTitle} numberOfLines={1}>{item.title}</Text>
-      <Text style={styles.carouselArtist} numberOfLines={1}>{item.artist}</Text>
-    </BouncyPressable>
-  );
-});
+          <ActivityIndicator size="small" color={colors.brand} style={styles.resolvingIndicator} />
+        ) : isActive ? (
+          <View style={styles.activeDot} />
+        ) : null}
+      </BouncyPressable>
+    );
+  },
+  (prev, next) =>
+    prev.track.id === next.track.id &&
+    prev.isActive === next.isActive &&
+    prev.isResolving === next.isResolving &&
+    prev.onPressTrack === next.onPressTrack &&
+    prev.onLongPressTrack === next.onLongPressTrack
+);
+
+const MusicCarouselItem = memo(
+  ({ item, onPressTrack, onLongPressTrack, isResolving }: { 
+    item: RemoteTrack; 
+    onPressTrack: (track: RemoteTrack) => void; 
+    onLongPressTrack?: (track: RemoteTrack) => void; 
+    isResolving?: boolean 
+  }) => {
+    const handlePress = useCallback(() => {
+      onPressTrack(item);
+    }, [onPressTrack, item]);
+
+    const handleLongPress = useCallback(() => {
+      if (onLongPressTrack) {
+        onLongPressTrack(item);
+      }
+    }, [onLongPressTrack, item]);
+
+    return (
+      <BouncyPressable style={styles.carouselItem} onPress={handlePress} onLongPress={onLongPressTrack ? handleLongPress : undefined} scaleTo={0.97}>
+        <View style={styles.carouselArtContainer}>
+          <Image source={{ uri: item.thumbnail }} style={styles.carouselArt} />
+          {isResolving ? (
+            <View style={[StyleSheet.absoluteFill, styles.carouselLoadingOverlay]}>
+              <ActivityIndicator size="small" color={colors.brand} />
+            </View>
+          ) : (
+            <View style={styles.carouselPlayOverlay}>
+              <Play size={20} color="#FFF" fill="#FFF" />
+            </View>
+          )}
+        </View>
+        <Text style={styles.carouselTitle} numberOfLines={1}>{item.title}</Text>
+        <Text style={styles.carouselArtist} numberOfLines={1}>{item.artist}</Text>
+      </BouncyPressable>
+    );
+  },
+  (prev, next) =>
+    prev.item.id === next.item.id &&
+    prev.isResolving === next.isResolving &&
+    prev.onPressTrack === next.onPressTrack &&
+    prev.onLongPressTrack === next.onLongPressTrack
+);
 
 function HomeScreen() {
   const navigation = useNavigation<any>();
-  const musicState = useMusicState();
-  const {
-    songs,
-    scanning,
-    isOffline,
-    currentTrackId,
-    activeRemoteTrackId,
-    resolvingId,
-    onScan,
-    onPlayTrack,
-  } = musicState;
+  
+  // Zustand State
+  const songs = useMusicStore(state => state.songs);
+  const scanning = useMusicStore(state => state.scanning);
+  const isOffline = useMusicStore(state => state.isOffline);
+  const currentTrackId = useMusicStore(state => state.currentTrackId);
+  const activeRemoteTrackId = useMusicStore(state => state.activeRemoteTrack?.id);
+  const resolvingId = useMusicStore(state => state.isResolving ? state.activeRemoteTrack?.id : null);
+  const onScan = useMusicStore(state => state.startScan);
+  const onPlayTrack = useMusicStore(state => state.playRemote);
+  const user = useAuthStore(state => state.user);
+  const showAddToPlaylist = useUIStore(state => state.showAddToPlaylist);
+
   const songsCount = songs.length;
   const onOpenSearch = () => navigation.navigate('Search');
   const onOpenProfile = () => navigation.navigate('Settings');
-  const { user } = useAuth();
-  const { showAddToPlaylist } = useUI();
+  
   const [sections, setSections] = useState<HomeSection[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -268,19 +296,14 @@ function HomeScreen() {
                   ))}
                 </View>
               ) : (
-                <FlatList
+                <AnyFlashList
                   horizontal
                   data={section.items}
                   keyExtractor={keyExtractor}
                   showsHorizontalScrollIndicator={false}
                   renderItem={renderCarouselItem}
-                  getItemLayout={getCarouselItemLayout}
+                  estimatedItemSize={CAROUSEL_ITEM_SIZE}
                   contentContainerStyle={styles.carouselList}
-                  initialNumToRender={4}
-                  maxToRenderPerBatch={4}
-                  updateCellsBatchingPeriod={50}
-                  windowSize={3}
-                  removeClippedSubviews={true}
                 />
               )}
             </View>
