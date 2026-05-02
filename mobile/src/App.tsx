@@ -4,18 +4,16 @@ import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { PlaybackProvider } from './context/PlaybackContext';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import { LikesProvider } from './context/LikesContext';
-import { RootNavigator } from './navigation/RootNavigator';
+import { AppInitializer } from './components/AppInitializer';
+import { useAuthStore } from './store/authStore';
+import RootNavigator from './navigation/RootNavigator';
 import { LoginScreen } from './screens/LoginScreen';
-import { PlaylistProvider } from './context/PlaylistContext';
-import { UIProvider } from './context/UIContext';
-import { MusicStateProvider } from './context/MusicStateContext';
 import { colors } from './theme';
 
 function NavigationWrapper() {
-  const { user, loading, isGuest } = useAuth();
+  const user = useAuthStore(state => state.user);
+  const loading = useAuthStore(state => state.loading);
+  const isGuest = useAuthStore(state => state.isGuest);
 
   if (loading) {
     return null; // Or a splash screen
@@ -43,19 +41,9 @@ export default function App() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
-        <AuthProvider>
-          <PlaybackProvider>
-            <LikesProvider>
-            <PlaylistProvider>
-              <MusicStateProvider>
-                <UIProvider>
-                  <NavigationWrapper />
-                </UIProvider>
-              </MusicStateProvider>
-            </PlaylistProvider>
-            </LikesProvider>
-          </PlaybackProvider>
-        </AuthProvider>
+        <AppInitializer>
+          <NavigationWrapper />
+        </AppInitializer>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
