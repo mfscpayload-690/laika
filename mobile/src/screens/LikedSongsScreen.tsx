@@ -40,7 +40,7 @@ export default function LikedSongsScreen() {
   // Convert LikedTrack to the format SongList expects
   const tracks = useMemo(() => {
     return likedTracks.map(lt => ({
-      id: lt.track_id,
+      id: lt.id,
       title: lt.track_metadata.title,
       artist: lt.track_metadata.artist,
       album: lt.track_metadata.album,
