@@ -10,8 +10,8 @@ from routers.lyrics import router as lyrics_router
 from routers.events import router as events_router
 from routers.playlists import router as playlists_router
 from core.database import Base, engine
-from models.user_event import UserEvent
-from models.playlist import Playlist, PlaylistTrack # Import models to ensure they are registered
+from models.user_event import UserEvent # noqa: F401
+from models.playlist import Playlist, PlaylistTrack # noqa: F401 # Import models to ensure they are registered
 
 # Create tables
 Base.metadata.create_all(bind=engine)

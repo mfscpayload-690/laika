@@ -14,7 +14,7 @@ async def test_resolve():
         
         if response.status_code == 200:
             data = response.json()
-            print(f"Success! Resolved to:")
+            print("Success! Resolved to:")
             print(f"Title: {data['title']}")
             print(f"URL: {data['url'][:50]}...")
             print(f"Duration: {data['duration']}ms")

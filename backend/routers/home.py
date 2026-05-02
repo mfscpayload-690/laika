@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from core.database import get_db
 from models.user_event import UserEvent
-from typing import List, Optional
+from typing import Optional
 import asyncio
 import datetime
 from core.schemas import HomeResponse, HomeSection, Track
@@ -26,7 +26,7 @@ async def get_home(
     if user_id:
         query = query.filter(UserEvent.user_id == user_id)
     else:
-        query = query.filter(UserEvent.user_id == None)
+        query = query.filter(UserEvent.user_id.is_(None))
         
     recent_events = query.order_by(UserEvent.timestamp.desc()).limit(50).all()
     
@@ -98,7 +98,7 @@ async def get_home(
     if user_id:
         mp_query = mp_query.filter(UserEvent.user_id == user_id)
     else:
-        mp_query = mp_query.filter(UserEvent.user_id == None)
+        mp_query = mp_query.filter(UserEvent.user_id.is_(None))
 
     most_played_events = mp_query.group_by(
         UserEvent.track_id, 

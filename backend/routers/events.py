@@ -1,10 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from core.database import get_db
 from models.user_event import UserEvent
 from pydantic import BaseModel
 from typing import Optional
-import datetime
 
 router = APIRouter(prefix="/events", tags=["events"])
 

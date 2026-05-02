@@ -3,7 +3,6 @@ import json
 import os
 import hashlib
 from typing import Optional, Dict, Any
-from core.config import get_settings
 
 LRCLIB_BASE_URL = "https://lrclib.net/api"
 CACHE_DIR = "cache/lyrics"
