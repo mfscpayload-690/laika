@@ -220,7 +220,7 @@ export default function SearchScreen() {
           data={visibleResults}
           keyExtractor={(item: RemoteTrack) => item.id}
           style={styles.list}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={StyleSheet.flatten(styles.listContent)}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           estimatedItemSize={64}
@@ -282,7 +282,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listContent: {
-    paddingHorizontal: spacing.base,
+    paddingLeft: spacing.base,
+    paddingRight: spacing.base,
     paddingTop: spacing.xs,
     paddingBottom: 180,
   },
