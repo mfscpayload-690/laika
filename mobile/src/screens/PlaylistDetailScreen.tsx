@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -20,9 +20,11 @@ import Animated, {
   Extrapolation,
 } from 'react-native-reanimated';
 
-import { usePlaylists } from '../context/PlaylistContext';
-import { usePlayback } from '../context/PlaybackContext';
-import { useMusicState } from '../context/MusicStateContext';
+import { FlashList, FlashListProps } from '@shopify/flash-list';
+
+import { usePlaylistStore } from '../store/playlistStore';
+import { useMusicStore } from '../store/musicStore';
+import { useUIStore } from '../store/uiStore';
 import { TrackRow } from '../components/TrackRow';
 import { colors, radii, spacing } from '../theme';
 import type { PlaylistTrack } from '../services/libraryService';
@@ -31,15 +33,22 @@ const HEADER_MAX_HEIGHT = 340;
 const HEADER_MIN_HEIGHT = 100;
 const SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
 
+const AnimatedFlashList = Animated.createAnimatedComponent(FlashList) as any;
+
 export default function PlaylistDetailScreen() {
   const route = useRoute<any>();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { playlistId, title: initialTitle } = route.params;
   
-  const { getTracks, removeTrack, deletePlaylist, updatePlaylist } = usePlaylists();
-  const { playRemote } = usePlayback();
-  const { activeRemoteTrackId } = useMusicState();
+  const getTracks = usePlaylistStore(state => state.getTracks);
+  const removeTrack = usePlaylistStore(state => state.removeTrack);
+  const deletePlaylist = usePlaylistStore(state => state.deletePlaylist);
+  const updatePlaylistName = usePlaylistStore(state => state.updatePlaylistName);
+  
+  const playRemote = useMusicStore(state => state.playRemote);
+  const activeRemoteTrackId = useMusicStore(state => state.currentTrackId);
+  
   
   const [tracks, setTracks] = useState<PlaylistTrack[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,7 +113,7 @@ export default function PlaylistDetailScreen() {
     }
     setIsRenaming(true);
     try {
-      await updatePlaylist(playlistId, newName);
+      await updatePlaylistName(playlistId, newName);
       setTitle(newName);
       setIsRenameVisible(false);
     } catch (error) {
@@ -214,11 +223,12 @@ export default function PlaylistDetailScreen() {
           <ActivityIndicator size="large" color={colors.brand} />
         </View>
       ) : (
-        <Animated.FlatList
+        <AnimatedFlashList
           onScroll={scrollHandler}
           scrollEventThrottle={16}
           data={tracks}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item: any) => item.track_id}
+          estimatedItemSize={72}
           ListHeaderComponent={
             <Animated.View style={[styles.listHeader, listHeaderStyle]}>
               <Animated.View style={[styles.artContainer, artworkStyle]}>
@@ -241,7 +251,7 @@ export default function PlaylistDetailScreen() {
               </Pressable>
             </Animated.View>
           }
-          renderItem={({ item, index }) => (
+          renderItem={({ item, index }: any) => (
             <TrackRow
               title={item.track_metadata.title}
               artist={item.track_metadata.artist}
