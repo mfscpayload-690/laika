@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from core.database import get_db
 from models.playlist import Playlist, PlaylistTrack
-from typing import List, Optional
+from typing import Optional
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/playlists", tags=["playlists"])

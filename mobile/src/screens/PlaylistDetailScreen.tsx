@@ -227,7 +227,7 @@ export default function PlaylistDetailScreen() {
           onScroll={scrollHandler}
           scrollEventThrottle={16}
           data={tracks}
-          keyExtractor={(item: any) => item.track_id}
+          keyExtractor={(item: any) => item.id}
           estimatedItemSize={72}
           ListHeaderComponent={
             <Animated.View style={[styles.listHeader, listHeaderStyle]}>
@@ -274,7 +274,7 @@ export default function PlaylistDetailScreen() {
               showMenuIcon={true}
             />
           )}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={StyleSheet.flatten(styles.listContent)}
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <Text style={styles.emptyText}>This playlist is empty.</Text>

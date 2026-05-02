@@ -5,7 +5,7 @@ import os
 import time
 from typing import List, Optional, Tuple
 import httpx
-from fastapi import HTTPException, status
+from fastapi import HTTPException
 from core.schemas import Track
 from core.config import get_settings
 
@@ -168,7 +168,8 @@ class YoutubeService:
                         source="youtube", youtube_id=item["id"],
                         youtube_url=f"https://www.youtube.com/watch?v={item['id']}"
                     ))
-                except: continue
+                except Exception:
+                    continue
             return tracks
         except Exception as e:
             print(f"Scraping failed: {e}")
@@ -241,7 +242,8 @@ class YoutubeService:
                 raise HTTPException(status_code=502, detail="Extraction response invalid.")
 
     async def _fetch_durations(self, video_ids: List[str]) -> dict:
-        if not video_ids: return {}
+        if not video_ids:
+            return {}
         try:
             params = {"part": "contentDetails", "id": ",".join(video_ids), "key": self._api_key()}
             async with self._get_client() as client:
@@ -250,12 +252,14 @@ class YoutubeService:
                     data = response.json()
                     return {item["id"]: self._iso8601_to_ms(item["contentDetails"]["duration"]) 
                             for item in data.get("items", [])}
-        except: pass
+        except Exception:
+            pass
         return {}
 
     def _iso8601_to_ms(self, iso: str) -> int:
         match = re.match(r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?', iso)
-        if not match: return 0
+        if not match:
+            return 0
         h, m, s = [int(match.group(i) or 0) for i in range(1, 4)]
         return ((h * 3600) + (m * 60) + s) * 1000
 

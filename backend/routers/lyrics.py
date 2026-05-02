@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Query, HTTPException, status
 from pydantic import BaseModel
-from typing import Optional, Dict, Any
+from typing import Optional
 from services.lyrics_service import lyrics_service
 
 router = APIRouter(prefix="/lyrics", tags=["lyrics"])

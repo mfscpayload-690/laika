@@ -3,10 +3,21 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![React Native](https://img.shields.io/badge/React_Native-v0.7x-61DAFB.svg)](https://reactnative.dev/)
+[![Security: Protected](https://img.shields.io/badge/Security-Protected-green.svg)](SECURITY.md)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 Laika Music is a high-performance, stateless music streaming and discovery application. It leverages a dual-engine architecture to provide instantaneous metadata search via the Piped API and high-fidelity audio resolution through yt-dlp, eliminating the need for a persistent database or third-party premium subscriptions.
 
-## Architecture Overview
+## 🚀 Features
+
+- **Instant Discovery**: Real-time track searching and metadata extraction using the Piped API.
+- **High-Fidelity Streaming**: Optimized audio resolution and playback via yt-dlp.
+- **Stateless Architecture**: No persistent database required, ensuring privacy and speed.
+- **Cross-Platform Experience**: Beautifully designed mobile and web interfaces.
+- **Local Integration**: Native audio scanning for local music libraries.
+- **Privacy-First**: Anonymous searching and no third-party tracking.
+
+## 🏗️ Architecture
 
 The system is designed as a stateless intelligence layer that orchestrates between public metadata sources and high-quality audio streams.
 
@@ -15,22 +26,21 @@ The system is designed as a stateless intelligence layer that orchestrates betwe
 - **Playback Pipeline**: Uses yt-dlp for asynchronous, high-accuracy audio stream extraction during the resolution phase.
 - **Frontend**: A React Native application focused on performance, local audio scanning, and a modern, icon-driven user interface.
 
-## Tech Stack
+## 🛠️ Tech Stack
 
 ### Backend
-- **Core**: FastAPI (Python 3.10+)
-- **Networking**: httpx (Asynchronous HTTP client)
-- **Audio Extraction**: yt-dlp
-- **Schema Validation**: Pydantic v2
-- **Process Management**: Uvicorn
+- **Framework**: [FastAPI](https://fastapi.tiangolo.com/) (Python 3.10+)
+- **Networking**: [httpx](https://www.python-httpx.org/) (Asynchronous HTTP client)
+- **Audio Extraction**: [yt-dlp](https://github.com/yt-dlp/yt-dlp)
+- **Validation**: [Pydantic v2](https://docs.pydantic.dev/)
 
-### Mobile
-- **Framework**: React Native
-- **Icons**: Lucide React Native
-- **State Management**: Custom Hooks + Track Player Service
-- **Native Modules**: Kotlin (Android Audio Scanner)
+### Frontend (Mobile & Web)
+- **Framework**: [React Native](https://reactnative.dev/) / [React](https://reactjs.org/)
+- **Styling**: Vanilla CSS / Tailwind CSS
+- **Icons**: [Lucide React](https://lucide.dev/)
+- **State Management**: React Hooks & Custom Services
 
-## Project Structure
+## 📂 Project Structure
 
 ```text
 laika-music/
@@ -51,24 +61,43 @@ laika-music/
 │   │   └── theme.ts            # Global design tokens
 │   ├── App.tsx                 # Root application component
 │   └── package.json            # Mobile dependencies & scripts
-├── README.md                   # Technical documentation
-└── .gitignore                  # Optimized exclusion rules
+├── web/                        # Web Frontend (React)
+├── .github/                    # GitHub configuration & workflows
+└── README.md                   # Project documentation
 ```
 
-## Getting Started
+## 🚦 Getting Started
+
+### Prerequisites
+- Python 3.10+
+- Node.js & npm
+- `yt-dlp` installed in your system path
 
 ### Backend Setup
-1. Navigate to the backend directory: `cd backend`
-2. Install dependencies: `pip install -r requirements.txt`
-3. Ensure `yt-dlp` is available in your system path.
-4. Start the development server: `python -m uvicorn main:app --reload`
+1. `cd backend`
+2. `pip install -r requirements.txt`
+3. `python -m uvicorn main:app --reload`
 
 ### Mobile Setup
-1. Navigate to the mobile directory: `cd mobile`
-2. Install dependencies: `npm install`
-3. Start the Metro bundler: `npx react-native start`
-4. Run on Android: `npx react-native run-android`
+1. `cd mobile`
+2. `npm install`
+3. `npx react-native start`
+4. `npx react-native run-android` # For Android development
 
-## License
+## 🤝 Contributing
 
-This project is licensed under the GNU General Public License v3.0 (GPL-3.0). See the [LICENSE](LICENSE) file for details.
+Contributions are what make the open-source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
+
+Please see [CONTRIBUTING.md](CONTRIBUTING.md) for our development workflow and style guidelines.
+
+## 🛡️ Security
+
+We take security seriously. Please report any vulnerabilities privately. See [SECURITY.md](SECURITY.md) for more information.
+
+## 📄 License
+
+This project is licensed under the GNU General Public License v3.0. See the [LICENSE](LICENSE) file for details.
+
+---
+
+Built with ❤️ by the Laika Music Community.
