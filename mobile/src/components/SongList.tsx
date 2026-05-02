@@ -151,10 +151,10 @@ export function SongList({
       keyExtractor={keyExtractor}
       renderItem={renderItem}
       estimatedItemSize={SONG_ROW_HEIGHT + spacing.xs}
-      contentContainerStyle={[
+      contentContainerStyle={StyleSheet.flatten([
         songs.length === 0 ? styles.emptyListContent : styles.content,
         contentContainerStyle
-      ]}
+      ])}
       keyboardShouldPersistTaps="handled"
       onScroll={onScroll}
       onScrollBeginDrag={onScrollBeginDrag}

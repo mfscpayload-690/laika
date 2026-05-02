@@ -210,7 +210,7 @@ const HomeSection = memo(({
           showsHorizontalScrollIndicator={false}
           renderItem={renderCarouselItem}
           estimatedItemSize={CAROUSEL_ITEM_SIZE}
-          contentContainerStyle={styles.carouselList}
+          contentContainerStyle={StyleSheet.flatten(styles.carouselList)}
           getItemLayout={getCarouselItemLayout}
         />
       )}
@@ -231,8 +231,8 @@ function HomeScreen() {
   const scanning = useMusicStore(state => state.scanning);
   const isOffline = useMusicStore(state => state.isOffline);
   const currentTrackId = useMusicStore(state => state.currentTrackId);
-  const activeRemoteTrackId = useMusicStore(state => state.activeRemoteTrack?.id);
-  const resolvingId = useMusicStore(state => state.isResolving ? state.activeRemoteTrack?.id : null);
+  const activeRemoteTrackId = useMusicStore(state => state.activeRemoteTrack?.id ?? null);
+  const resolvingId = useMusicStore(state => state.isResolving ? (state.activeRemoteTrack?.id ?? null) : null);
   const onScan = useMusicStore(state => state.startScan);
   const onPlayTrack = useMusicStore(state => state.playRemote);
   const user = useAuthStore(state => state.user);
@@ -422,7 +422,7 @@ const styles = StyleSheet.create({
 
   // Carousel
   section: { marginBottom: spacing.xl },
-  carouselList: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
+  carouselList: { paddingLeft: spacing.lg, paddingRight: spacing.lg, paddingBottom: spacing.sm },
   carouselItem: { width: CAROUSEL_ITEM_WIDTH, marginRight: spacing.lg },
   carouselArtContainer: { width: CAROUSEL_ITEM_WIDTH, height: CAROUSEL_ITEM_WIDTH, borderRadius: radii.lg, overflow: 'hidden', marginBottom: spacing.sm, position: 'relative' },
   carouselLoadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
