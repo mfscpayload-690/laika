@@ -166,7 +166,7 @@ class YoutubeService:
             return []
 
     async def extract_audio_url(self, video_url: str) -> dict:
-        """Extracts direct audio stream URL with caching."""
+        """Extracts direct audio stream URL with caching and resilient format handling."""
         now = time.time()
         if video_url in self._stream_cache:
             entry = self._stream_cache[video_url]
@@ -175,17 +175,39 @@ class YoutubeService:
 
         async with self._extract_semaphore:
             print(f"Extracting audio: {video_url}")
+            # Relaxed format selection for better compatibility
+            # Try bestaudio first, then fallback to anything with audio
             proc = await asyncio.create_subprocess_exec(
-                "yt-dlp", "-j", "-f", "ba[ext=m4a]/ba/b", video_url,
-                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+                "yt-dlp",
+                "-j",
+                "--no-playlist",
+                "--no-warnings",
+                "--quiet",
+                "--add-header", "User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+                "-f", "bestaudio/best",
+                video_url,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
             )
-            stdout, _ = await proc.communicate()
+            stdout, stderr = await proc.communicate()
+            
+            if proc.returncode != 0:
+                error_msg = stderr.decode().strip()
+                print(f"yt-dlp extraction error for {video_url}: {error_msg}")
+                raise HTTPException(status_code=502, detail=f"Audio extraction failed: {error_msg[:100]}")
+
             try:
-                data = json.loads(stdout.decode())
-                stream_url = data["url"]
-                
+                raw_out = stdout.decode().strip()
+                if not raw_out:
+                    raise ValueError("Empty output from yt-dlp")
+                    
+                data = json.loads(raw_out)
+                stream_url = data.get("url")
+                if not stream_url:
+                    raise ValueError("No stream URL found in metadata")
+
                 # Expiry logic
-                ttl = 7200
+                ttl = 3600  # Default 1 hour
                 expire_match = re.search(r"expire=(\d+)", stream_url)
                 if expire_match:
                     ttl = int(expire_match.group(1)) - int(now) - 300
@@ -200,8 +222,9 @@ class YoutubeService:
                 self._save_cache()
                 return res
             except Exception as e:
-                print(f"Extraction failed for {video_url}: {e}")
-                raise HTTPException(status_code=502, detail="Audio extraction failed")
+                print(f"JSON Parsing failed for {video_url}. Output was: {stdout.decode()[:200]}")
+                print(f"Error: {e}")
+                raise HTTPException(status_code=502, detail="Audio extraction failed: Invalid response")
 
     async def _fetch_durations(self, video_ids: List[str]) -> dict:
         if not video_ids: return {}
