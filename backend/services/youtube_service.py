@@ -151,6 +151,56 @@ class YoutubeService:
             print(f"DEBUG: YouTube search exception: {e}")
             return []
 
+    async def search_video(self, query: str) -> Optional[str]:
+        """Search for a video and return its ID. Falls back to yt-dlp if API fails."""
+        settings = get_settings()
+        
+        # 1. Try Official API first (fastest)
+        if settings.YOUTUBE_API_KEY:
+            try:
+                params = {
+                    "part": "snippet",
+                    "q": query,
+                    "maxResults": 1,
+                    "type": "video",
+                    "key": settings.YOUTUBE_API_KEY,
+                }
+                async with self._get_client() as client:
+                    response = await client.get(YOUTUBE_SEARCH_URL, params=params)
+                    if response.status_code == 200:
+                        data = response.json()
+                        items = data.get("items", [])
+                        if items:
+                            return items[0]["id"]["videoId"]
+                    else:
+                        print(f"YouTube API error {response.status_code}: {response.text}")
+            except Exception as e:
+                print(f"YouTube API exception: {e}")
+
+        # 2. Fallback: Use yt-dlp to search (unlimited, no quota cost)
+        print(f"Falling back to yt-dlp search for: {query}")
+        try:
+            # We use ytsearch1: to get only the first result
+            proc = await asyncio.create_subprocess_exec(
+                "yt-dlp",
+                "--get-id",
+                "--flat-playlist",
+                f"ytsearch1:{query}",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await proc.communicate()
+            if proc.returncode == 0:
+                video_id = stdout.decode().strip()
+                if video_id:
+                    return video_id
+            else:
+                print(f"yt-dlp search failed: {stderr.decode()}")
+        except Exception as e:
+            print(f"yt-dlp search exception: {e}")
+
+        return None
+
     async def _fetch_durations(self, video_ids: List[str]) -> dict:
         """
         Fetches ISO 8601 durations for a list of video IDs and returns {id: ms}.
