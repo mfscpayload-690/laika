@@ -24,18 +24,19 @@ import {
   Heart
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { usePlaylists } from '../context/PlaylistContext';
-import { useLikes } from '../context/LikesContext';
-import { useUI } from '../context/UIContext';
+import { usePlaylistStore } from '../store/playlistStore';
+import { useLikesStore } from '../store/likesStore';
+import { useUIStore } from '../store/uiStore';
 import { BouncyPressable } from '../components/BouncyPressable';
 import { colors, radii, spacing, typography } from '../theme';
-import { useMusicState } from '../context/MusicStateContext';
+import { useMusicStore } from '../store/musicStore';
 
 export default function LibraryScreen() {
-  const musicState = useMusicState();
-  const { songs } = musicState;
-  const { likedTracks } = useLikes();
-  const { playlists, createPlaylist, deletePlaylist } = usePlaylists();
+  const songs = useMusicStore(state => state.songs);
+  const likedTracks = useLikesStore(state => state.likedTracks);
+  const playlists = usePlaylistStore(state => state.playlists);
+  const createPlaylist = usePlaylistStore(state => state.createPlaylist);
+  const deletePlaylist = usePlaylistStore(state => state.deletePlaylist);
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
 
