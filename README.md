@@ -23,14 +23,6 @@ Laika Music is a high-performance, stateless music streaming and discovery appli
 - **Privacy-First**: Anonymous searching and no third-party tracking.
 - **Local Integration**: Native audio scanning for local music libraries.
 
-## 📱 Previews
-
-<p align="center">
-  <img src="web/assets/Home-Dashboard-Laika-Music.png" width="32%" alt="Dashboard" />
-  <img src="web/assets/Now-Playing-Laika-Music.png" width="32%" alt="Now Playing" />
-  <img src="web/assets/Local-Library-Laika-Music.png" width="32%" alt="Local Library" />
-</p>
-
 ##  Architecture
 
 The system is designed as a stateless intelligence layer that orchestrates between public metadata sources and high-quality audio streams.
