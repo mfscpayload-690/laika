@@ -16,7 +16,22 @@ class Settings(BaseSettings):
         "https://pipedapi.moomoo.me",
         "https://pipedapi.leptons.xyz",
         "https://pipedapi.privacydev.net",
-        "https://api-piped.mha.fi"
+        "https://api-piped.mha.fi",
+        "https://pipedapi.reillyhoward.com",
+        "https://pipedapi.v0l.me",
+        "https://pipedapi.garnet.ovh",
+        "https://pipedapi.us.to",
+        "https://pipedapi.drgns.space"
+    ]
+    invidious_instances: list[str] = [
+        "https://yewtu.be",
+        "https://invidious.snopyta.org",
+        "https://invidious.flokinet.to",
+        "https://invidious.sethforprivacy.com",
+        "https://inv.riverside.rocks",
+        "https://invidious.namazso.eu",
+        "https://invidious.privacydev.net",
+        "https://invidious.esmailelbob.xyz"
     ]
     supabase_jwt_secret: str | None = None
     supabase_jwt_audience: str = "authenticated"
