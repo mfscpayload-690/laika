@@ -3,6 +3,8 @@ import asyncio
 import json
 import os
 import time
+import base64
+import tempfile
 from typing import List, Optional, Tuple
 import httpx
 from fastapi import HTTPException
@@ -203,20 +205,34 @@ class YoutubeService:
                 self._stream_cache[video_url] = {"data": res, "expiry": now + 3600} # Piped URLs usually last 1-6 hours
                 self._save_cache()
                 return res
-
             # 2. Fallback to yt-dlp (Legacy)
-            print(f"Piped failed, falling back to yt-dlp for {video_url}")
+            print(f"Piped/Invidious failed, falling back to yt-dlp for {video_url}")
             settings = get_settings()
-            po_token = getattr(settings, 'YOUTUBE_PO_TOKEN', None)
-            visitor_data = getattr(settings, 'YOUTUBE_VISITOR_DATA', None)
+            po_token = settings.youtube_po_token
+            visitor_data = settings.youtube_visitor_data
+            cookies_b64 = settings.youtube_cookies_b64
             
             cmd = [
                 "python3", "-m", "yt_dlp",
                 "-j", "--no-playlist",
-                "--extractor-args", "youtube:player_client=ios,web",
+                "--extractor-args", "youtube:player_client=ios,web,android",
                 "-f", "bestaudio/best",
+                "--no-check-certificates",
                 video_url
             ]
+
+            cookie_file = None
+            if cookies_b64:
+                try:
+                    cookie_data = base64.b64decode(cookies_b64).decode()
+                    cookie_file = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt')
+                    cookie_file.write(cookie_data)
+                    cookie_file.close()
+                    cmd.extend(["--cookies", cookie_file.name])
+                    print("Using cookies for yt-dlp extraction")
+                except Exception as e:
+                    print(f"Failed to setup cookies: {e}")
+
             if po_token and visitor_data:
                 cmd.extend(["--extractor-args", f"youtube:po_token={po_token},visitor_data={visitor_data}"])
 
@@ -235,11 +251,26 @@ class YoutubeService:
                     }
                     self._stream_cache[video_url] = {"data": res, "expiry": now + 3600}
                     self._save_cache()
+                    
+                    # Cleanup cookie file
+                    if cookie_file and os.path.exists(cookie_file.name):
+                        try:
+                            os.unlink(cookie_file.name)
+                        except Exception:
+                            pass
+                            
                     return res
                 except Exception as e:
                     print(f"Error parsing yt-dlp output: {e}")
             else:
                 print(f"yt-dlp failed with code {proc.returncode}: {stderr.decode()}")
+
+            # Cleanup cookie file
+            if cookie_file and os.path.exists(cookie_file.name):
+                try:
+                    os.unlink(cookie_file.name)
+                except Exception:
+                    pass
 
             raise HTTPException(
                 status_code=502, 

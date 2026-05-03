@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     youtube_api_key: str = ""
     youtube_po_token: str | None = None
     youtube_visitor_data: str | None = None
+    youtube_cookies_b64: str | None = None  # Base64 encoded cookies.txt
     piped_instances: list[str] = [
         "https://pipedapi.kavin.rocks",
         "https://pipedapi.adminforge.de",
