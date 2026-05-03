@@ -255,7 +255,6 @@ function HomeScreen() {
 
     const performFetch = async () => {
       try {
-        console.log('[HomeScreen] Fetching from:', fetchUrl);
         const res = await fetch(fetchUrl);
         
         if (!res.ok) {
@@ -266,7 +265,6 @@ function HomeScreen() {
         }
 
         const data = await res.json();
-        console.log('[HomeScreen] Data received, sections:', data?.sections?.length || 0);
 
         if (!mounted) return;
 
@@ -422,7 +420,7 @@ const styles = StyleSheet.create({
 
   // Carousel
   section: { marginBottom: spacing.xl },
-  carouselList: { paddingLeft: spacing.lg, paddingRight: spacing.lg, paddingBottom: spacing.sm },
+  carouselList: { paddingBottom: spacing.sm },
   carouselItem: { width: CAROUSEL_ITEM_WIDTH, marginRight: spacing.lg },
   carouselArtContainer: { width: CAROUSEL_ITEM_WIDTH, height: CAROUSEL_ITEM_WIDTH, borderRadius: radii.lg, overflow: 'hidden', marginBottom: spacing.sm, position: 'relative' },
   carouselLoadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
