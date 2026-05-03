@@ -9,6 +9,15 @@ class Settings(BaseSettings):
     youtube_api_key: str = ""
     youtube_po_token: str | None = None
     youtube_visitor_data: str | None = None
+    piped_instances: list[str] = [
+        "https://pipedapi.kavin.rocks",
+        "https://pipedapi.adminforge.de",
+        "https://pipedapi.hostux.net",
+        "https://pipedapi.moomoo.me",
+        "https://pipedapi.leptons.xyz",
+        "https://pipedapi.privacydev.net",
+        "https://api-piped.mha.fi"
+    ]
     supabase_jwt_secret: str | None = None
     supabase_jwt_audience: str = "authenticated"
 
