@@ -24,6 +24,9 @@ import Animated, {
   withDelay,
   useAnimatedProps,
   useDerivedValue,
+  useAnimatedSensor,
+  SensorType,
+  useAnimatedScrollHandler,
 } from 'react-native-reanimated';
 import { ChevronDown, Music, Pause, Play, Repeat, Shuffle, SkipBack, SkipForward, Mic2, Heart, Plus, Check } from 'lucide-react-native';
 import TrackPlayer, { useProgress } from 'react-native-track-player';
@@ -44,7 +47,9 @@ import { API_BASE_URL } from '../services/api';
 import { State } from 'react-native-track-player';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
-const MINI_PLAYER_HEIGHT = 64 + 10; // 64 height + 10 paddingTop approx
+const MINI_PLAYER_HEIGHT = 64 + 10; 
+const MINI_ARTWORK_SIZE = 44;
+const FULL_ARTWORK_SIZE = SCREEN_WIDTH * 0.82;
 
 const BUTTER_SPRING_CONFIG = {
   damping: 18,
@@ -52,6 +57,148 @@ const BUTTER_SPRING_CONFIG = {
   mass: 0.8,
   overshootClamping: false,
 };
+
+const styles = StyleSheet.create({
+  sheetContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    zIndex: 999,
+  },
+  miniPlayerWrapper: {
+    position: 'absolute',
+    top: 0,
+    left: spacing.sm,
+    right: spacing.sm,
+    height: MINI_PLAYER_HEIGHT,
+    zIndex: 10,
+  },
+  miniPlayer: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    borderRadius: 24,
+    backgroundColor: 'transparent', 
+    overflow: 'hidden',
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.4,
+    shadowRadius: 15,
+    elevation: 12,
+  },
+  miniArtwork: { width: 44, height: 44, borderRadius: 6, marginRight: 10 },
+  miniArtworkFallback: { width: 44, height: 44, borderRadius: 6, marginRight: 10, backgroundColor: '#3B3B3B', alignItems: 'center', justifyContent: 'center' },
+  miniPlayerInfo: { flex: 1, marginRight: 8 },
+  miniPlayerTitle: { color: colors.textPrimary, fontSize: 14, fontWeight: '500' },
+  miniPlayerArtist: { color: colors.textSecondary, fontSize: 11, marginTop: 2 },
+  miniControls: { flexDirection: 'row', alignItems: 'center' },
+  miniControlsDisabled: { opacity: 0.5 },
+  miniControlBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 20 },
+  fullPlayerBgFallback: { backgroundColor: '#1A1A1A' },
+
+  fullPlayerWrapper: {
+    flex: 1,
+    paddingHorizontal: spacing.base,
+  },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 0, marginTop: -spacing.xs },
+  dismissBtn: { padding: 0, marginLeft: -spacing.xs, borderRadius: 24 },
+  headerTitleGroup: { alignItems: 'center', flex: 1, paddingHorizontal: spacing.base },
+  headerSubtitle: { color: colors.textSecondary, fontSize: 10, fontWeight: '800', letterSpacing: 1.5, marginBottom: 0, opacity: 1.0 },
+  headerTitle: { color: colors.textPrimary, fontSize: 14, fontWeight: '700' },
+  headerSpacer: { width: 40 },
+
+  artworkContainer: { width: '82%', aspectRatio: 1, alignSelf: 'center', marginBottom: spacing.sm },
+  artworkPlaceholder: { opacity: 0 },
+  miniArtworkPlaceholder: { width: MINI_ARTWORK_SIZE, height: MINI_ARTWORK_SIZE, marginRight: 10 },
+  sharedArtworkImage: { width: '100%', height: '100%', borderRadius: 0 },
+  sharedArtworkFallback: { width: '100%', height: '100%', backgroundColor: colors.surfaceElevated, alignItems: 'center', justifyContent: 'center' },
+  artworkImage: { width: '100%', height: '100%', borderRadius: radii.xl },
+  artworkFallback: { width: '100%', height: '100%', borderRadius: radii.xl, backgroundColor: colors.surfaceElevated, alignItems: 'center', justifyContent: 'center' },
+  artworkInitial: { ...typography.display, fontSize: 72, color: colors.textMuted },
+
+  trackInfo: { marginTop: spacing.xs, marginBottom: spacing.xs, paddingHorizontal: spacing.xs, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  trackTextGroup: { flex: 1, marginRight: spacing.md },
+  title: { ...typography.display, color: colors.textPrimary, fontSize: 22, fontWeight: '800', marginBottom: 0 },
+  artist: { ...typography.body, color: colors.textSecondary, fontSize: 16, fontWeight: '500' },
+  heartBtn: { padding: spacing.sm, alignItems: 'center', justifyContent: 'center' },
+  addPlaylistBtn: {
+    padding: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  mainGlassCard: {
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    padding: spacing.lg,
+    marginTop: spacing.md,
+    marginBottom: spacing.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
+    overflow: 'hidden',
+  },
+  secondaryGlassCard: {
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+    flex: 1,
+    overflow: 'hidden',
+  },
+  scrollContent: {
+    paddingBottom: 40,
+  },
+  secondaryGlassCardContent: { flex: 1 },
+  lyricsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    height: 70, // Fixed height to match standard mode height
+  },
+  secondaryCardTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: '800', letterSpacing: 0.5 },
+  syncedBadge: {
+    backgroundColor: 'rgba(29, 185, 84, 0.2)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginLeft: 8,
+  },
+  syncedBadgeText: { color: colors.brand, fontSize: 10, fontWeight: '900' },
+  secondaryCardPlaceholder: { color: colors.textMuted, fontSize: 14, textAlign: 'center', marginTop: spacing.xl },
+
+  progressContainer: { marginBottom: spacing.xs },
+  progressBarHitbox: { paddingVertical: 6, justifyContent: 'center' },
+  progressBarBg: { height: 4, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 2, overflow: 'hidden' },
+  progressBarFill: { height: '100%', backgroundColor: colors.textPrimary, borderRadius: 2 },
+  progressThumb: { position: 'absolute', width: 12, height: 12, borderRadius: 6, backgroundColor: '#FFF', top: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.5, shadowRadius: 3, elevation: 3 },
+  progressTimeRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 },
+  progressTimeText: { color: colors.textSecondary, fontSize: 11, fontWeight: '600', opacity: 0.7, fontVariant: ['tabular-nums'] },
+
+  controlsRow: { marginTop: -14, marginBottom: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.lg, width: '100%' },
+  secondaryControl: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  secondaryControlActive: { backgroundColor: 'rgba(29, 185, 84, 0.14)' },
+  repeatOneLabel: { position: 'absolute', right: 4, bottom: 2, color: colors.progressFill, fontSize: 10, fontWeight: '800' },
+  skipButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
+  playButton: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center' },
+  controlDisabled: { opacity: 0.4 },
+
+  fullPlayerContent: { flex: 1, marginTop: spacing.md, position: 'relative' },
+  playerControlsSection: { width: '100%', paddingHorizontal: spacing.xs, marginBottom: spacing.xs },
+  lyricsHeaderRight: { flex: 1, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' },
+  expandLyricsBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.08)', marginLeft: spacing.sm },
+});
 
 
 
@@ -290,7 +437,8 @@ export function PlayerSheet() {
   const translateX = useSharedValue(0);
   const startTranslateX = useSharedValue(0);
   const isExpanded = useSharedValue(false);
-  const showLyrics = useSharedValue(0); // 0: Player, 1: Lyrics
+  const showLyrics = useSharedValue(0); 
+  const scrollY = useSharedValue(0); // For artwork scrolling
   const [isLyricsMode, setIsLyricsMode] = useState(false);
 
   // Auto-expand or stay collapsed when a track loads?
@@ -301,6 +449,15 @@ export function PlayerSheet() {
   const maxTranslateYShared = useDerivedValue(() => {
     return containerHeight.value - MINI_PLAYER_HEIGHT - miniPlayerBottomOffset;
   });
+
+  const onScroll = useAnimatedScrollHandler({
+    onScroll: (event: any) => {
+      scrollY.value = event.contentOffset.y;
+    },
+  });
+
+  // 3D Tilt Sensor
+  const sensor = useAnimatedSensor(SensorType.GYROSCOPE, { interval: 20 });
 
   // For JS side calculations if needed
   const [maxTranslateY, setMaxTranslateY] = useState(SCREEN_HEIGHT - MINI_PLAYER_HEIGHT - miniPlayerBottomOffset);
@@ -512,6 +669,60 @@ export function PlayerSheet() {
     };
   });
 
+  const animatedArtworkStyle = useAnimatedStyle(() => {
+    // Transition progress (0: Mini, 1: Full)
+    const p = interpolate(
+      translateY.value,
+      [maxTranslateYShared.value, 0],
+      [0, 1],
+      Extrapolation.CLAMP
+    );
+
+    const isExpandedVal = interpolate(
+      translateY.value,
+      [0, maxTranslateYShared.value * 0.5],
+      [1, 0],
+      Extrapolation.CLAMP
+    );
+
+    const size = interpolate(p, [0, 1], [MINI_ARTWORK_SIZE, FULL_ARTWORK_SIZE]);
+    const borderRadius = interpolate(p, [0, 1], [12, radii.xl]);
+    
+    // Positions relative to sheetContainer
+    const miniX = 16 + spacing.sm; // miniPlayer padding + wrapper offset
+    const miniY = 12;
+    const fullX = (SCREEN_WIDTH - FULL_ARTWORK_SIZE) / 2;
+    const fullY = insets.top + 68; // header height + gap
+
+    const x = interpolate(p, [0, 1], [miniX, fullX]);
+    // When expanded (p=1), we subtract scrollY to make it scroll with the content
+    const y = interpolate(p, [0, 1], [miniY, fullY]) - (scrollY.value * p);
+
+    const rotateX = `${sensor.sensor.value.x * 4 * isExpandedVal}deg`;
+    const rotateY = `${sensor.sensor.value.y * 4 * isExpandedVal}deg`;
+
+    return {
+      width: size,
+      height: size,
+      borderRadius,
+      position: 'absolute',
+      left: x,
+      top: y,
+      zIndex: 100,
+      transform: [
+        { perspective: 1000 },
+        { rotateX },
+        { rotateY },
+        { scale: 1 + (Math.abs(sensor.sensor.value.x) + Math.abs(sensor.sensor.value.y)) * 0.01 * isExpandedVal },
+      ],
+      // Add shadow that grows as it expands
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: interpolate(p, [0, 1], [4, 12]) },
+      shadowOpacity: interpolate(p, [0, 1], [0.2, 0.4]),
+      shadowRadius: interpolate(p, [0, 1], [8, 16]),
+    };
+  });
+
   // Background blur opacity
   const animatedBgStyle = useAnimatedStyle(() => {
     const opacity = interpolate(
@@ -589,13 +800,7 @@ export function PlayerSheet() {
               <View 
                 style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0, 0, 0, 0.4)' }]} 
               />
-              {currentArtwork ? (
-                <Image source={{uri: currentArtwork}} style={styles.miniArtwork} />
-              ) : (
-                <View style={styles.miniArtworkFallback}>
-                  <Music size={18} color={colors.textMuted} />
-                </View>
-              )}
+              <View style={styles.miniArtworkPlaceholder} />
               <View style={styles.miniPlayerInfo}>
                 <Text style={styles.miniPlayerTitle} numberOfLines={1}>{currentTitle}</Text>
                 <Text style={styles.miniPlayerArtist} numberOfLines={1}>{currentArtist}</Text>
@@ -640,6 +845,20 @@ export function PlayerSheet() {
           </Animated.View>
         </GestureDetector>
 
+        {/* Morphing Floating Artwork */}
+        <Animated.View style={[animatedArtworkStyle, { overflow: 'hidden', elevation: 10 }]}>
+          {currentArtwork ? (
+            <Image 
+              source={{ uri: currentArtwork }} 
+              style={{ width: '100%', height: '100%' }} 
+            />
+          ) : (
+            <View style={styles.sharedArtworkFallback}>
+              <Music size={24} color={colors.textMuted} />
+            </View>
+          )}
+        </Animated.View>
+
         {/* ===================== FULL PLAYER ===================== */}
         <Animated.View style={[styles.fullPlayerWrapper, { paddingTop: insets.top }, animatedFullPlayerStyle]}>
           <GestureDetector gesture={fullPlayerDismissGesture}>
@@ -663,18 +882,12 @@ export function PlayerSheet() {
             style={styles.fullPlayerContent}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
+            onScroll={onScroll}
+            scrollEventThrottle={16}
           >
             <GestureDetector gesture={horizontalPanGesture}>
               <Animated.View style={animatedHorizontalContentStyle}>
-                <View style={[styles.artworkContainer, styles.artworkAnimated]}>
-                  {currentArtwork ? (
-                    <Image source={{ uri: currentArtwork }} style={styles.artworkImage} />
-                  ) : (
-                    <View style={styles.artworkFallback}>
-                      <Music size={48} color={colors.textMuted} />
-                    </View>
-                  )}
-                </View>
+                <View style={[styles.artworkContainer, styles.artworkPlaceholder]} />
 
                 <View style={styles.trackInfo}>
                   <View style={styles.trackTextGroup}>
@@ -790,141 +1003,4 @@ export function PlayerSheet() {
   );
 }
 
-const styles = StyleSheet.create({
-  sheetContainer: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-    zIndex: 999,
-  },
-  miniPlayerWrapper: {
-    position: 'absolute',
-    top: 0,
-    left: spacing.sm,
-    right: spacing.sm,
-    height: MINI_PLAYER_HEIGHT,
-    zIndex: 10,
-  },
-  miniPlayer: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    borderRadius: 24,
-    backgroundColor: 'transparent', 
-    overflow: 'hidden',
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.4,
-    shadowRadius: 15,
-    elevation: 12,
-  },
-  miniArtwork: { width: 44, height: 44, borderRadius: 6, marginRight: 10 },
-  miniArtworkFallback: { width: 44, height: 44, borderRadius: 6, marginRight: 10, backgroundColor: '#3B3B3B', alignItems: 'center', justifyContent: 'center' },
-  miniPlayerInfo: { flex: 1, marginRight: 8 },
-  miniPlayerTitle: { color: colors.textPrimary, fontSize: 14, fontWeight: '500' },
-  miniPlayerArtist: { color: colors.textSecondary, fontSize: 11, marginTop: 2 },
-  miniControls: { flexDirection: 'row', alignItems: 'center' },
-  miniControlsDisabled: { opacity: 0.5 },
-  miniControlBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 20 },
-  fullPlayerBgFallback: { backgroundColor: '#1A1A1A' },
 
-  fullPlayerWrapper: {
-    flex: 1,
-    paddingHorizontal: spacing.base,
-  },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 0, marginTop: -spacing.xs },
-  dismissBtn: { padding: 0, marginLeft: -spacing.xs, borderRadius: 24 },
-  headerTitleGroup: { alignItems: 'center', flex: 1, paddingHorizontal: spacing.base },
-  headerSubtitle: { color: colors.textSecondary, fontSize: 10, fontWeight: '800', letterSpacing: 1.5, marginBottom: 0, opacity: 1.0 },
-  headerTitle: { color: colors.textPrimary, fontSize: 14, fontWeight: '700' },
-  headerSpacer: { width: 40 },
-
-  artworkContainer: { width: '82%', aspectRatio: 1, alignSelf: 'center', marginBottom: spacing.sm, shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.4, shadowRadius: 16, elevation: 12 },
-  artworkAnimated: { opacity: 1, transform: [{ translateY: 0 }, { scale: 1 }] },
-  artworkImage: { width: '100%', height: '100%', borderRadius: radii.xl },
-  artworkFallback: { width: '100%', height: '100%', borderRadius: radii.xl, backgroundColor: colors.surfaceElevated, alignItems: 'center', justifyContent: 'center' },
-  artworkInitial: { ...typography.display, fontSize: 72, color: colors.textMuted },
-
-  trackInfo: { marginTop: spacing.xs, marginBottom: spacing.xs, paddingHorizontal: spacing.xs, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  trackTextGroup: { flex: 1, marginRight: spacing.md },
-  title: { ...typography.display, color: colors.textPrimary, fontSize: 22, fontWeight: '800', marginBottom: 0 },
-  artist: { ...typography.body, color: colors.textSecondary, fontSize: 16, fontWeight: '500' },
-  heartBtn: { padding: spacing.sm, alignItems: 'center', justifyContent: 'center' },
-  addPlaylistBtn: {
-    padding: spacing.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rightActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  mainGlassCard: {
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    padding: spacing.lg,
-    marginTop: spacing.md,
-    marginBottom: spacing.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 8,
-    overflow: 'hidden',
-  },
-  secondaryGlassCard: {
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
-    flex: 1,
-    overflow: 'hidden',
-  },
-  scrollContent: {
-    paddingBottom: 40,
-  },
-  secondaryGlassCardContent: { flex: 1 },
-  lyricsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    height: 70, // Fixed height to match standard mode height
-  },
-  secondaryCardTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: '800', letterSpacing: 0.5 },
-  syncedBadge: {
-    backgroundColor: 'rgba(29, 185, 84, 0.2)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginLeft: 8,
-  },
-  syncedBadgeText: { color: colors.brand, fontSize: 10, fontWeight: '900' },
-  secondaryCardPlaceholder: { color: colors.textMuted, fontSize: 14, textAlign: 'center', marginTop: spacing.xl },
-
-  progressContainer: { marginBottom: spacing.xs },
-  progressBarHitbox: { paddingVertical: 6, justifyContent: 'center' },
-  progressBarBg: { height: 4, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 2, overflow: 'hidden' },
-  progressBarFill: { height: '100%', backgroundColor: colors.textPrimary, borderRadius: 2 },
-  progressThumb: { position: 'absolute', width: 12, height: 12, borderRadius: 6, backgroundColor: '#FFF', top: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.5, shadowRadius: 3, elevation: 3 },
-  progressTimeRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 },
-  progressTimeText: { color: colors.textSecondary, fontSize: 11, fontWeight: '600', opacity: 0.7, fontVariant: ['tabular-nums'] },
-
-  controlsRow: { marginTop: -14, marginBottom: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.lg, width: '100%' },
-  secondaryControl: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  secondaryControlActive: { backgroundColor: 'rgba(29, 185, 84, 0.14)' },
-  repeatOneLabel: { position: 'absolute', right: 4, bottom: 2, color: colors.progressFill, fontSize: 10, fontWeight: '800' },
-  skipButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
-  playButton: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center' },
-  controlDisabled: { opacity: 0.4 },
-
-  fullPlayerContent: { flex: 1, marginTop: spacing.md, position: 'relative' },
-  playerControlsSection: { width: '100%', paddingHorizontal: spacing.xs, marginBottom: spacing.xs },
-  lyricsHeaderRight: { flex: 1, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' },
-  expandLyricsBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.08)', marginLeft: spacing.sm },
-});
