@@ -10,6 +10,7 @@
   <a href="https://reactnative.dev/"><img src="https://img.shields.io/badge/React_Native-v0.7x-61DAFB.svg" alt="React Native"></a>
   <a href="SECURITY.md"><img src="https://img.shields.io/badge/Security-Protected-green.svg" alt="Security: Protected"></a>
   <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome"></a>
+  <a href="https://railway.com/new/template?template=https://github.com/mfscpayload-690/laika-music"><img src="https://railway.com/button.svg" alt="Deploy on Railway"></a>
 </p>
 
 Laika Music is a high-performance, stateless music streaming and discovery application. It leverages a dual-engine architecture to provide instantaneous metadata search via the Piped API and high-fidelity audio resolution through yt-dlp, eliminating the need for a persistent database or third-party premium subscriptions.
