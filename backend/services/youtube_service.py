@@ -212,10 +212,16 @@ class YoutubeService:
             visitor_data = settings.youtube_visitor_data
             cookies_b64 = settings.youtube_cookies_b64
             
+            extractor_args = ["player_client=ios,web,android"]
+            if po_token and visitor_data:
+                extractor_args.append(f"po_token={po_token}")
+                extractor_args.append(f"visitor_data={visitor_data}")
+
             cmd = [
                 "python3", "-m", "yt_dlp",
                 "-j", "--no-playlist",
-                "--extractor-args", "youtube:player_client=ios,web,android",
+                "--verbose",
+                "--extractor-args", f"youtube:{','.join(extractor_args)}",
                 "-f", "bestaudio/best",
                 "--no-check-certificates",
                 video_url
@@ -232,9 +238,6 @@ class YoutubeService:
                     print("Using cookies for yt-dlp extraction")
                 except Exception as e:
                     print(f"Failed to setup cookies: {e}")
-
-            if po_token and visitor_data:
-                cmd.extend(["--extractor-args", f"youtube:po_token={po_token},visitor_data={visitor_data}"])
 
             proc = await asyncio.create_subprocess_exec(
                 *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
