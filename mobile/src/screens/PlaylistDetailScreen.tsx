@@ -26,6 +26,7 @@ import { usePlaylistStore } from '../store/playlistStore';
 import { useMusicStore } from '../store/musicStore';
 import { useUIStore } from '../store/uiStore';
 import { TrackRow } from '../components/TrackRow';
+import { BouncyPressable } from '../components/BouncyPressable';
 import { SwipeableRow } from '../components/SwipeableRow';
 import { colors, radii, spacing } from '../theme';
 import { useLikesStore } from '../store/likesStore';

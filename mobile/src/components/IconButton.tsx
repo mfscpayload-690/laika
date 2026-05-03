@@ -1,6 +1,7 @@
 import React from 'react';
-import { Pressable, StyleSheet, ViewStyle } from 'react-native';
+import { StyleSheet, ViewStyle } from 'react-native';
 import { colors, radii } from '../theme';
+import { BouncyPressable, HapticType } from './BouncyPressable';
 
 type IconButtonProps = {
   icon: React.ReactNode;
@@ -10,6 +11,7 @@ type IconButtonProps = {
   size?: 'sm' | 'md' | 'lg';
   style?: ViewStyle;
   accessibilityLabel: string;
+  hapticType?: HapticType;
 };
 
 export function IconButton({
@@ -20,23 +22,24 @@ export function IconButton({
   size = 'md',
   style,
   accessibilityLabel,
+  hapticType = 'selection',
 }: IconButtonProps) {
   return (
-    <Pressable
+    <BouncyPressable
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      style={({ pressed }) => [
+      hapticType={hapticType}
+      style={[
         styles.base,
         styles[size],
         styles[variant],
-        pressed && styles.pressed,
         disabled && styles.disabled,
         style,
       ]}>
       {icon}
-    </Pressable>
+    </BouncyPressable>
   );
 }
 
