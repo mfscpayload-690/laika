@@ -26,7 +26,9 @@ import { usePlaylistStore } from '../store/playlistStore';
 import { useMusicStore } from '../store/musicStore';
 import { useUIStore } from '../store/uiStore';
 import { TrackRow } from '../components/TrackRow';
+import { SwipeableRow } from '../components/SwipeableRow';
 import { colors, radii, spacing } from '../theme';
+import { useLikesStore } from '../store/likesStore';
 import type { PlaylistTrack } from '../services/libraryService';
 
 const HEADER_MAX_HEIGHT = 340;
@@ -48,6 +50,8 @@ export default function PlaylistDetailScreen() {
   
   const playRemote = useMusicStore(state => state.playRemote);
   const activeRemoteTrackId = useMusicStore(state => state.currentTrackId);
+  const toggleLike = useLikesStore(state => state.toggleLike);
+  const showAddToPlaylist = useUIStore(state => state.showAddToPlaylist);
   
   
   const [tracks, setTracks] = useState<PlaylistTrack[]>([]);
@@ -252,27 +256,48 @@ export default function PlaylistDetailScreen() {
             </Animated.View>
           }
           renderItem={({ item, index }: any) => (
-            <TrackRow
-              title={item.track_metadata.title}
-              artist={item.track_metadata.artist}
-              thumbnail={item.track_metadata.artwork || ''}
-              album={item.track_metadata.album}
-              isActive={item.track_id === activeRemoteTrackId}
-              onPress={() => {
-                const queue = tracks.map(t => ({
-                  id: t.track_id,
-                  title: t.track_metadata.title,
-                  artist: t.track_metadata.artist,
-                  thumbnail: t.track_metadata.artwork || '',
-                  album: t.track_metadata.album,
-                  duration_ms: t.track_metadata.duration || 0,
-                  source: t.track_metadata.source,
-                }));
-                playRemote(queue[index], queue, index);
-              }}
-              onLongPress={() => handleRemoveTrack(item.track_id)}
-              showMenuIcon={true}
-            />
+            <SwipeableRow
+              onSwipeRight={() => toggleLike({
+                id: item.track_id,
+                title: item.track_metadata.title,
+                artist: item.track_metadata.artist,
+                album: item.track_metadata.album,
+                thumbnail: item.track_metadata.artwork || '',
+                duration_ms: item.track_metadata.duration || 0,
+                source: item.track_metadata.source,
+              } as any)}
+              onSwipeLeft={() => showAddToPlaylist({
+                id: item.track_id,
+                title: item.track_metadata.title,
+                artist: item.track_metadata.artist,
+                album: item.track_metadata.album,
+                thumbnail: item.track_metadata.artwork || '',
+                duration_ms: item.track_metadata.duration || 0,
+                source: item.track_metadata.source,
+              } as any)}
+            >
+              <TrackRow
+                title={item.track_metadata.title}
+                artist={item.track_metadata.artist}
+                thumbnail={item.track_metadata.artwork || ''}
+                album={item.track_metadata.album}
+                isActive={item.track_id === activeRemoteTrackId}
+                onPress={() => {
+                  const queue = tracks.map(t => ({
+                    id: t.track_id,
+                    title: t.track_metadata.title,
+                    artist: t.track_metadata.artist,
+                    thumbnail: t.track_metadata.artwork || '',
+                    album: t.track_metadata.album,
+                    duration_ms: t.track_metadata.duration || 0,
+                    source: t.track_metadata.source,
+                  }));
+                  playRemote(queue[index], queue, index);
+                }}
+                onLongPress={() => handleRemoveTrack(item.track_id)}
+                showMenuIcon={true}
+              />
+            </SwipeableRow>
           )}
           contentContainerStyle={StyleSheet.flatten(styles.listContent)}
           ListEmptyComponent={
