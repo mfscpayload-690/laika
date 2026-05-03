@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 180,
+    paddingBottom: 200,
     paddingTop: spacing.md,
   },
   grid: {
@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.xl,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing.lg,
     backgroundColor: 'rgba(255,255,255,0.03)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',

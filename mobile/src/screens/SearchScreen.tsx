@@ -188,15 +188,16 @@ export default function SearchScreen() {
           <Text style={styles.stateText}>No results for "{query.trim()}"</Text>
         </View>
       ) : (
-        <AnyFlashList
-          data={visibleResults}
-          keyExtractor={(item: RemoteTrack) => item.id}
-          style={styles.list}
-          contentContainerStyle={StyleSheet.flatten(styles.listContent)}
-          keyboardShouldPersistTaps="handled"
-          estimatedItemSize={64}
-          renderItem={renderTrack}
-        />
+        <View style={{ flex: 1 }}>
+          <AnyFlashList
+            data={visibleResults}
+            keyExtractor={(item: RemoteTrack) => item.id}
+            contentContainerStyle={StyleSheet.flatten(styles.listContent)}
+            keyboardShouldPersistTaps="handled"
+            estimatedItemSize={64}
+            renderItem={renderTrack}
+          />
+        </View>
       )}
     </View>
   );

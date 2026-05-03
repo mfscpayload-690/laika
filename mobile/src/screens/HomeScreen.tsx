@@ -390,7 +390,7 @@ function areHomeScreenPropsEqual(prev: HomeScreenProps, next: HomeScreenProps): 
 const styles = StyleSheet.create({
   root: { flex: 1 },
   container: { flex: 1, backgroundColor: colors.background },
-  content: { paddingHorizontal: spacing.lg, paddingTop: spacing.xl * 2, paddingBottom: 180 },
+  content: { paddingHorizontal: spacing.lg, paddingTop: spacing.xl * 2, paddingBottom: 200 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg },
   greeting: { fontSize: 24, fontWeight: '700', color: colors.textPrimary },
   headerButtons: { flexDirection: 'row', alignItems: 'center' },

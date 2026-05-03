@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   playText: { color: '#000', fontSize: 16, fontWeight: '800' },
-  listContent: { paddingBottom: 180 },
+  listContent: { paddingBottom: 200 },
   emptyState: { alignItems: 'center', paddingTop: 60 },
   emptyText: { color: colors.textPrimary, fontSize: 16, fontWeight: '600' },
   emptySub: { color: colors.textSecondary, fontSize: 14, marginTop: 4 },

@@ -18,7 +18,7 @@ export function SectionHeader({ label, subtitle }: SectionHeaderProps) {
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: spacing.sm,
+    marginBottom: spacing.lg,
   },
   label: {
     color: colors.textPrimary,
