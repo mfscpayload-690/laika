@@ -8,47 +8,45 @@ const options = {
 /**
  * Standardized haptic feedback triggers for Laika Music.
  * Uses a consistent naming convention for different interaction types.
+ * Safe for use even if native module is not linked.
  */
 export const Haptics = {
   /**
-   * For light interactions like tab switching or checkbox toggles.
+   * Internal safe trigger
    */
+  _trigger: (type: string) => {
+    try {
+      // Check if trigger is available to avoid "could not be found" errors
+      if (ReactNativeHapticFeedback && typeof ReactNativeHapticFeedback.trigger === 'function') {
+        ReactNativeHapticFeedback.trigger(type, options);
+      }
+    } catch (e) {
+      // Silently fail if native module is missing
+      console.warn(`[Haptics] Failed to trigger ${type}:`, e);
+    }
+  },
+
   selection: () => {
-    ReactNativeHapticFeedback.trigger("selection", options);
+    Haptics._trigger("selection");
   },
 
-  /**
-   * For subtle impacts like opening a menu or a light button press.
-   */
   impactLight: () => {
-    ReactNativeHapticFeedback.trigger("impactLight", options);
+    Haptics._trigger("impactLight");
   },
 
-  /**
-   * For more significant interactions like Play/Pause, Shuffle/Repeat.
-   */
   impactMedium: () => {
-    ReactNativeHapticFeedback.trigger("impactMedium", options);
+    Haptics._trigger("impactMedium");
   },
 
-  /**
-   * For strong feedback like a long press or a primary action.
-   */
   impactHeavy: () => {
-    ReactNativeHapticFeedback.trigger("impactHeavy", options);
+    Haptics._trigger("impactHeavy");
   },
 
-  /**
-   * For success notifications.
-   */
   notificationSuccess: () => {
-    ReactNativeHapticFeedback.trigger("notificationSuccess", options);
+    Haptics._trigger("notificationSuccess");
   },
 
-  /**
-   * For error or warning notifications.
-   */
   notificationError: () => {
-    ReactNativeHapticFeedback.trigger("notificationError", options);
+    Haptics._trigger("notificationError");
   },
 };
