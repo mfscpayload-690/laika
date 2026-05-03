@@ -8,6 +8,8 @@ import httpx
 from fastapi import HTTPException
 from core.schemas import Track
 from core.config import get_settings
+from ytmusicapi import YTMusic
+from utils.piped_resolver import piped_resolver
 
 YOUTUBE_SEARCH_URL = "https://www.googleapis.com/youtube/v3/search"
 YOUTUBE_VIDEOS_URL = "https://www.googleapis.com/youtube/v3/videos"
@@ -22,6 +24,7 @@ class YoutubeService:
         self._client: Optional[httpx.AsyncClient] = None
         self._resolution_cache = {}  # {metadata_key: video_url}
         self._stream_cache = {}      # {video_url: {"url": str, "expiry": float}}
+        self._ytm = YTMusic()
         
         # Ensure the cache directory exists
         cache_dir = os.path.dirname(CACHE_FILE)
@@ -78,43 +81,42 @@ class YoutubeService:
         return get_settings().youtube_api_key
 
     async def search_tracks(self, query: str, limit: int = 20) -> List[Track]:
-        """Search for tracks with automatic API-to-Scraping fallback."""
-        api_key = self._api_key()
-        
-        # 1. Try API
-        if api_key:
-            try:
-                params = {
-                    "part": "snippet",
-                    "q": query,
-                    "maxResults": limit,
-                    "type": "video",
-                    "videoCategoryId": "10",
-                    "key": api_key,
-                }
-                async with self._get_client() as client:
-                    response = await client.get(YOUTUBE_SEARCH_URL, params=params)
-                    if response.status_code == 200:
-                        data = response.json()
-                        items = data.get("items", [])
-                        video_ids = [item["id"]["videoId"] for item in items if item.get("id", {}).get("videoId")]
-                        durations = await self._fetch_durations(video_ids)
-                        
-                        tracks = []
-                        for item in items:
-                            v_id = item["id"]["videoId"]
-                            snippet = item["snippet"]
-                            artist, title = self._parse_title(snippet["title"], snippet["channelTitle"])
-                            tracks.append(Track(
-                                id=v_id, title=title, artist=artist,
-                                duration_ms=durations.get(v_id, 0),
-                                thumbnail=snippet["thumbnails"]["high"]["url"],
-                                source="youtube", youtube_id=v_id,
-                                youtube_url=f"https://www.youtube.com/watch?v={v_id}"
-                            ))
-                        return tracks
-            except Exception as e:
-                print(f"API search failed: {e}")
+        """Search for tracks using YouTube Music API (Pro-grade music metadata)."""
+        print(f"Searching YouTube Music: {query}")
+        try:
+            # Run in thread pool as ytmusicapi is synchronous
+            loop = asyncio.get_event_loop()
+            results = await loop.run_in_executor(None, lambda: self._ytm.search(query, filter="songs"))
+            
+            tracks = []
+            for item in results[:limit]:
+                v_id = item.get("videoId")
+                if not v_id: continue
+                
+                # Get best thumbnail
+                thumbnails = item.get("thumbnails", [])
+                thumb_url = thumbnails[-1]["url"] if thumbnails else f"https://i.ytimg.com/vi/{v_id}/hqdefault.jpg"
+                
+                # Parse artists
+                artists = [a["name"] for a in item.get("artists", [])]
+                artist_name = ", ".join(artists) if artists else "Unknown Artist"
+                
+                tracks.append(Track(
+                    id=v_id,
+                    title=item.get("title", "Unknown"),
+                    artist=artist_name,
+                    album=item.get("album", {}).get("name", ""),
+                    duration_ms=int(item.get("duration_seconds", 0) * 1000),
+                    thumbnail=thumb_url,
+                    source="youtube",
+                    youtube_id=v_id,
+                    youtube_url=f"https://www.youtube.com/watch?v={v_id}"
+                ))
+            
+            if tracks:
+                return tracks
+        except Exception as e:
+            print(f"YouTube Music search failed: {e}")
 
         # 2. Fallback to Scraping
         return await self._scrape_search(query, limit)
@@ -176,70 +178,70 @@ class YoutubeService:
             return []
 
     async def extract_audio_url(self, video_url: str) -> dict:
-        """Extracts direct audio stream URL using privacy-safe PoToken and Mobile Impersonation."""
+        """Extracts direct audio stream URL using Piped API (Primary) or yt-dlp (Fallback)."""
         now = time.time()
         if video_url in self._stream_cache:
             entry = self._stream_cache[video_url]
             if now < entry["expiry"]:
                 return entry["data"]
 
-        settings = get_settings()
+        video_id = video_url.split("v=")[-1] if "v=" in video_url else video_url.split("/")[-1]
+
         async with self._extract_semaphore:
-            print(f"Extracting audio (Privacy-Safe): {video_url}")
+            # 1. Try Piped Resolver
+            print(f"Resolving with Piped: {video_id}")
+            piped_data = await piped_resolver.get_stream_url(video_id)
             
-            # Use PoToken if available in Environment Variables (Set these in Railway!)
-            # These are NOT logins, just proof of being a real browser.
+            if piped_data:
+                res = {
+                    "url": piped_data["url"],
+                    "title": piped_data["title"],
+                    "duration": piped_data["duration"]
+                }
+                # Caching
+                self._stream_cache[video_url] = {"data": res, "expiry": now + 3600} # Piped URLs usually last 1-6 hours
+                self._save_cache()
+                return res
+
+            # 2. Fallback to yt-dlp (Legacy)
+            print(f"Piped failed, falling back to yt-dlp for {video_url}")
+            settings = get_settings()
             po_token = getattr(settings, 'YOUTUBE_PO_TOKEN', None)
             visitor_data = getattr(settings, 'YOUTUBE_VISITOR_DATA', None)
             
             cmd = [
                 "python3", "-m", "yt_dlp",
-                "-j",
-                "--no-playlist",
-                # 'android_embedded' is currently the most resilient client
+                "-j", "--no-playlist",
                 "--extractor-args", "youtube:player_client=android_embedded,web",
                 "-f", "bestaudio/best",
                 video_url
             ]
-            
             if po_token and visitor_data:
-                print("Using PoToken for extraction...")
                 cmd.extend(["--extractor-args", f"youtube:po_token={po_token},visitor_data={visitor_data}"])
 
             proc = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
+                *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
             )
             stdout, stderr = await proc.communicate()
             
-            if proc.returncode != 0:
-                error_msg = stderr.decode().strip()
-                print(f"yt-dlp extraction error: {error_msg}")
-                raise HTTPException(status_code=502, detail="Audio extraction failed.")
+            if proc.returncode == 0:
+                try:
+                    data = json.loads(stdout.decode())
+                    res = {
+                        "url": data["url"],
+                        "title": data.get("title", "Unknown"),
+                        "duration": data.get("duration", 0) * 1000
+                    }
+                    self._stream_cache[video_url] = {"data": res, "expiry": now + 3600}
+                    self._save_cache()
+                    return res
+                except Exception:
+                    pass
 
-            try:
-                data = json.loads(stdout.decode())
-                stream_url = data["url"]
-                
-                # Expiry logic
-                ttl = 3600
-                expire_match = re.search(r"expire=(\d+)", stream_url)
-                if expire_match:
-                    ttl = int(expire_match.group(1)) - int(now) - 300
-
-                res = {
-                    "url": stream_url,
-                    "title": data.get("title", "Unknown"),
-                    "duration": data.get("duration", 0) * 1000
-                }
-                
-                self._stream_cache[video_url] = {"data": res, "expiry": now + ttl}
-                self._save_cache()
-                return res
-            except Exception as e:
-                print(f"JSON Parsing failed: {e}")
-                raise HTTPException(status_code=502, detail="Extraction response invalid.")
+            raise HTTPException(
+                status_code=502, 
+                detail="All extraction methods failed (Piped & yt-dlp). YouTube might be blocking requests."
+            )
 
     async def _fetch_durations(self, video_ids: List[str]) -> dict:
         if not video_ids:
@@ -272,6 +274,7 @@ class YoutubeService:
         return uploader.strip(), clean
 
     async def close(self):
+        await piped_resolver.close()
         if self._client:
             await self._client.aclose()
 
