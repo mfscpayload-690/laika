@@ -5,6 +5,8 @@ const options = {
   ignoreAndroidSystemSettings: false,
 };
 
+type HapticTriggerType = 'selection' | 'impactLight' | 'impactMedium' | 'impactHeavy' | 'rigid' | 'soft' | 'notificationSuccess' | 'notificationWarning' | 'notificationError';
+
 /**
  * Standardized haptic feedback triggers for Laika Music.
  * Uses a consistent naming convention for different interaction types.
@@ -14,15 +16,14 @@ export const Haptics = {
   /**
    * Internal safe trigger
    */
-  _trigger: (type: string) => {
+  _trigger: (type: HapticTriggerType) => {
     try {
       // Check if trigger is available to avoid "could not be found" errors
       if (ReactNativeHapticFeedback && typeof ReactNativeHapticFeedback.trigger === 'function') {
-        ReactNativeHapticFeedback.trigger(type, options);
+        ReactNativeHapticFeedback.trigger(type as any, options);
       }
     } catch (e) {
       // Silently fail if native module is missing
-      console.warn(`[Haptics] Failed to trigger ${type}:`, e);
     }
   },
 
