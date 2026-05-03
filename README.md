@@ -1,10 +1,16 @@
 # Laika Music
 
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![React Native](https://img.shields.io/badge/React_Native-v0.7x-61DAFB.svg)](https://reactnative.dev/)
-[![Security: Protected](https://img.shields.io/badge/Security-Protected-green.svg)](SECURITY.md)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+<p align="center">
+  <img src="web/assets/LAIKA-README-Cover.png" alt="Laika Music Cover" width="100%">
+</p>
+
+<p align="center">
+  <a href="https://www.gnu.org/licenses/gpl-3.0"><img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License: GPL v3"></a>
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10+-blue.svg" alt="Python 3.10+"></a>
+  <a href="https://reactnative.dev/"><img src="https://img.shields.io/badge/React_Native-v0.7x-61DAFB.svg" alt="React Native"></a>
+  <a href="SECURITY.md"><img src="https://img.shields.io/badge/Security-Protected-green.svg" alt="Security: Protected"></a>
+  <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome"></a>
+</p>
 
 Laika Music is a high-performance, stateless music streaming and discovery application. It leverages a dual-engine architecture to provide instantaneous metadata search via the Piped API and high-fidelity audio resolution through yt-dlp, eliminating the need for a persistent database or third-party premium subscriptions.
 
@@ -14,8 +20,16 @@ Laika Music is a high-performance, stateless music streaming and discovery appli
 - **High-Fidelity Streaming**: Optimized audio resolution and playback via yt-dlp.
 - **Stateless Architecture**: No persistent database required, ensuring privacy and speed.
 - **Cross-Platform Experience**: Beautifully designed mobile and web interfaces.
-- **Local Integration**: Native audio scanning for local music libraries.
 - **Privacy-First**: Anonymous searching and no third-party tracking.
+- **Local Integration**: Native audio scanning for local music libraries.
+
+## 📱 Previews
+
+<p align="center">
+  <img src="web/assets/Home-Dashboard-Laika-Music.png" width="32%" alt="Dashboard" />
+  <img src="web/assets/Now-Playing-Laika-Music.png" width="32%" alt="Now Playing" />
+  <img src="web/assets/Local-Library-Laika-Music.png" width="32%" alt="Local Library" />
+</p>
 
 ##  Architecture
 
