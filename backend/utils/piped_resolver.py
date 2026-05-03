@@ -1,6 +1,5 @@
-import asyncio
 import random
-from typing import Optional, List, Dict, Any
+from typing import Optional, Dict, Any
 import httpx
 from core.config import get_settings
 
@@ -63,7 +62,7 @@ class PipedResolver:
                     q = s.get("quality", "0")
                     try:
                         return int(q.split()[0])
-                    except:
+                    except Exception:
                         return 0
 
                 audio_streams.sort(key=get_bitrate, reverse=True)
