@@ -213,7 +213,7 @@ class YoutubeService:
             cmd = [
                 "python3", "-m", "yt_dlp",
                 "-j", "--no-playlist",
-                "--extractor-args", "youtube:player_client=android_embedded,web",
+                "--extractor-args", "youtube:player_client=ios,web",
                 "-f", "bestaudio/best",
                 video_url
             ]
@@ -236,8 +236,10 @@ class YoutubeService:
                     self._stream_cache[video_url] = {"data": res, "expiry": now + 3600}
                     self._save_cache()
                     return res
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"Error parsing yt-dlp output: {e}")
+            else:
+                print(f"yt-dlp failed with code {proc.returncode}: {stderr.decode()}")
 
             raise HTTPException(
                 status_code=502, 
