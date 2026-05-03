@@ -154,15 +154,15 @@ const styles = StyleSheet.create({
   },
   tabBarLabel: {
     fontSize: 10,
-    fontWeight: '600',
-    marginTop: 10, // Increased for better breathing room
-    marginBottom: 6,
+    fontWeight: '700',
+    marginTop: 2,
+    marginBottom: 0,
   },
   tabBarItem: {
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 20,
-    paddingBottom: 4,
+    paddingTop: 0,
+    paddingBottom: 0,
   },
 });
 

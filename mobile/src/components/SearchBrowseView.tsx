@@ -75,7 +75,9 @@ export const SearchBrowseView = ({ onSearch }: SearchBrowseViewProps) => {
 
       {/* Popular Categories */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Popular Categories</Text>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Popular Categories</Text>
+        </View>
         <View style={styles.grid}>
           <CategoryTile 
             title="Charts" 
@@ -120,7 +122,9 @@ export const SearchBrowseView = ({ onSearch }: SearchBrowseViewProps) => {
 
       {/* Featured For You */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Featured For You</Text>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Featured For You</Text>
+        </View>
         <View style={styles.featureGrid}>
           <BouncyPressable 
             style={styles.featureCard}
@@ -161,7 +165,7 @@ export const SearchBrowseView = ({ onSearch }: SearchBrowseViewProps) => {
         </View>
       </View>
 
-      <View style={{ height: 100 }} />
+      <View style={{ height: 200 }} />
     </ScrollView>
   );
 };
@@ -181,7 +185,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing.lg,
   },
   sectionTitle: {
     color: colors.textPrimary,
