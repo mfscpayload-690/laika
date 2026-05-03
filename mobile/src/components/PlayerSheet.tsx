@@ -199,10 +199,19 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 2,
   },
-  progressTimeRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 },
-  progressTimeText: { color: colors.textSecondary, fontSize: 11, fontWeight: '600', opacity: 0.7, fontVariant: ['tabular-nums'] },
+  progressTimeRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4, paddingHorizontal: 2 },
+  progressTimeText: { 
+    color: colors.textSecondary, 
+    fontSize: 11, 
+    fontWeight: '700', 
+    opacity: 0.8, 
+    fontVariant: ['tabular-nums'],
+    padding: 0,
+    margin: 0,
+    height: 16,
+  },
 
-  controlsRow: { marginTop: -14, marginBottom: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.lg, width: '100%' },
+  controlsRow: { marginTop: 0, marginBottom: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.lg, width: '100%' },
   secondaryControl: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   secondaryControlActive: { backgroundColor: 'rgba(29, 185, 84, 0.14)' },
   repeatOneLabel: { position: 'absolute', right: 4, bottom: 2, color: colors.progressFill, fontSize: 10, fontWeight: '800' },
@@ -271,13 +280,13 @@ const ProgressBar = React.memo(() => {
   const progressTimeProps = useAnimatedProps(() => {
     const val = isDragging.value ? seekPosition.value : position;
     return {
-      text: formatTime(val),
+      value: formatTime(val),
     } as any;
-  }, [position]); // Add position as dependency to ensure it updates when position changes
+  }, [position]);
 
   const durationTimeProps = useAnimatedProps(() => {
     return {
-      text: formatTime(duration),
+      value: formatTime(duration),
     } as any;
   });
 
@@ -302,12 +311,14 @@ const ProgressBar = React.memo(() => {
           editable={false}
           style={styles.progressTimeText}
           animatedProps={progressTimeProps}
+          defaultValue="0:00"
         />
         <AnimatedTextInput
           underlineColorAndroid="transparent"
           editable={false}
           style={styles.progressTimeText}
           animatedProps={durationTimeProps}
+          defaultValue="0:00"
         />
       </View>
     </View>
