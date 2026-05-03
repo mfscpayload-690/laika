@@ -47,9 +47,9 @@ import { API_BASE_URL } from '../services/api';
 import { State } from 'react-native-track-player';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
-const MINI_PLAYER_HEIGHT = 64 + 10; 
+const MINI_PLAYER_HEIGHT = 64 + 10;
 const MINI_ARTWORK_SIZE = 44;
-const FULL_ARTWORK_SIZE = SCREEN_WIDTH * 0.82;
+const FULL_ARTWORK_SIZE = SCREEN_WIDTH - 80;
 
 const BUTTER_SPRING_CONFIG = {
   damping: 18,
@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     borderRadius: 24,
-    backgroundColor: 'transparent', 
+    backgroundColor: 'transparent',
     overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
@@ -182,7 +182,23 @@ const styles = StyleSheet.create({
   progressBarHitbox: { paddingVertical: 6, justifyContent: 'center' },
   progressBarBg: { height: 4, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 2, overflow: 'hidden' },
   progressBarFill: { height: '100%', backgroundColor: colors.textPrimary, borderRadius: 2 },
-  progressThumb: { position: 'absolute', width: 12, height: 12, borderRadius: 6, backgroundColor: '#FFF', top: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.5, shadowRadius: 3, elevation: 3 },
+  progressThumb: {
+    position: 'absolute',
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#FFF',
+    top: 2,
+    elevation: 3,
+  },
+  progressThumbShadow: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+  },
   progressTimeRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 },
   progressTimeText: { color: colors.textSecondary, fontSize: 11, fontWeight: '600', opacity: 0.7, fontVariant: ['tabular-nums'] },
 
@@ -275,7 +291,9 @@ const ProgressBar = React.memo(() => {
           <View style={styles.progressBarBg}>
             <Animated.View style={[styles.progressBarFill, progressStyle]} />
           </View>
-          <Animated.View style={[styles.progressThumb, thumbStyle]} />
+          <Animated.View style={[styles.progressThumb, thumbStyle]}>
+            <View style={styles.progressThumbShadow} />
+          </Animated.View>
         </View>
       </GestureDetector>
       <View style={styles.progressTimeRow}>
@@ -295,16 +313,16 @@ const ProgressBar = React.memo(() => {
     </View>
   );
 });
-const LyricsSection = React.memo(({ 
-  lyricsData, 
-  isLoading, 
-  isLyricsMode, 
-  setIsLyricsMode, 
+const LyricsSection = React.memo(({
+  lyricsData,
+  isLoading,
+  isLyricsMode,
+  setIsLyricsMode,
   showLyrics,
-  animatedStyle 
+  animatedStyle
 }: any) => {
   const { position } = useProgress(1000);
-  
+
   return (
     <Animated.View style={animatedStyle}>
       <View style={styles.secondaryGlassCard}>
@@ -314,8 +332,8 @@ const LyricsSection = React.memo(({
           blurAmount={20}
           reducedTransparencyFallbackColor="rgba(0,0,0,0.2)"
         />
-        <View 
-          style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]} 
+        <View
+          style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}
         />
         <View style={styles.secondaryGlassCardContent}>
           <View style={styles.lyricsHeader}>
@@ -354,7 +372,7 @@ const LyricsSection = React.memo(({
 
 export function PlayerSheet() {
   const insets = useSafeAreaInsets();
-  
+
   // Zustand State
   const currentTrackId = useMusicStore(state => state.currentTrackId);
   const activeRemoteTrack = useMusicStore(state => state.activeRemoteTrack);
@@ -376,7 +394,7 @@ export function PlayerSheet() {
 
   const focusedRouteName = useNavigationState(state => {
     const route = state?.routes[state.index];
-    if (!route) {return null;}
+    if (!route) { return null; }
     return getFocusedRouteNameFromRoute(route) ?? 'Home';
   });
 
@@ -407,7 +425,7 @@ export function PlayerSheet() {
     const trackKey = `${currentTitle}-${currentArtist}`;
     if (currentTitle && currentArtist && currentTitle !== 'No track selected' && trackKey !== lastFetchedTrackRef.current) {
       lastFetchedTrackRef.current = trackKey;
-      
+
       const task = InteractionManager.runAfterInteractions(() => {
         setLyricsLoading(true);
         // Fallback duration if metadata doesn't have it
@@ -437,7 +455,7 @@ export function PlayerSheet() {
   const translateX = useSharedValue(0);
   const startTranslateX = useSharedValue(0);
   const isExpanded = useSharedValue(false);
-  const showLyrics = useSharedValue(0); 
+  const showLyrics = useSharedValue(0);
   const scrollY = useSharedValue(0); // For artwork scrolling
   const [isLyricsMode, setIsLyricsMode] = useState(false);
 
@@ -561,7 +579,7 @@ export function PlayerSheet() {
     .activeOffsetX([-20, 20])
     .failOffsetY([-15, 15]) // Don't trigger horizontal if swiping vertical
     .onStart(() => {
-      if (!isExpanded.value) {return;}
+      if (!isExpanded.value) { return; }
       startTranslateX.value = translateX.value;
     })
     .onUpdate((event) => {
@@ -570,7 +588,7 @@ export function PlayerSheet() {
       }
     })
     .onEnd((event) => {
-      if (!isExpanded.value) {return;}
+      if (!isExpanded.value) { return; }
 
       const velocity = event.velocityX;
       const THRESHOLD = SCREEN_WIDTH * 0.3;
@@ -685,18 +703,22 @@ export function PlayerSheet() {
       Extrapolation.CLAMP
     );
 
-    const size = interpolate(p, [0, 1], [MINI_ARTWORK_SIZE, FULL_ARTWORK_SIZE]);
-    const borderRadius = interpolate(p, [0, 1], [12, radii.xl]);
-    
-    // Positions relative to sheetContainer
-    const miniX = 16 + spacing.sm; // miniPlayer padding + wrapper offset
-    const miniY = 12;
-    const fullX = (SCREEN_WIDTH - FULL_ARTWORK_SIZE) / 2;
-    const fullY = insets.top + 68; // header height + gap
+    const size = FULL_ARTWORK_SIZE;
+    const borderRadius = interpolate(p, [0, 1], [12 / (MINI_ARTWORK_SIZE / FULL_ARTWORK_SIZE), radii.xl]);
+    const scale = interpolate(p, [0, 1], [MINI_ARTWORK_SIZE / FULL_ARTWORK_SIZE, 1]);
 
-    const x = interpolate(p, [0, 1], [miniX, fullX]);
-    // When expanded (p=1), we subtract scrollY to make it scroll with the content
-    const y = interpolate(p, [0, 1], [miniY, fullY]) - (scrollY.value * p);
+    // Container is centered horizontally. 
+    // miniCenterX is absolute screen position. screenCenterX is screen middle.
+    const screenCenterX = SCREEN_WIDTH / 2;
+    const miniCenterX = (16 + spacing.sm) + (MINI_ARTWORK_SIZE / 2);
+
+    // Vertical base position (expanded)
+    const expandedTop = insets.top + 64 + spacing.md;
+    const expandedY = expandedTop + (FULL_ARTWORK_SIZE / 2);
+    const miniCenterY = 12 + (MINI_ARTWORK_SIZE / 2);
+
+    const artTranslateX = interpolate(p, [0, 1], [miniCenterX - screenCenterX, 0]);
+    const artTranslateY = interpolate(p, [0, 1], [miniCenterY - expandedY, 0]) - (scrollY.value * p);
 
     const rotateX = `${sensor.sensor.value.x * 4 * isExpandedVal}deg`;
     const rotateY = `${sensor.sensor.value.y * 4 * isExpandedVal}deg`;
@@ -705,21 +727,20 @@ export function PlayerSheet() {
       width: size,
       height: size,
       borderRadius,
-      position: 'absolute',
-      left: x,
-      top: y,
-      zIndex: 100,
+      marginTop: expandedTop, // Base vertical position
       transform: [
+        { translateX: artTranslateX },
+        { translateY: artTranslateY },
+        { scale },
         { perspective: 1000 },
         { rotateX },
         { rotateY },
         { scale: 1 + (Math.abs(sensor.sensor.value.x) + Math.abs(sensor.sensor.value.y)) * 0.01 * isExpandedVal },
       ],
-      // Add shadow that grows as it expands
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: interpolate(p, [0, 1], [4, 12]) },
-      shadowOpacity: interpolate(p, [0, 1], [0.2, 0.4]),
-      shadowRadius: interpolate(p, [0, 1], [8, 16]),
+      shadowOpacity: interpolate(p, [0, 1], [0.1, 0.3]),
+      shadowRadius: interpolate(p, [0, 1], [5, 12]),
+      elevation: interpolate(p, [0, 1], [4, 12]),
     };
   });
 
@@ -759,98 +780,103 @@ export function PlayerSheet() {
       pointerEvents="box-none"
     >
       {/* Full Player Background */}
-        <Animated.View style={[StyleSheet.absoluteFill, animatedBgStyle]} animatedProps={animatedBgProps}>
+      <Animated.View style={[StyleSheet.absoluteFill, animatedBgStyle]} animatedProps={animatedBgProps}>
+        {currentArtwork ? (
+          <Image
+            source={{ uri: currentArtwork }}
+            style={StyleSheet.absoluteFill as any}
+            blurRadius={90}
+          />
+        ) : (
+          <View style={[StyleSheet.absoluteFill, styles.fullPlayerBgFallback]} />
+        )}
+        <Svg height="100%" width="100%" style={StyleSheet.absoluteFill as any}>
+          <Defs>
+            <LinearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor="#000" stopOpacity="0.3" />
+              <Stop offset="1" stopColor="#121212" stopOpacity="1" />
+            </LinearGradient>
+          </Defs>
+          <Rect width="100%" height="100%" fill="url(#grad)" />
+        </Svg>
+      </Animated.View>
+
+      {/* ===================== MINI PLAYER ===================== */}
+      <GestureDetector gesture={miniPlayerExpandGesture}>
+        <Animated.View style={[styles.miniPlayerWrapper, animatedMiniPlayerStyle]}>
+          <BouncyPressable
+            style={[styles.miniPlayer, { paddingBottom: 8 + Math.max(insets.bottom - 4, 0) }]}
+            onPress={() => {
+              if (hasTrack) { snapTo(MIN_TRANSLATE); }
+            }}
+            disabled={!hasTrack}
+            scaleTo={0.98}
+          >
+            <BlurView
+              style={StyleSheet.absoluteFill}
+              blurType="extraDark"
+              blurAmount={15}
+              reducedTransparencyFallbackColor="rgba(20, 20, 20, 0.95)"
+            />
+            <View
+              style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0, 0, 0, 0.4)' }]}
+            />
+            <View style={styles.miniArtworkPlaceholder} />
+            <View style={styles.miniPlayerInfo}>
+              <Text style={styles.miniPlayerTitle} numberOfLines={1}>{currentTitle}</Text>
+              <Text style={styles.miniPlayerArtist} numberOfLines={1}>{currentArtist}</Text>
+            </View>
+
+            <View style={[styles.miniControls, !hasTrack && styles.miniControlsDisabled]}>
+              <BouncyPressable
+                style={styles.miniControlBtn}
+                onPress={(e: any) => { e.stopPropagation(); if (hasTrack) { previous(); } }}
+                disabled={!hasTrack}
+                accessibilityRole="button"
+                scaleTo={0.85}
+              >
+                <SkipBack size={18} color={colors.textPrimary} strokeWidth={2.2} />
+              </BouncyPressable>
+              <BouncyPressable
+                style={styles.miniControlBtn}
+                onPress={(e: any) => { e.stopPropagation(); if (hasTrack) { togglePlayPause(); } }}
+                disabled={!hasTrack}
+                accessibilityRole="button"
+                scaleTo={0.85}
+              >
+                {isLoading ? (
+                  <ActivityIndicator size="small" color={colors.textPrimary} />
+                ) : isPlaying ? (
+                  <Pause size={18} color={colors.textPrimary} strokeWidth={2.5} fill={colors.textPrimary} />
+                ) : (
+                  <Play size={18} color={colors.textPrimary} strokeWidth={2.5} fill={colors.textPrimary} />
+                )}
+              </BouncyPressable>
+              <BouncyPressable
+                style={styles.miniControlBtn}
+                onPress={(e: any) => { e.stopPropagation(); if (hasTrack) { next(); } }}
+                disabled={!hasTrack}
+                accessibilityRole="button"
+                scaleTo={0.85}
+              >
+                <SkipForward size={18} color={colors.textPrimary} strokeWidth={2.2} />
+              </BouncyPressable>
+            </View>
+          </BouncyPressable>
+        </Animated.View>
+      </GestureDetector>
+
+      {/* Morphing Floating Artwork */}
+      <View style={[StyleSheet.absoluteFill, { alignItems: 'center', zIndex: 1000 }]} pointerEvents="none">
+        <Animated.View
+          style={[animatedArtworkStyle, { overflow: 'hidden', elevation: 10 }]}
+          renderToHardwareTextureAndroid={true}
+        >
           {currentArtwork ? (
             <Image
               source={{ uri: currentArtwork }}
-              style={StyleSheet.absoluteFill as any}
-              blurRadius={90}
-            />
-          ) : (
-            <View style={[StyleSheet.absoluteFill, styles.fullPlayerBgFallback]} />
-          )}
-          <Svg height="100%" width="100%" style={StyleSheet.absoluteFill as any}>
-            <Defs>
-              <LinearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor="#000" stopOpacity="0.3" />
-                <Stop offset="1" stopColor="#121212" stopOpacity="1" />
-              </LinearGradient>
-            </Defs>
-            <Rect width="100%" height="100%" fill="url(#grad)" />
-          </Svg>
-        </Animated.View>
-
-        {/* ===================== MINI PLAYER ===================== */}
-        <GestureDetector gesture={miniPlayerExpandGesture}>
-          <Animated.View style={[styles.miniPlayerWrapper, animatedMiniPlayerStyle]}>
-            <BouncyPressable
-              style={[styles.miniPlayer, {paddingBottom: 8 + Math.max(insets.bottom - 4, 0)}]}
-              onPress={() => {
-                if (hasTrack) {snapTo(MIN_TRANSLATE);}
-              }}
-              disabled={!hasTrack}
-              scaleTo={0.98}
-            >
-              <BlurView
-                style={StyleSheet.absoluteFill}
-                blurType="extraDark"
-                blurAmount={15}
-                reducedTransparencyFallbackColor="rgba(20, 20, 20, 0.95)"
-              />
-              <View 
-                style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0, 0, 0, 0.4)' }]} 
-              />
-              <View style={styles.miniArtworkPlaceholder} />
-              <View style={styles.miniPlayerInfo}>
-                <Text style={styles.miniPlayerTitle} numberOfLines={1}>{currentTitle}</Text>
-                <Text style={styles.miniPlayerArtist} numberOfLines={1}>{currentArtist}</Text>
-              </View>
-
-              <View style={[styles.miniControls, !hasTrack && styles.miniControlsDisabled]}>
-                <BouncyPressable
-                  style={styles.miniControlBtn}
-                  onPress={(e: any) => { e.stopPropagation(); if (hasTrack) {previous();} }}
-                  disabled={!hasTrack}
-                  accessibilityRole="button"
-                  scaleTo={0.85}
-                >
-                  <SkipBack size={18} color={colors.textPrimary} strokeWidth={2.2} />
-                </BouncyPressable>
-                <BouncyPressable
-                  style={styles.miniControlBtn}
-                  onPress={(e: any) => { e.stopPropagation(); if (hasTrack) {togglePlayPause();} }}
-                  disabled={!hasTrack}
-                  accessibilityRole="button"
-                  scaleTo={0.85}
-                >
-                  {isLoading ? (
-                    <ActivityIndicator size="small" color={colors.textPrimary} />
-                  ) : isPlaying ? (
-                    <Pause size={18} color={colors.textPrimary} strokeWidth={2.5} fill={colors.textPrimary} />
-                  ) : (
-                    <Play size={18} color={colors.textPrimary} strokeWidth={2.5} fill={colors.textPrimary} />
-                  )}
-                </BouncyPressable>
-                <BouncyPressable
-                  style={styles.miniControlBtn}
-                  onPress={(e: any) => { e.stopPropagation(); if (hasTrack) {next();} }}
-                  disabled={!hasTrack}
-                  accessibilityRole="button"
-                  scaleTo={0.85}
-                >
-                  <SkipForward size={18} color={colors.textPrimary} strokeWidth={2.2} />
-                </BouncyPressable>
-              </View>
-            </BouncyPressable>
-          </Animated.View>
-        </GestureDetector>
-
-        {/* Morphing Floating Artwork */}
-        <Animated.View style={[animatedArtworkStyle, { overflow: 'hidden', elevation: 10 }]}>
-          {currentArtwork ? (
-            <Image 
-              source={{ uri: currentArtwork }} 
-              style={{ width: '100%', height: '100%' }} 
+              style={StyleSheet.absoluteFill}
+              resizeMode="cover"
             />
           ) : (
             <View style={styles.sharedArtworkFallback}>
@@ -858,148 +884,149 @@ export function PlayerSheet() {
             </View>
           )}
         </Animated.View>
+      </View>
 
-        {/* ===================== FULL PLAYER ===================== */}
-        <Animated.View style={[styles.fullPlayerWrapper, { paddingTop: insets.top }, animatedFullPlayerStyle]}>
-          <GestureDetector gesture={fullPlayerDismissGesture}>
-            <View style={styles.header}>
-              <BouncyPressable
-                onPress={() => snapTo(maxTranslateY)}
-                style={styles.dismissBtn}
-                scaleTo={0.8}
-              >
-                <ChevronDown size={32} color={colors.textPrimary} />
-              </BouncyPressable>
+      {/* ===================== FULL PLAYER ===================== */}
+      <Animated.View style={[styles.fullPlayerWrapper, { paddingTop: insets.top }, animatedFullPlayerStyle]}>
+        <GestureDetector gesture={fullPlayerDismissGesture}>
+          <View style={styles.header}>
+            <BouncyPressable
+              onPress={() => snapTo(maxTranslateY)}
+              style={styles.dismissBtn}
+              scaleTo={0.8}
+            >
+              <ChevronDown size={32} color={colors.textPrimary} />
+            </BouncyPressable>
             <View style={styles.headerTitleGroup}>
               <Text style={styles.headerSubtitle}>PLAYING FROM LIBRARY</Text>
               <Text style={styles.headerTitle} numberOfLines={1}>{currentAlbum || 'Laika Music'}</Text>
             </View>
             <View style={styles.headerSpacer} />
-            </View>
-          </GestureDetector>
+          </View>
+        </GestureDetector>
 
-          <Animated.ScrollView
-            style={styles.fullPlayerContent}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-            onScroll={onScroll}
-            scrollEventThrottle={16}
-          >
-            <GestureDetector gesture={horizontalPanGesture}>
-              <Animated.View style={animatedHorizontalContentStyle}>
-                <View style={[styles.artworkContainer, styles.artworkPlaceholder]} />
+        <Animated.ScrollView
+          style={styles.fullPlayerContent}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
+        >
+          <GestureDetector gesture={horizontalPanGesture}>
+            <Animated.View style={animatedHorizontalContentStyle}>
+              <View style={[styles.artworkContainer, styles.artworkPlaceholder]} />
 
-                <View style={styles.trackInfo}>
-                  <View style={styles.trackTextGroup}>
-                    <Text style={styles.title} numberOfLines={1}>{currentTitle}</Text>
-                    <Text style={styles.artist} numberOfLines={1}>{currentArtist}</Text>
-                  </View>
+              <View style={styles.trackInfo}>
+                <View style={styles.trackTextGroup}>
+                  <Text style={styles.title} numberOfLines={1}>{currentTitle}</Text>
+                  <Text style={styles.artist} numberOfLines={1}>{currentArtist}</Text>
+                </View>
 
-                  <View style={styles.rightActions}>
-                    <BouncyPressable
+                <View style={styles.rightActions}>
+                  <BouncyPressable
+                    onPress={() => {
+                      const track = activeRemoteTrack || songs.find(s => s.id === currentTrackId);
+                      if (track) showAddToPlaylist(track as any);
+                    }}
+                    style={styles.addPlaylistBtn}
+                    scaleTo={0.8}
+                  >
+                    {isInAnyPlaylist ? (
+                      <Check size={28} color={colors.brand} strokeWidth={3} />
+                    ) : (
+                      <Plus size={28} color={colors.textSecondary} strokeWidth={2} />
+                    )}
+                  </BouncyPressable>
+
+                  {hasTrack && (
+                    <Pressable
                       onPress={() => {
                         const track = activeRemoteTrack || songs.find(s => s.id === currentTrackId);
-                        if (track) showAddToPlaylist(track as any);
+                        console.log('[PlayerSheet] Heart pressed:', { trackId: track?.id, hasTrack: !!track });
+                        if (track) { toggleLike(track as any); }
                       }}
-                      style={styles.addPlaylistBtn}
-                      scaleTo={0.8}
+                      style={({ pressed }) => [styles.heartBtn, pressed && { transform: [{ scale: 0.85 }] }]}
+                      android_ripple={{ color: 'rgba(255,100,100,0.2)', borderless: true, radius: 24 }}
+                      accessibilityRole="button"
+                      accessibilityLabel={isLiked(activeRemoteTrack?.id ?? currentTrackId ?? '') ? 'Unlike track' : 'Like track'}
                     >
-                      {isInAnyPlaylist ? (
-                        <Check size={28} color={colors.brand} strokeWidth={3} />
-                      ) : (
-                        <Plus size={28} color={colors.textSecondary} strokeWidth={2} />
-                      )}
-                    </BouncyPressable>
-
-                    {hasTrack && (
-                      <Pressable
-                        onPress={() => {
-                          const track = activeRemoteTrack || songs.find(s => s.id === currentTrackId);
-                          console.log('[PlayerSheet] Heart pressed:', { trackId: track?.id, hasTrack: !!track });
-                          if (track) {toggleLike(track as any);}
-                        }}
-                        style={({ pressed }) => [styles.heartBtn, pressed && { transform: [{ scale: 0.85 }] }]}
-                        android_ripple={{ color: 'rgba(255,100,100,0.2)', borderless: true, radius: 24 }}
-                        accessibilityRole="button"
-                        accessibilityLabel={isLiked(activeRemoteTrack?.id ?? currentTrackId ?? '') ? 'Unlike track' : 'Like track'}
-                      >
-                        <Heart
-                          size={26}
-                          color={isLiked(activeRemoteTrack?.id ?? currentTrackId ?? '') ? '#FF4D6D' : colors.textSecondary}
-                          fill={isLiked(activeRemoteTrack?.id ?? currentTrackId ?? '') ? '#FF4D6D' : 'none'}
-                          strokeWidth={2}
-                        />
-                      </Pressable>
-                    )}
-                  </View>
-                </View>
-              </Animated.View>
-            </GestureDetector>
-
-            <View style={styles.playerControlsSection}>
-              <ProgressBar />
-              <View style={styles.controlsRow}>
-                <BouncyPressable
-                  style={[styles.secondaryControl, isShuffleEnabled && styles.secondaryControlActive]}
-                  onPress={toggleShuffle}
-                  scaleTo={0.9}
-                >
-                  <Shuffle size={20} color={isShuffleEnabled ? colors.progressFill : colors.textSecondary} strokeWidth={2} />
-                </BouncyPressable>
-
-                <BouncyPressable
-                  style={styles.skipButton}
-                  onPress={() => previous()}
-                  scaleTo={0.9}
-                >
-                  <SkipBack size={28} color={colors.textPrimary} strokeWidth={2} />
-                </BouncyPressable>
-
-                <BouncyPressable
-                  onPress={togglePlayPause}
-                  disabled={isLoading}
-                  style={[styles.playButton, isLoading && styles.controlDisabled]}
-                  scaleTo={0.94}
-                >
-                  {isLoading ? (
-                    <ActivityIndicator size="large" color={colors.textPrimary} />
-                  ) : isPlaying ? (
-                    <Pause size={32} color={colors.textPrimary} strokeWidth={3} />
-                  ) : (
-                    <Play size={32} color={colors.textPrimary} strokeWidth={3} />
+                      <Heart
+                        size={26}
+                        color={isLiked(activeRemoteTrack?.id ?? currentTrackId ?? '') ? '#FF4D6D' : colors.textSecondary}
+                        fill={isLiked(activeRemoteTrack?.id ?? currentTrackId ?? '') ? '#FF4D6D' : 'none'}
+                        strokeWidth={2}
+                      />
+                    </Pressable>
                   )}
-                </BouncyPressable>
-
-                <BouncyPressable
-                  style={styles.skipButton}
-                  onPress={next}
-                  scaleTo={0.9}
-                >
-                  <SkipForward size={28} color={colors.textPrimary} strokeWidth={2} />
-                </BouncyPressable>
-
-                <BouncyPressable
-                  style={[styles.secondaryControl, repeatMode !== 'off' && styles.secondaryControlActive]}
-                  onPress={cycleRepeatMode}
-                  scaleTo={0.9}
-                >
-                  <Repeat size={20} color={repeatMode !== 'off' ? colors.progressFill : colors.textSecondary} strokeWidth={2} />
-                  {repeatMode === 'one' ? <Text style={styles.repeatOneLabel}>1</Text> : null}
-                </BouncyPressable>
+                </View>
               </View>
-            </View>
+            </Animated.View>
+          </GestureDetector>
 
-            <LyricsSection 
-              lyricsData={lyricsData}
-              isLoading={lyricsLoading}
-              isLyricsMode={isLyricsMode}
-              setIsLyricsMode={setIsLyricsMode}
-              showLyrics={showLyrics}
-              animatedStyle={animatedLyricsCardStyle}
-            />
-          </Animated.ScrollView>
-        </Animated.View>
+          <View style={styles.playerControlsSection}>
+            <ProgressBar />
+            <View style={styles.controlsRow}>
+              <BouncyPressable
+                style={[styles.secondaryControl, isShuffleEnabled && styles.secondaryControlActive]}
+                onPress={toggleShuffle}
+                scaleTo={0.9}
+              >
+                <Shuffle size={20} color={isShuffleEnabled ? colors.progressFill : colors.textSecondary} strokeWidth={2} />
+              </BouncyPressable>
+
+              <BouncyPressable
+                style={styles.skipButton}
+                onPress={() => previous()}
+                scaleTo={0.9}
+              >
+                <SkipBack size={28} color={colors.textPrimary} strokeWidth={2} />
+              </BouncyPressable>
+
+              <BouncyPressable
+                onPress={togglePlayPause}
+                disabled={isLoading}
+                style={[styles.playButton, isLoading && styles.controlDisabled]}
+                scaleTo={0.94}
+              >
+                {isLoading ? (
+                  <ActivityIndicator size="large" color={colors.textPrimary} />
+                ) : isPlaying ? (
+                  <Pause size={32} color={colors.textPrimary} strokeWidth={3} />
+                ) : (
+                  <Play size={32} color={colors.textPrimary} strokeWidth={3} />
+                )}
+              </BouncyPressable>
+
+              <BouncyPressable
+                style={styles.skipButton}
+                onPress={next}
+                scaleTo={0.9}
+              >
+                <SkipForward size={28} color={colors.textPrimary} strokeWidth={2} />
+              </BouncyPressable>
+
+              <BouncyPressable
+                style={[styles.secondaryControl, repeatMode !== 'off' && styles.secondaryControlActive]}
+                onPress={cycleRepeatMode}
+                scaleTo={0.9}
+              >
+                <Repeat size={20} color={repeatMode !== 'off' ? colors.progressFill : colors.textSecondary} strokeWidth={2} />
+                {repeatMode === 'one' ? <Text style={styles.repeatOneLabel}>1</Text> : null}
+              </BouncyPressable>
+            </View>
+          </View>
+
+          <LyricsSection
+            lyricsData={lyricsData}
+            isLoading={lyricsLoading}
+            isLyricsMode={isLyricsMode}
+            setIsLyricsMode={setIsLyricsMode}
+            showLyrics={showLyrics}
+            animatedStyle={animatedLyricsCardStyle}
+          />
+        </Animated.ScrollView>
       </Animated.View>
+    </Animated.View>
   );
 }
 
