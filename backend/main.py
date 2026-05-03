@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -39,6 +39,10 @@ def create_app() -> FastAPI:
     @app.get("/")
     async def root():
         return {"message": "Laika Music API is running!", "version": "0.1.0"}
+
+    @app.get("/favicon.ico", include_in_schema=False)
+    async def favicon():
+        return Response(status_code=204)
 
     return app
 
