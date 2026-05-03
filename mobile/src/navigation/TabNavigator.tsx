@@ -13,6 +13,7 @@ import SettingsScreen from '../screens/SettingsScreen';
 import { colors } from '../theme';
 import { MainTabsParamList } from './types';
 import { BouncyPressable } from '../components/BouncyPressable';
+import { BottomScrim } from '../components/BottomScrim';
 import { scanDeviceForAudio } from '../services/audioScanner';
 import { saveCachedSongs, saveCachedSongsChunk } from '../services/libraryCache';
 import { RemoteTrack } from '../types/music';
@@ -22,14 +23,17 @@ const Tab = createBottomTabNavigator<MainTabsParamList>();
 
 function TabBarBlurBackground() {
   return (
-    <View style={styles.tabBarBackgroundContainer}>
-      <BlurView
-        style={StyleSheet.absoluteFill}
-        blurType="dark"
-        blurAmount={32}
-        reducedTransparencyFallbackColor="rgba(10, 10, 10, 0.95)"
-        overlayColor="rgba(0, 0, 0, 0.65)"
-      />
+    <View style={styles.tabBarBackgroundOuter}>
+      <BottomScrim />
+      <View style={styles.tabBarBackgroundContainer}>
+        <BlurView
+          style={StyleSheet.absoluteFill}
+          blurType="dark"
+          blurAmount={32}
+          reducedTransparencyFallbackColor="rgba(10, 10, 10, 0.95)"
+          overlayColor="rgba(0, 0, 0, 0.65)"
+        />
+      </View>
     </View>
   );
 }
@@ -120,6 +124,11 @@ export default function TabNavigator(_props: any) {
 }
 
 const styles = StyleSheet.create({
+  tabBarBackgroundOuter: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'visible', // Let the scrim bleed out
+    justifyContent: 'flex-end',
+  },
   tabBarBackgroundContainer: {
     flex: 1,
     borderRadius: 32,
@@ -141,11 +150,12 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 10,
+    zIndex: 600, // Explicitly above the scrim
   },
   tabBarLabel: {
     fontSize: 10,
     fontWeight: '600',
-    marginTop: 5,
+    marginTop: 10, // Increased for better breathing room
     marginBottom: 6,
   },
   tabBarItem: {

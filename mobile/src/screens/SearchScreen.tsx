@@ -15,7 +15,9 @@ import { useUIStore } from '../store/uiStore';
 
 import { IconButton } from '../components/IconButton';
 import { TrackRow } from '../components/TrackRow';
+import { SwipeableRow } from '../components/SwipeableRow';
 import { searchTracks, prefetchTrack } from '../services/api';
+import { useLikesStore } from '../store/likesStore';
 import { BouncyPressable } from '../components/BouncyPressable';
 import { colors, radii, spacing, typography } from '../theme';
 import type { RemoteTrack } from '../types/music';
@@ -42,6 +44,7 @@ export default function SearchScreen() {
   const resolvingId = useMusicStore(state => (state.isResolving ? state.activeRemoteTrack?.id : null));
   const activeTrackId = useMusicStore(state => state.activeRemoteTrack?.id);
   const showAddToPlaylist = useUIStore(state => state.showAddToPlaylist);
+  const toggleLike = useLikesStore(state => state.toggleLike);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<RemoteTrack[]>([]);
   const [loading, setLoading] = useState(false);
@@ -123,35 +126,40 @@ export default function SearchScreen() {
   const visibleResults = useMemo(() => indexedResults.map(entry => entry.track), [indexedResults]);
 
   const renderTrack = useCallback(({ item }: { item: RemoteTrack }) => (
-    <TrackRow
-      title={item.title}
-      artist={item.artist}
-      album={item.album}
-      thumbnail={item.thumbnail}
-      isActive={item.id === activeTrackId}
-      isLoading={item.id === resolvingId}
-      onPress={() => {
-        const index = visibleResults.findIndex(t => t.id === item.id);
-        onSelectTrack(item, visibleResults, index);
-      }}
-      onLongPress={() => showAddToPlaylist(item)}
-      showMenuIcon={true}
-      disabled={item.id === resolvingId}
-      rightSlot={
-        item.id === resolvingId ? (
-          <ActivityIndicator size="small" color={colors.brand} />
-        ) : item.id === activeTrackId ? (
-          <View style={styles.playingBadge}>
-            <Text style={styles.playingText}>PLAYING</Text>
-          </View>
-        ) : item.duration_ms ? (
-          <Text style={styles.durationText}>
-            {formatDuration(item.duration_ms)}
-          </Text>
-        ) : undefined
-      }
-    />
-  ), [onSelectTrack, activeTrackId, resolvingId, showAddToPlaylist]);
+    <SwipeableRow
+      onSwipeRight={() => toggleLike(item)}
+      onSwipeLeft={() => showAddToPlaylist(item)}
+    >
+      <TrackRow
+        title={item.title}
+        artist={item.artist}
+        album={item.album}
+        thumbnail={item.thumbnail}
+        isActive={item.id === activeTrackId}
+        isLoading={item.id === resolvingId}
+        onPress={() => {
+          const index = visibleResults.findIndex(t => t.id === item.id);
+          onSelectTrack(item, visibleResults, index);
+        }}
+        onLongPress={() => showAddToPlaylist(item)}
+        showMenuIcon={true}
+        disabled={item.id === resolvingId}
+        rightSlot={
+          item.id === resolvingId ? (
+            <ActivityIndicator size="small" color={colors.brand} />
+          ) : item.id === activeTrackId ? (
+            <View style={styles.playingBadge}>
+              <Text style={styles.playingText}>PLAYING</Text>
+            </View>
+          ) : item.duration_ms ? (
+            <Text style={styles.durationText}>
+              {formatDuration(item.duration_ms)}
+            </Text>
+          ) : undefined
+        }
+      />
+    </SwipeableRow>
+  ), [onSelectTrack, activeTrackId, resolvingId, showAddToPlaylist, toggleLike, visibleResults]);
 
   const getItemLayout = useCallback((_: any, index: number) => ({
     length: 64,
