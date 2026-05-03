@@ -91,7 +91,8 @@ class YoutubeService:
             tracks = []
             for item in results[:limit]:
                 v_id = item.get("videoId")
-                if not v_id: continue
+                if not v_id:
+                    continue
                 
                 # Get best thumbnail
                 thumbnails = item.get("thumbnails", [])
