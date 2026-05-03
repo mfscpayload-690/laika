@@ -11,6 +11,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Heart, Plus } from 'lucide-react-native';
 import { colors, spacing } from '../theme';
+import { Haptics } from '../utils/haptics';
 
 const SWIPE_THRESHOLD = 80;
 
@@ -31,8 +32,10 @@ export function SwipeableRow({ children, onSwipeRight, onSwipeLeft }: SwipeableR
     })
     .onEnd((event) => {
       if (event.translationX > SWIPE_THRESHOLD && onSwipeRight) {
+        runOnJS(Haptics.impactMedium)();
         runOnJS(onSwipeRight)();
       } else if (event.translationX < -SWIPE_THRESHOLD && onSwipeLeft) {
+        runOnJS(Haptics.impactMedium)();
         runOnJS(onSwipeLeft)();
       }
       translateX.value = withSpring(0, { damping: 20, stiffness: 200 });

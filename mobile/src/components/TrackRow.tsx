@@ -38,6 +38,7 @@ export const TrackRow = memo(({
       onPress={onPress}
       onLongPress={onLongPress}
       disabled={disabled}
+      hapticType="impactLight"
       accessibilityRole="button"
       accessibilityLabel={`${title} by ${artist}${album ? ` on ${album}` : ''}`}>
       {thumbnail ? (

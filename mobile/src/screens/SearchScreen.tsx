@@ -21,6 +21,7 @@ import { searchTracks, prefetchTrack } from '../services/api';
 import { useLikesStore } from '../store/likesStore';
 import { BouncyPressable } from '../components/BouncyPressable';
 import { colors, radii, spacing, typography } from '../theme';
+import { Haptics } from '../utils/haptics';
 import { Music, Search, SearchX, X } from 'lucide-react-native';
 import type { RemoteTrack } from '../types/music';
 
@@ -162,7 +163,7 @@ export default function SearchScreen() {
             autoCorrect={false}
           />
           {query.length > 0 && (
-            <BouncyPressable onPress={handleClear}>
+            <BouncyPressable onPress={handleClear} hapticType="selection">
               <X size={20} color={colors.textPrimary} />
             </BouncyPressable>
           )}

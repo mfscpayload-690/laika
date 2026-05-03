@@ -845,6 +845,7 @@ export function PlayerSheet() {
                 disabled={!hasTrack}
                 accessibilityRole="button"
                 scaleTo={0.85}
+                hapticType="impactLight"
               >
                 <SkipBack size={18} color={colors.textPrimary} strokeWidth={2.2} />
               </BouncyPressable>
@@ -854,6 +855,7 @@ export function PlayerSheet() {
                 disabled={!hasTrack}
                 accessibilityRole="button"
                 scaleTo={0.85}
+                hapticType="impactMedium"
               >
                 {isLoading ? (
                   <ActivityIndicator size="small" color={colors.textPrimary} />
@@ -869,6 +871,7 @@ export function PlayerSheet() {
                 disabled={!hasTrack}
                 accessibilityRole="button"
                 scaleTo={0.85}
+                hapticType="impactLight"
               >
                 <SkipForward size={18} color={colors.textPrimary} strokeWidth={2.2} />
               </BouncyPressable>
@@ -981,6 +984,7 @@ export function PlayerSheet() {
                 style={[styles.secondaryControl, isShuffleEnabled && styles.secondaryControlActive]}
                 onPress={toggleShuffle}
                 scaleTo={0.9}
+                hapticType="impactLight"
               >
                 <Shuffle size={20} color={isShuffleEnabled ? colors.progressFill : colors.textSecondary} strokeWidth={2} />
               </BouncyPressable>
@@ -989,6 +993,7 @@ export function PlayerSheet() {
                 style={styles.skipButton}
                 onPress={() => previous()}
                 scaleTo={0.9}
+                hapticType="impactLight"
               >
                 <SkipBack size={28} color={colors.textPrimary} strokeWidth={2} />
               </BouncyPressable>
@@ -998,6 +1003,7 @@ export function PlayerSheet() {
                 disabled={isLoading}
                 style={[styles.playButton, isLoading && styles.controlDisabled]}
                 scaleTo={0.94}
+                hapticType="impactMedium"
               >
                 {isLoading ? (
                   <ActivityIndicator size="large" color={colors.textPrimary} />
@@ -1012,6 +1018,7 @@ export function PlayerSheet() {
                 style={styles.skipButton}
                 onPress={next}
                 scaleTo={0.9}
+                hapticType="impactLight"
               >
                 <SkipForward size={28} color={colors.textPrimary} strokeWidth={2} />
               </BouncyPressable>
@@ -1020,6 +1027,7 @@ export function PlayerSheet() {
                 style={[styles.secondaryControl, repeatMode !== 'off' && styles.secondaryControlActive]}
                 onPress={cycleRepeatMode}
                 scaleTo={0.9}
+                hapticType="impactLight"
               >
                 <Repeat size={20} color={repeatMode !== 'off' ? colors.progressFill : colors.textSecondary} strokeWidth={2} />
                 {repeatMode === 'one' ? <Text style={styles.repeatOneLabel}>1</Text> : null}

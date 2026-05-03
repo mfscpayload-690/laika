@@ -106,6 +106,7 @@ const SongListEmpty = memo(function SongListEmpty({
         <BouncyPressable
           style={styles.scanButton}
           onPress={onScanPress}
+          hapticType="selection"
           accessibilityRole="button"
           accessibilityLabel="Scan device for audio files">
           <Text style={styles.scanButtonLabel}>Scan Device</Text>

@@ -5,7 +5,7 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
-
+import { Haptics } from '../utils/haptics';
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const SPRING_CONFIG = { damping: 15, stiffness: 200, mass: 0.6 };
@@ -13,12 +13,14 @@ const SPRING_CONFIG = { damping: 15, stiffness: 200, mass: 0.6 };
 interface BouncyPressableProps extends PressableProps {
   style?: StyleProp<ViewStyle>;
   scaleTo?: number;
+  hapticType?: 'selection' | 'impactLight' | 'impactMedium' | 'impactHeavy' | 'notificationSuccess' | 'notificationError';
   children?: React.ReactNode;
 }
 
 export const BouncyPressable = React.memo(({
   style,
   scaleTo = 0.96,
+  hapticType,
   children,
   ...props
 }: BouncyPressableProps) => {
@@ -36,6 +38,9 @@ export const BouncyPressable = React.memo(({
       style={[style, animatedStyle]}
       onPressIn={(e) => {
         scale.value = withSpring(scaleTo, SPRING_CONFIG);
+        if (hapticType) {
+          Haptics[hapticType]();
+        }
         props.onPressIn?.(e);
       }}
       onPressOut={(e) => {

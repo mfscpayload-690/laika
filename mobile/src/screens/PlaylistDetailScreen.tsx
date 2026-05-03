@@ -206,19 +206,19 @@ export default function PlaylistDetailScreen() {
       
       {/* Sticky Top Bar Content */}
       <View style={[styles.topBar, { paddingTop: insets.top + 10 }]}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.iconBtn}>
+        <BouncyPressable onPress={() => navigation.goBack()} style={styles.iconBtn} hapticType="selection" scaleTo={0.8}>
           <ChevronLeft size={28} color={colors.textPrimary} />
-        </Pressable>
+        </BouncyPressable>
         <Animated.Text style={[styles.topBarTitle, headerTitleStyle]} numberOfLines={1}>
           {title}
         </Animated.Text>
         <View style={styles.topBarActions}>
-          <Pressable onPress={() => setIsRenameVisible(true)} style={styles.iconBtn}>
+          <BouncyPressable onPress={() => setIsRenameVisible(true)} style={styles.iconBtn} hapticType="selection" scaleTo={0.8}>
             <Edit2 size={20} color={colors.textSecondary} />
-          </Pressable>
-          <Pressable onPress={handleDeletePlaylist} style={styles.iconBtn}>
+          </BouncyPressable>
+          <BouncyPressable onPress={handleDeletePlaylist} style={styles.iconBtn} hapticType="impactLight" scaleTo={0.8}>
             <Trash2 size={20} color={colors.error} />
-          </Pressable>
+          </BouncyPressable>
         </View>
       </View>
 
@@ -249,10 +249,10 @@ export default function PlaylistDetailScreen() {
                 </Text>
               </Animated.View>
               
-              <Pressable style={styles.playBtn} onPress={handlePlayAll}>
+              <BouncyPressable style={styles.playBtn} onPress={handlePlayAll} hapticType="impactMedium">
                 <Play size={20} color="#000" fill="#000" />
                 <Text style={styles.playText}>Play All</Text>
-              </Pressable>
+              </BouncyPressable>
             </Animated.View>
           }
           renderItem={({ item, index }: any) => (
