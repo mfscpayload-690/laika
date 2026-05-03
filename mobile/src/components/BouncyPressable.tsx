@@ -10,10 +10,12 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const SPRING_CONFIG = { damping: 15, stiffness: 200, mass: 0.6 };
 
+export type HapticType = 'selection' | 'impactLight' | 'impactMedium' | 'impactHeavy' | 'notificationSuccess' | 'notificationError';
+
 interface BouncyPressableProps extends PressableProps {
   style?: StyleProp<ViewStyle>;
   scaleTo?: number;
-  hapticType?: 'selection' | 'impactLight' | 'impactMedium' | 'impactHeavy' | 'notificationSuccess' | 'notificationError';
+  hapticType?: HapticType;
   children?: React.ReactNode;
 }
 
