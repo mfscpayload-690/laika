@@ -12,7 +12,7 @@
   <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome"></a>
   <a href="https://github.com/mfscpayload-690/laika-music/actions/workflows/ci.yml"><img src="https://github.com/mfscpayload-690/laika-music/actions/workflows/ci.yml/badge.svg" alt="CI Status"></a>
   <a href="https://laika-music-backend.up.railway.app/health"><img src="https://img.shields.io/website?url=https%3A%2F%2Flaika-music-backend.up.railway.app%2Fhealth&label=Backend%20Status" alt="Backend Status"></a>
-  <a href="https://railway.app/new/template?template=https://github.com/mfscpayload-690/laika-music"><img src="https://railway.app/button.svg" alt="Deployed on Railway"></a>
+  <a href="https://railway.app/new/template?template=https://github.com/mfscpayload-690/laika-music"><img src="https://railway.app/button.svg" alt="Deployed on Railway" height="20"></a>
 </p>
 
 Laika Music is a high-performance, stateless music streaming and discovery application. It leverages a dual-engine architecture to provide instantaneous metadata search via the Piped API and high-fidelity audio resolution through yt-dlp, eliminating the need for a persistent database or third-party premium subscriptions.
