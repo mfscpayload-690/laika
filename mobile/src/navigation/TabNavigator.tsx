@@ -44,6 +44,7 @@ function TabBarButton(props: any) {
       {...props}
       style={props.style as any}
       scaleTo={0.94}
+      hapticType="selection"
     />
   );
 }

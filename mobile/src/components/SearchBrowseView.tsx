@@ -22,7 +22,7 @@ interface CategoryTileProps {
 }
 
 const CategoryTile = ({ title, color, icon, image, onPress }: CategoryTileProps) => (
-  <BouncyPressable onPress={onPress} style={[styles.tile, { backgroundColor: color }]} scaleTo={0.96}>
+  <BouncyPressable onPress={onPress} style={[styles.tile, { backgroundColor: color }]} scaleTo={0.96} hapticType="selection">
     {image && <Image source={image} style={styles.tileImage} blurRadius={10} />}
     <View style={styles.tileOverlay}>
       <Text style={styles.tileTitle}>{title}</Text>
@@ -64,6 +64,7 @@ export const SearchBrowseView = ({ onSearch }: SearchBrowseViewProps) => {
                 key={`${query}-${idx}`} 
                 style={styles.recentItem}
                 onPress={() => onSearch(query)}
+                hapticType="selection"
               >
                 <History size={16} color={colors.textMuted} />
                 <Text style={styles.recentText}>{query}</Text>

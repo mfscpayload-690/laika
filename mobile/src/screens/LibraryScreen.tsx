@@ -90,6 +90,7 @@ export default function LibraryScreen() {
       <BouncyPressable
         key={item.id}
         style={styles.folderCard}
+        hapticType="selection"
         onPress={() => {
           if (item.type === 'local') {
             navigation.navigate('LocalSongs');
@@ -103,12 +104,14 @@ export default function LibraryScreen() {
         <View style={styles.folderArt}>
           <StackedCover images={item.images} type={item.type} />
           {item.type === 'playlist' && (
-            <Pressable 
+            <BouncyPressable 
               style={styles.folderDeleteBtn}
               onPress={() => deletePlaylist(item.id)}
+              hapticType="impactLight"
+              scaleTo={0.8}
             >
               <Trash2 size={16} color={colors.error} />
-            </Pressable>
+            </BouncyPressable>
           )}
         </View>
         <View style={styles.folderInfo}>
@@ -123,7 +126,7 @@ export default function LibraryScreen() {
     <View style={[styles.container, { paddingTop: insets.top + 10 }]}>
       <View style={styles.header}>
         <Text style={styles.title}>Library</Text>
-        <BouncyPressable style={styles.addBtn} onPress={handleCreateFolder}>
+        <BouncyPressable style={styles.addBtn} onPress={handleCreateFolder} hapticType="selection">
           <Plus size={24} color={colors.textPrimary} />
         </BouncyPressable>
       </View>

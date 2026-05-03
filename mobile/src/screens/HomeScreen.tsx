@@ -79,6 +79,7 @@ const QuickPickItem = memo(
         style={[styles.quickPickItem, isActive && styles.quickPickActive]}
         onPress={handlePress}
         onLongPress={onLongPressTrack ? handleLongPress : undefined}
+        hapticType="impactLight"
       >
         <Image source={{ uri: track.thumbnail }} style={styles.quickPickArt} />
         <View style={styles.quickPickText}>
@@ -120,7 +121,13 @@ const MusicCarouselItem = memo(
     }, [onLongPressTrack, item]);
 
     return (
-      <BouncyPressable style={styles.carouselItem} onPress={handlePress} onLongPress={onLongPressTrack ? handleLongPress : undefined} scaleTo={0.97}>
+      <BouncyPressable 
+        style={styles.carouselItem} 
+        onPress={handlePress} 
+        onLongPress={onLongPressTrack ? handleLongPress : undefined} 
+        scaleTo={0.97}
+        hapticType="impactLight"
+      >
         <View style={styles.carouselArtContainer}>
           <Image source={{ uri: item.thumbnail }} style={styles.carouselArt} />
           {isResolving ? (

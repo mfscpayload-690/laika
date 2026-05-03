@@ -31,6 +31,7 @@ import { useAuthStore } from '../store/authStore';
 import { useLikesStore } from '../store/likesStore';
 import { getProfile, type UserProfile } from '../services/libraryService';
 import { colors, radii, spacing, typography } from '../theme';
+import { Haptics } from '../utils/haptics';
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
@@ -66,7 +67,12 @@ function SettingsRow({
         pressed && onPress && !disabled && { backgroundColor: 'rgba(255,255,255,0.04)' },
         disabled && { opacity: 0.45 },
       ]}
-      onPress={disabled ? undefined : onPress}
+      onPress={() => {
+        if (!disabled && onPress) {
+          Haptics.selection();
+          onPress();
+        }
+      }}
       android_ripple={onPress && !disabled ? { color: 'rgba(255,255,255,0.08)' } : null}
     >
       <View style={[styles.rowIcon, { backgroundColor: `${iconColor}18` }]}>
@@ -213,7 +219,10 @@ export default function SettingsScreen() {
           trailing={
             <Switch
               value={highQualityAudio}
-              onValueChange={setHighQualityAudio}
+              onValueChange={(val) => {
+                Haptics.selection();
+                setHighQualityAudio(val);
+              }}
               trackColor={{ false: colors.surfaceBright, true: colors.brandDark }}
               thumbColor={highQualityAudio ? colors.brand : colors.textMuted}
             />
@@ -228,7 +237,10 @@ export default function SettingsScreen() {
           trailing={
             <Switch
               value={offlineMode}
-              onValueChange={setOfflineMode}
+              onValueChange={(val) => {
+                Haptics.selection();
+                setOfflineMode(val);
+              }}
               trackColor={{ false: colors.surfaceBright, true: colors.brandDark }}
               thumbColor={offlineMode ? colors.brand : colors.textMuted}
             />
@@ -257,7 +269,10 @@ export default function SettingsScreen() {
           trailing={
             <Switch
               value={notifications}
-              onValueChange={setNotifications}
+              onValueChange={(val) => {
+                Haptics.selection();
+                setNotifications(val);
+              }}
               trackColor={{ false: colors.surfaceBright, true: colors.brandDark }}
               thumbColor={notifications ? colors.brand : colors.textMuted}
             />
