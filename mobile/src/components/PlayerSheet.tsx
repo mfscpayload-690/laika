@@ -49,7 +49,7 @@ import { State } from 'react-native-track-player';
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 const MINI_PLAYER_HEIGHT = 64 + 10;
 const MINI_ARTWORK_SIZE = 44;
-const FULL_ARTWORK_SIZE = SCREEN_WIDTH - 80;
+const FULL_ARTWORK_SIZE = SCREEN_WIDTH - 110;
 
 const BUTTER_SPRING_CONFIG = {
   damping: 18,
@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
   headerTitle: { color: colors.textPrimary, fontSize: 14, fontWeight: '700' },
   headerSpacer: { width: 40 },
 
-  artworkContainer: { width: '82%', aspectRatio: 1, alignSelf: 'center', marginBottom: spacing.sm },
+  artworkContainer: { width: '82%', aspectRatio: 1, alignSelf: 'center', marginBottom: spacing.base },
   artworkPlaceholder: { opacity: 0 },
   miniArtworkPlaceholder: { width: MINI_ARTWORK_SIZE, height: MINI_ARTWORK_SIZE, marginRight: 10 },
   sharedArtworkImage: { width: '100%', height: '100%', borderRadius: 0 },
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
     padding: spacing.lg,
-    marginTop: spacing.md,
+    marginTop: spacing.xxl,
     marginBottom: spacing.lg,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
@@ -713,7 +713,7 @@ export function PlayerSheet() {
     const miniCenterX = (16 + spacing.sm) + (MINI_ARTWORK_SIZE / 2);
 
     // Vertical base position (expanded)
-    const expandedTop = insets.top + 64 + spacing.md;
+    const expandedTop = insets.top + 42;
     const expandedY = expandedTop + (FULL_ARTWORK_SIZE / 2);
     const miniCenterY = 12 + (MINI_ARTWORK_SIZE / 2);
 
