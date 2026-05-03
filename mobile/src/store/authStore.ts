@@ -65,7 +65,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: 'http://mfscpayload-690.github.io/laika/auth.html',
+        redirectTo: 'http://mfscpayload-690.github.io/laika/auth/callback/auth.html',
         skipBrowserRedirect: true,
       },
     });
