@@ -1,6 +1,6 @@
 # Support
 
-We want to ensure you have a great experience with Laika Music. If you need help, here are the best ways to get support.
+We want to ensure you have a great experience with Laika Music. If you need help, here are the best ways to get support...
 
 ## Documentation
 
