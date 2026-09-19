@@ -1,10 +1,10 @@
-fastapi==0.139.0
-uvicorn[standard]==0.50.0
-pydantic-settings==2.14.2
-PyJWT==2.13.0
+fastapi==0.141.1
+uvicorn[standard]==0.53.0
+pydantic-settings==2.15.0
+PyJWT==2.14.0
 pytest==9.1.1
 httpx==0.28.1
 yt-dlp
-ytmusicapi==1.12.1
-sqlalchemy>=2.0.51,<2.1
-python-dotenv==1.2.2
+ytmusicapi==1.12.2
+sqlalchemy>=2.0.54,<2.1
+python-dotenv==1.2.3
